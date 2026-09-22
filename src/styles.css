@@ -1,1 +1,187 @@
-/* You can add global styles to this file, and also import other style files */
+/*
+ * KodeBart 全域樣式。
+ * 設計 token 唯一定義處（對應 doc/DESIGN.md frontmatter）；元件不得手抄色碼，
+ * 一律使用 Tailwind utility（bg-surface、text-muted…）或 var(--color-*)。
+ */
+@import "tailwindcss";
+
+@theme {
+  /* 移除預設調色盤，只留專案 token，避免元件誤用 slate/blue 等顏色 */
+  --color-*: initial;
+  --color-background: #0b1424;
+  --color-surface: #14253a;
+  --color-elevated: #20364d;
+  --color-primary: #91d8df;
+  --color-text: #e3edf5;
+  --color-muted: #a6bbce;
+  --color-border: #46617b;
+  --color-error: #ffb8bc;
+  --color-shade: #060f1d;
+
+  --font-*: initial;
+  --font-body: 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
+  --font-mono: 'SFMono-Regular', Consolas, monospace;
+  --default-font-family: var(--font-body);
+  --default-mono-font-family: var(--font-mono);
+
+  /* 直角風格：不提供 rounded-* */
+  --radius-*: initial;
+
+  --spacing-panel: 1.5rem;
+  --spacing-gap: 1rem;
+
+  /* md：單欄 ↔ 雙欄／橫向導航；xl：顯示右側摘要欄（對應原型 700px／1100px） */
+  --breakpoint-md: 700px;
+  --breakpoint-xl: 1100px;
+}
+
+/* ---------- 元素預設（可被 utility 覆寫） ---------- */
+@layer base {
+  :root { color-scheme: dark; }
+
+  * { scrollbar-color: var(--color-border) var(--color-background); scrollbar-width: thin; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: var(--color-background); }
+  *::-webkit-scrollbar-thumb { background: var(--color-border); }
+  *::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
+  *::-webkit-scrollbar-thumb:active { background: var(--color-primary); }
+
+  html { font-family: var(--font-body); }
+  body {
+    margin: 0;
+    background: var(--color-background);
+    color: var(--color-text);
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+
+  /* 還原原型仰賴的 UA 下邊距節奏（Tailwind preflight 會歸零） */
+  h1 { margin: 0 0 .67em; }
+  h2 { margin: 0 0 .83em; font-size: 1.5rem; line-height: 1.5; }
+  h3 { margin: 0 0 1em; font-size: 1.1rem; }
+  p  { margin: 0 0 1em; }
+  hr { border: 0; border-top: 1px solid var(--color-border); margin: 1.5rem 0; }
+  a  { color: var(--color-primary); }
+  code, pre { font-family: var(--font-mono); }
+  code { color: var(--color-primary); font-size: .9em; }
+  dl { margin: 0; }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  fieldset { border: 0; padding: 0; margin: 1rem 0; }
+  legend { font-weight: 600; }
+
+  button, input { font: inherit; }
+  button {
+    min-height: 44px;
+    padding: .65rem 1rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    cursor: pointer;
+    border-radius: 0;
+    text-align: left;
+  }
+  button:hover:not(:disabled) { background: var(--color-elevated); border-color: var(--color-primary); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .48; cursor: not-allowed; }
+
+  button:focus-visible, input:focus-visible, a:focus-visible, summary:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 4px;
+  }
+
+  dialog {
+    /* Tailwind preflight 會把 margin 歸零，補回 UA 的置中行為 */
+    margin: auto;
+    width: 31rem;
+    max-width: calc(100vw - 2rem);
+    max-height: 85svh;
+    overflow: auto;
+    background: var(--color-surface);
+    color: var(--color-text);
+    border: 1px solid var(--color-primary);
+    padding: 2rem;
+  }
+  dialog::backdrop { background: rgb(0 0 0 / .75); }
+
+  [hidden] { display: none !important; }
+}
+
+/* ---------- 共用元件類別（Canonical UI Map；可被 utility 覆寫） ---------- */
+@layer components {
+  .btn-primary { background: var(--color-primary); color: var(--color-background); font-weight: 700; border-color: var(--color-primary); }
+  .btn-primary:hover:not(:disabled) { background: var(--color-text); color: var(--color-background); border-color: var(--color-text); }
+  .btn-ghost { border-color: transparent; background: transparent; }
+
+  .panel { padding: var(--spacing-panel); border: 1px solid var(--color-border); background: var(--color-surface); margin-bottom: 1rem; }
+  .eyebrow { font-family: var(--font-mono); font-size: .875rem; line-height: 1.5; letter-spacing: .16em; color: var(--color-primary); }
+  .tag { display: inline-block; padding: .1rem .5rem; border: 1px solid var(--color-border); color: var(--color-muted); font-size: .8rem; }
+  .note { padding: 1rem; background: var(--color-elevated); border-left: 3px solid var(--color-primary); }
+
+  .input {
+    display: block; width: 100%; min-height: 46px;
+    color: var(--color-text); background: var(--color-background);
+    border: 1px solid var(--color-border); padding: .65rem;
+    font-family: var(--font-mono); border-radius: 0;
+  }
+  .input[aria-invalid="true"] { border-color: var(--color-error); }
+  .field-error { min-height: 1.6rem; font-size: .875rem; color: var(--color-error); margin: .3rem 0; }
+
+  .radio { display: flex; align-items: flex-start; gap: .6rem; padding: .7rem; border: 1px solid var(--color-border); margin: .5rem 0; cursor: pointer; }
+  .radio:has(input:checked) { background: var(--color-elevated); border-color: var(--color-primary); }
+  .radio input { margin-top: .4rem; accent-color: var(--color-primary); }
+
+  .message { border-left: 2px solid var(--color-primary); padding: .6rem 1.2rem; margin: 1.25rem 0; }
+  .message p { margin: 0; }
+  .message-author { color: var(--color-primary); font-size: .875rem; margin-bottom: .45rem; }
+
+  .source { padding: 1rem; background: var(--color-background); border-left: 2px solid var(--color-border); }
+  .source dt { font-size: .8rem; color: var(--color-muted); margin-top: .7rem; }
+  .source dt:first-child { margin-top: 0; }
+
+  .preview { padding: 1rem; border: 1px solid var(--color-primary); background: var(--color-background); margin: 1rem 0; }
+  .preview pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .875rem; }
+
+  .receipt-cell { padding: 1rem; background: var(--color-background); border: 1px solid var(--color-border); }
+
+  .status-bar { min-height: 1.8rem; padding: .35rem 2rem; color: var(--color-muted); background: var(--color-background); border-top: 1px solid var(--color-border); font-size: .8rem; }
+  .count { font-family: var(--font-mono); font-size: 3rem; color: var(--color-primary); }
+
+  .transition-screen { min-height: 100svh; display: grid; place-items: center; padding: 2rem; background: var(--color-background); }
+
+  /* 唯一的動態：低強度脈動；設定關閉或系統減少動態時停止 */
+  .motion-pulse { animation: kb-pulse 3s steps(2, end) infinite; }
+  body.no-motion .motion-pulse { animation: none; }
+
+  /*
+   * 畫面層級過渡（封面 ↔ 工作台、Day 1 結束、前往 Day 2、返回封面）。
+   * 路由元件的 host 在切換時會重新插入 DOM，CSS 動畫因此自動播放一次；
+   * 只動 opacity，不影響版面也不會造成橫向溢出。
+   * app-workbench 自己的元件樣式已設 display:block，其餘在此補上。
+   */
+  app-cover,
+  app-overnight,
+  app-end { display: block; }
+
+  app-cover,
+  app-workbench,
+  app-overnight,
+  app-end { animation: kb-screen-in 280ms cubic-bezier(.2, .7, .3, 1) both; }
+
+  /* 遊戲內關閉動態；系統 prefers-reduced-motion 由檔案末的全域規則涵蓋 */
+  body.no-motion app-cover,
+  body.no-motion app-workbench,
+  body.no-motion app-overnight,
+  body.no-motion app-end { animation: none; }
+}
+
+@keyframes kb-pulse { 50% { opacity: .45; } }
+@keyframes kb-screen-in { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+@media (forced-colors: active) {
+  * { scrollbar-color: auto; }
+  .panel, button, .input, .receipt-cell { border: 1px solid CanvasText; }
+}

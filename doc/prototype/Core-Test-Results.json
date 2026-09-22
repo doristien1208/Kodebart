@@ -1,0 +1,36 @@
+{
+  "scriptSyntax": "pass",
+  "typeValidation": "pass",
+  "saveSchema": "pass",
+  "branchMatrix": [
+    {
+      "refusal": false,
+      "interference": false,
+      "arranged": true
+    },
+    {
+      "refusal": false,
+      "interference": true,
+      "arranged": true
+    },
+    {
+      "refusal": null,
+      "interference": false,
+      "arranged": false
+    },
+    {
+      "refusal": null,
+      "interference": true,
+      "arranged": true
+    }
+  ],
+  "deterministicSeeds": 1000,
+  "interventionSamples": {
+    "yes": 425,
+    "no": 575
+  },
+  "embeddedAsset": "pass",
+  "externalRequests": "none",
+  "nativeBlockingDialogs": "none",
+  "browserVerification": "blocked; not performed"
+}

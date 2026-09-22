@@ -1,12 +1,13 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { SettingsService } from './game/platform/settings.service';
 
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet],
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.css'
+  template: '<router-outlet />',
 })
 export class AppComponent {
-  title = 'kodebart_webGame';
+  /** 提早建立以套用 body.no-motion 等全域設定。 */
+  protected readonly settings = inject(SettingsService);
 }

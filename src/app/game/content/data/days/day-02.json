@@ -1,0 +1,160 @@
+{
+  "id": "day.02",
+  "day": 2,
+  "workbench": {
+    "greeting": "早安，昨日資料已完成交接。",
+    "workHeading": "批次摘要核對"
+  },
+  "aside": {
+    "heading": "摘要交接",
+    "body": "核對昨日批次，回覆後完成本日交接。"
+  },
+  "note": "Day 2 不送入新的來源紀錄；引用的是 day-01 的既有紀錄。",
+  "records": [],
+  "documents": [
+    {
+      "id": "doc.day2.summary",
+      "kind": "report",
+      "recordIds": [
+        "record.b102",
+        "record.b607"
+      ],
+      "text": {
+        "heading": "自願參與安排摘要",
+        "versionTemplate": "版本 {revision}",
+        "sourceTemplate": "來源：{origin} · 批次 01",
+        "sourceOrigin": {
+          "intervention": "夜間校驗",
+          "rules": "規則彙整"
+        },
+        "arranged": "已列入安排",
+        "pendingReview": "待資料覆核",
+        "notArranged": "未列入安排",
+        "refusalTemplate": "拒絕紀錄：{value}",
+        "footer": "此摘要僅供批次交接。安排細節由承辦單位另行通知。"
+      }
+    },
+    {
+      "id": "doc.day2.receipt",
+      "kind": "receipt",
+      "recordIds": [
+        "record.b102",
+        "record.b607"
+      ],
+      "text": {
+        "heading": "昨日送件副本",
+        "sub": "資料送出時的內容 · 本人作業紀錄",
+        "destReview": "去向：資料覆核佇列",
+        "destArchive": "去向：正式歸檔"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task.day2.reconcile",
+      "kind": "reconcile",
+      "recordIds": [
+        "record.b102",
+        "record.b607"
+      ],
+      "documentIds": [
+        "doc.day2.summary",
+        "doc.day2.receipt"
+      ],
+      "text": {
+        "eyebrow": "RECONCILIATION / BATCH 01",
+        "heading": "核對昨日批次摘要",
+        "body": "請確認已收到批次結果，或附上需要覆核的資料。",
+        "openReport": "開啟今日摘要",
+        "reportOpened": "摘要已開啟",
+        "openReceipt": "開啟昨日送件副本",
+        "receiptOpened": "昨日副本已開啟",
+        "replyHeading": "本日回覆",
+        "choices": {
+          "ack": "確認收到摘要",
+          "ask": "詢問彙整依據",
+          "review": "附上昨日副本，請求覆核"
+        },
+        "hintNeedReport": "請先開啟今日摘要。",
+        "hintNeedReceipt": "需要附檔時，可先開啟昨日送件副本。",
+        "hintReady": "昨日副本可隨回覆附上。",
+        "dialog": {
+          "headingAsk": "資料作業組回覆",
+          "headingDefault": "交接回覆",
+          "response": {
+            "ack": "已確認收到，本日批次已完成交接。",
+            "ask": "摘要依有效欄位自動彙整；未列入者待資料齊備後續辦。",
+            "review": "已收到附件，將併入下次覆核。"
+          },
+          "back": "返回核對",
+          "finish": "完成本日交接"
+        }
+      }
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg.day2.handoff",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "08:42",
+      "unlock": [
+        "cond.day.2"
+      ],
+      "lines": [
+        "昨天那批已經收到。今天核對完摘要就可以交接了。"
+      ]
+    },
+    {
+      "id": "msg.day2.smalltalk-printer",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "08:42",
+      "unlock": [
+        "cond.day.2",
+        "cond.night.smalltalk.0"
+      ],
+      "variant": {
+        "key": "night.smallTalkVariant",
+        "value": 0
+      },
+      "lines": [
+        "對了，窗邊那台印表機有時候要多等一下。"
+      ]
+    },
+    {
+      "id": "msg.day2.smalltalk-tea",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "08:42",
+      "unlock": [
+        "cond.day.2",
+        "cond.night.smalltalk.1"
+      ],
+      "variant": {
+        "key": "night.smallTalkVariant",
+        "value": 1
+      },
+      "lines": [
+        "茶水間補了新的茶包，有空可以去拿。"
+      ]
+    }
+  ],
+  "transition": {
+    "id": "transition.day2.end",
+    "text": {
+      "docTitle": "兩日試玩結束",
+      "eyebrow": "DAY / 02 — COMPLETE",
+      "heading": "本日交接完成。",
+      "body": "明日工作將於到班後更新。",
+      "outcome": {
+        "ack": "摘要收件紀錄已保存。",
+        "ask": "彙整依據的回覆已留存。",
+        "review": "你的覆核請求已登記。"
+      },
+      "thanks": "感謝你的協助。",
+      "outro": "兩日試玩結束",
+      "backToCover": "返回開始頁"
+    }
+  }
+}

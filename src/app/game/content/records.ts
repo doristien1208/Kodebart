@@ -1,7 +1,16 @@
 import { SourceRecord } from '../core/types';
+import { ALL_RECORDS, CONTENT, contentRecord } from './bundle';
+
+/**
+ * game/content/records：來源紀錄的載入與查詢。
+ *
+ * 資料在 data/days/day-NN.json，這裡只做轉換與查詢。
+ * 每筆紀錄有兩種識別：內容 ID（`record.b102`，資料檔互相引用用）與
+ * 存檔 key（`B102`，SaveV2.archived／drafts 用，不得隨內容改名）。
+ */
 
 /** 來源未登記姓名時顯示的文字；不代表這個人沒有名字。 */
-export const NAME_UNREGISTERED = '未登記';
+export const NAME_UNREGISTERED: string = CONTENT.ui.records.nameUnregistered;
 
 export function hasName(record: SourceRecord): boolean {
   return record.name !== null;
@@ -11,22 +20,22 @@ export function hasName(record: SourceRecord): boolean {
  * Day 2 劇情固定引用的兩筆舊紀錄（批次摘要與昨日副本）。
  * 具名匯出，避免元件裡散落字串；其餘畫面一律走資料集合，不指名任何一筆。
  */
-export const RECORD_H17 = 'H17';
-export const RECORD_B102 = 'B102';
-export const RECORD_B607 = 'B607';
+export const RECORD_H17: string = contentRecord('record.h17').key;
+export const RECORD_B102: string = contentRecord('record.b102').key;
+export const RECORD_B607: string = contentRecord('record.b607').key;
 
 /**
- * Day 1 測試資料（doc/KodeBart-Demo-Spec.md §4）。
- * 0607 借用舊案編號，只作背景；不新增其性別、外觀或經歷。
- * 這批是舊紀錄整理，不暗示 0102 是新抓入機構的人。
+ * 目前全部日別的來源資料（見 data/days/）。
  * 編號一律為字串，0102 的前導零不會在任何環節消失。
- * 筆數由本陣列決定：畫面與規則都從這裡算總數，不得再寫死 3。
+ * 筆數由資料檔決定：畫面與規則都從這裡算總數，不得再寫死 3。
  */
-export const RECORDS: readonly SourceRecord[] = [
-  { key: RECORD_H17, name: '林予安', code: 'H-17', refusal: null, refusalApplies: false },
-  { key: RECORD_B102, name: null, code: '0102', refusal: null, refusalApplies: true },
-  { key: RECORD_B607, name: null, code: '0607', refusal: true, refusalApplies: true },
-];
+export const RECORDS: readonly SourceRecord[] = ALL_RECORDS.map((r) => ({
+  key: r.key,
+  name: r.name,
+  code: r.code,
+  refusal: r.refusal,
+  refusalApplies: r.refusalApplies,
+}));
 
 export const RECORD_KEYS = RECORDS.map((r) => r.key);
 

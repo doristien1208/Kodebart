@@ -29,9 +29,9 @@ export const CORRIDOR_LIGHT = {
   baseOpacity: 0.42,
   breathAmplitude: 0.1,
   breathHz: 0.22,
-  /** 兩次閃爍之間的間隔（毫秒）。 */
-  minGapMs: 3500,
-  maxGapMs: 8000,
+  /** 兩次閃爍之間的間隔（毫秒）。第四輪由 3500–8000 縮短為試作值。 */
+  minGapMs: 2000,
+  maxGapMs: 4000,
   /** 單次閃爍長度（毫秒）。 */
   minFlickerMs: 90,
   maxFlickerMs: 220,
@@ -41,6 +41,43 @@ export const CORRIDOR_LIGHT = {
   /** 單次閃爍內的明暗切換次數。 */
   steps: 4,
 } as const;
+
+/**
+ * 可見的戶外玻璃區（KB-R4-01）。
+ *
+ * 座標系＝背景圖原始像素（1672×941），因此遮罩會跟著 object-fit: cover 的
+ * 位移與縮放一起變換。多邊形是以像素亮度掃描找出窗框暗帶後再目視校對得到的：
+ * 窗框（x 約 1374–1406 與 1472–1516）、室內牆面、檯燈、植栽與座椅都在區域之外。
+ * 這不是「縮小過的長方形」，雨只會出現在真正看得到室外的兩片玻璃裡。
+ */
+export const GLASS_PANES: readonly (readonly (readonly [number, number])[])[] = [
+  // 左側窗格：上緣沿著斜向樑，下緣停在座椅之上
+  [
+    [1418, 95],
+    [1468, 52],
+    [1468, 462],
+    [1418, 462],
+  ],
+  // 右側大窗格：上緣到畫面頂端，下緣停在座椅與小盆栽之上
+  [
+    [1520, 4],
+    [1660, 4],
+    [1660, 476],
+    [1520, 476],
+  ],
+];
+
+/** 背景圖的原始尺寸；遮罩座標以此為基準。 */
+export const ART_NATURAL = { width: 1672, height: 941 } as const;
+
+/** 所有玻璃區的外接矩形，用來決定雨層畫布的位置與大小。 */
+export const GLASS_BOUNDS = (() => {
+  const xs = GLASS_PANES.flat().map(([x]) => x);
+  const ys = GLASS_PANES.flat().map(([, y]) => y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
+})();
 
 interface Drop {
   x: number;
@@ -155,10 +192,28 @@ export class CoverAmbience {
     this.frame = requestAnimationFrame(this.tick);
   };
 
+  /** 把玻璃多邊形換算成畫布座標後設為裁切區。 */
+  private clipToGlass(ctx: CanvasRenderingContext2D): void {
+    const scale = this.width / GLASS_BOUNDS.width;
+    ctx.beginPath();
+    for (const pane of GLASS_PANES) {
+      pane.forEach(([x, y], i) => {
+        const px = (x - GLASS_BOUNDS.x) * scale;
+        const py = (y - GLASS_BOUNDS.y) * scale;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      });
+      ctx.closePath();
+    }
+    ctx.clip();
+  }
+
   private drawRain(dt: number): void {
     const ctx = this.ctx;
     if (!ctx) return;
     ctx.clearRect(0, 0, this.width, this.height);
+    ctx.save();
+    this.clipToGlass(ctx);
     ctx.lineWidth = RAIN.lineWidth;
     ctx.lineCap = 'round';
     ctx.strokeStyle = this.color;
@@ -181,6 +236,7 @@ export class CoverAmbience {
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   private updateLight(): void {

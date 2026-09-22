@@ -21,9 +21,11 @@ import {
   RouterOutlet,
 } from '@angular/router';
 import { filter, map, scan, startWith } from 'rxjs';
-import { ASIDE, WORKBENCH, pageTitle } from '../../content/text';
+import { ASIDE, MESSAGES, WORKBENCH, pageTitle } from '../../content/text';
 import { SettingsService } from '../../platform/settings.service';
 import { GameStateService } from '../../state/game-state.service';
+import { MessageUnreadService } from '../messages/message-unread.service';
+import { UnreadBadgeComponent } from '../messages/unread-badge.component';
 
 type WorkView = 'work' | 'messages' | 'news';
 
@@ -31,6 +33,7 @@ interface NavItem {
   path: string;
   label: string;
   exact: boolean;
+  view: WorkView;
 }
 
 /**
@@ -39,7 +42,7 @@ interface NavItem {
  */
 @Component({
   selector: 'app-workbench',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, UnreadBadgeComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     :host { display: block; }
@@ -67,8 +70,14 @@ interface NavItem {
             [routerLink]="item.path"
             routerLinkActive="active"
             [routerLinkActiveOptions]="{ exact: item.exact }"
-            class="block w-full min-h-11 border border-transparent bg-transparent text-text no-underline text-center p-2 md:text-left md:px-4 md:py-2.5 md:mb-2 hover:bg-elevated hover:border-primary"
-          >{{ item.label }}</a>
+            class="flex items-center justify-center gap-2 w-full min-h-11 border border-transparent bg-transparent text-text no-underline p-2 md:justify-start md:px-4 md:py-2.5 md:mb-2 hover:bg-elevated hover:border-primary"
+          >
+            <span class="truncate">{{ item.label }}</span>
+            @if (item.view === 'messages') {
+              <!-- 彙總紅點：已解鎖且未讀的則數，由 MessageUnreadService 推導 -->
+              <app-unread-badge [count]="unreadTotal()" [label]="MESSAGES.unread(unreadTotal())" />
+            }
+          </a>
         }
         <div class="hidden md:block p-[.7rem] text-sm text-muted">{{ WORKBENCH.navGroupTeam }}</div>
       </nav>
@@ -115,11 +124,18 @@ export class WorkbenchComponent {
 
   protected readonly WORKBENCH = WORKBENCH;
   protected readonly ASIDE = ASIDE;
+  protected readonly MESSAGES = MESSAGES;
+
+  /**
+   * 訊息主導航的彙總未讀（KB-R4-04 第 4 點）。
+   * 外殼只顯示這個數字；頻道列表、對話內容與各自的紅點都在 ui/messages 的子元件。
+   */
+  protected readonly unreadTotal = inject(MessageUnreadService).total;
 
   protected readonly navItems: readonly NavItem[] = [
-    { path: '/work', label: WORKBENCH.nav.work, exact: true },
-    { path: '/work/messages', label: WORKBENCH.nav.messages, exact: false },
-    { path: '/work/news', label: WORKBENCH.nav.news, exact: false },
+    { path: '/work', label: WORKBENCH.nav.work, exact: true, view: 'work' },
+    { path: '/work/messages', label: WORKBENCH.nav.messages, exact: false, view: 'messages' },
+    { path: '/work/news', label: WORKBENCH.nav.news, exact: false, view: 'news' },
   ];
 
   /** 第一日＝1、第二日＝2（由存檔 phase 推得）。 */

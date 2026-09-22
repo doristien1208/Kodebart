@@ -1,27 +1,22 @@
-import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  ElementRef,
-  computed,
-  inject,
-  signal,
-  viewChild,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { RECORD_B102, RECORD_B607 } from '../../content/records';
 import { DAY2 } from '../../content/text';
 import { Reply } from '../../core/types';
 import { GameStateService } from '../../state/game-state.service';
+import { ModalDialogComponent } from '../shared/modal-dialog.component';
+import { Day2DocumentCell, Day2DocumentComponent } from './day2-document.component';
 
 /**
- * Day 2 工作：核對昨日批次摘要（原型 day2()／reply()）。
+ * Day 2 工作：核對昨日批次摘要（原型 day2()／reply()）的容器（KB-R4-02）。
  * 只讀取 GameStateService 的結果（arranged／night），不在此重算矩陣、不擲骰。
- * 摘要與昨日副本可並列比較；回覆用原生 <dialog> 確認後才提交。
+ * 兩份文件的呈現交給 Day2DocumentComponent（今日摘要與昨日副本共用同一個元件，
+ * 可並列逐格比較），對話框的開啟焦點與關閉還原焦點交給共用的 ModalDialogComponent。
  */
 @Component({
   selector: 'app-day2-reconcile',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [Day2DocumentComponent, ModalDialogComponent],
   template: `
     <div class="panel">
       <span class="eyebrow">{{ DAY2.eyebrow }}</span>
@@ -38,47 +33,21 @@ import { GameStateService } from '../../state/game-state.service';
     </div>
 
     @if (evidence().reportOpened && night(); as n) {
-      <article class="panel">
-        <div class="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">
-          <h3>{{ DAY2.report.heading }}</h3>
-          <span class="tag">{{ DAY2.report.version(n.reportRevision) }}</span>
-        </div>
-        <p class="text-sm text-muted">{{ DAY2.report.source(n.intervention) }}</p>
-        <div class="grid gap-3 md:grid-cols-2">
-          <div class="receipt-cell">
-            <code>{{ b102Code }}</code>
-            <p>{{ arranged() ? DAY2.report.arranged : DAY2.report.pendingReview }}</p>
-            <span class="text-sm text-muted">{{ DAY2.report.refusal(arranged() ? 'false' : 'null') }}</span>
-          </div>
-          <div class="receipt-cell">
-            <code>{{ b607Code }}</code>
-            <p>{{ DAY2.report.notArranged }}</p>
-            <span class="text-sm text-muted">{{ DAY2.report.refusal('true') }}</span>
-          </div>
-        </div>
-        <p class="text-sm text-muted mt-4">{{ DAY2.report.footer }}</p>
-      </article>
+      <app-day2-document
+        [heading]="DAY2.report.heading"
+        [tag]="DAY2.report.version(n.reportRevision)"
+        [sub]="DAY2.report.source(n.intervention)"
+        [cells]="reportCells()"
+        [footer]="DAY2.report.footer"
+      />
     }
 
-    @if (evidence().receiptOpened && b102(); as a) {
-      <article class="panel">
-        <h3>{{ DAY2.receipt.heading }}</h3>
-        <p class="text-sm text-muted">{{ DAY2.receipt.sub }}</p>
-        <div class="grid gap-3 md:grid-cols-2">
-          <div class="receipt-cell">
-            <code>{{ b102Code }}</code>
-            <p>{{ DAY2.report.refusal(refusalText()) }}</p>
-            <span class="text-sm text-muted">
-              {{ a.origin === 'review' ? DAY2.receipt.destReview : DAY2.receipt.destArchive }}
-            </span>
-          </div>
-          <div class="receipt-cell">
-            <code>{{ b607Code }}</code>
-            <p>{{ DAY2.report.refusal('true') }}</p>
-            <span class="text-sm text-muted">{{ DAY2.receipt.destArchive }}</span>
-          </div>
-        </div>
-      </article>
+    @if (evidence().receiptOpened && b102()) {
+      <app-day2-document
+        [heading]="DAY2.receipt.heading"
+        [sub]="DAY2.receipt.sub"
+        [cells]="receiptCells()"
+      />
     }
 
     <div class="panel">
@@ -97,26 +66,23 @@ import { GameStateService } from '../../state/game-state.service';
       <p class="text-sm text-muted mt-4 mb-0">{{ hint() }}</p>
     </div>
 
-    <dialog #replyDialog aria-labelledby="reply-title" (close)="onDialogClosed()">
-      @if (pending(); as c) {
-        <h2 id="reply-title">{{ c === 'ask' ? DAY2.dialog.headingAsk : DAY2.dialog.headingDefault }}</h2>
-        <p>{{ DAY2.dialog.response[c] }}</p>
-        <div class="flex gap-2.5 items-center flex-wrap mt-5">
-          <button type="button" #replyBack (click)="closeReply()">{{ DAY2.dialog.back }}</button>
-          <button type="button" class="btn-primary" (click)="confirmReply()">{{ DAY2.dialog.finish }}</button>
-        </div>
-      }
-    </dialog>
+    <app-modal-dialog #replyDialog [heading]="dialogHeading()" (closed)="onDialogClosed()">
+      <p dialogBody>{{ dialogBody() }}</p>
+      <button dialogActions type="button" data-initial-focus (click)="replyDialog.close()">
+        {{ DAY2.dialog.back }}
+      </button>
+      <button dialogActions type="button" class="btn-primary" (click)="confirmReply()">
+        {{ DAY2.dialog.finish }}
+      </button>
+    </app-modal-dialog>
   `,
 })
 export class Day2ReconcileComponent {
   protected readonly game = inject(GameStateService);
   private readonly router = inject(Router);
-  private readonly cdr = inject(ChangeDetectorRef);
   protected readonly DAY2 = DAY2;
 
-  private readonly replyDialog = viewChild.required<ElementRef<HTMLDialogElement>>('replyDialog');
-  private readonly replyBack = viewChild<ElementRef<HTMLButtonElement>>('replyBack');
+  private readonly replyDialog = viewChild.required<ModalDialogComponent>('replyDialog');
 
   protected readonly evidence = this.game.evidence;
   protected readonly night = this.game.night;
@@ -134,39 +100,65 @@ export class Day2ReconcileComponent {
   protected readonly b102Code = this.game.record(RECORD_B102).code;
   protected readonly b607Code = this.game.record(RECORD_B607).code;
 
-  /** 對話框中待確認的回覆；null＝對話框關閉、不渲染內文。 */
+  /** 今日批次摘要的兩格：0102 依四格矩陣結果，B607 固定未列入。 */
+  protected readonly reportCells = computed<readonly Day2DocumentCell[]>(() => {
+    const arranged = this.arranged();
+    return [
+      {
+        code: this.b102Code,
+        line: arranged ? DAY2.report.arranged : DAY2.report.pendingReview,
+        note: DAY2.report.refusal(arranged ? 'false' : 'null'),
+      },
+      {
+        code: this.b607Code,
+        line: DAY2.report.notArranged,
+        note: DAY2.report.refusal('true'),
+      },
+    ];
+  });
+
+  /** 昨日歸檔副本的兩格：0102 用玩家當時提交的原值與去向。 */
+  protected readonly receiptCells = computed<readonly Day2DocumentCell[]>(() => [
+    {
+      code: this.b102Code,
+      line: DAY2.report.refusal(this.refusalText()),
+      note: this.b102()?.origin === 'review' ? DAY2.receipt.destReview : DAY2.receipt.destArchive,
+    },
+    {
+      code: this.b607Code,
+      line: DAY2.report.refusal('true'),
+      note: DAY2.receipt.destArchive,
+    },
+  ]);
+
+  /** 對話框中待確認的回覆；null＝對話框已關閉。 */
   protected readonly pending = signal<Reply | null>(null);
-  /** 開啟對話框的按鈕；關閉後把焦點還回去。 */
-  private trigger: HTMLElement | null = null;
+
+  protected readonly dialogHeading = computed(() =>
+    this.pending() === 'ask' ? DAY2.dialog.headingAsk : DAY2.dialog.headingDefault,
+  );
+  protected readonly dialogBody = computed(() => {
+    const c = this.pending();
+    return c ? DAY2.dialog.response[c] : '';
+  });
 
   protected openReply(choice: Reply, event: Event): void {
     if (!this.game.canReply(choice)) return;
-    this.trigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     this.pending.set(choice);
-    // 先同步刷新，讓 @if 內容進入 DOM，再開啟對話框並把焦點放到「返回核對」。
-    this.cdr.detectChanges();
-    const dialog = this.replyDialog().nativeElement;
-    if (!dialog.open) dialog.showModal();
-    this.replyBack()?.nativeElement.focus();
-  }
-
-  protected closeReply(): void {
-    this.replyDialog().nativeElement.close();
+    // 焦點（開啟時放到「返回核對」、關閉時還給觸發按鈕）由 ModalDialogComponent 處理。
+    this.replyDialog().open(event.currentTarget instanceof HTMLElement ? event.currentTarget : null);
   }
 
   protected confirmReply(): void {
     const c = this.pending();
     if (c && this.game.submitReply(c)) {
-      this.trigger = null;
-      this.replyDialog().nativeElement.close();
-      this.router.navigateByUrl('/end');
+      this.replyDialog().close();
+      void this.router.navigateByUrl('/end');
     }
   }
 
-  /** 原生 close 事件（含 Escape）：清除待確認選項，並把焦點還給觸發按鈕。 */
+  /** 對話框關閉（含 Escape）：清除待確認選項。 */
   protected onDialogClosed(): void {
     this.pending.set(null);
-    this.trigger?.focus();
-    this.trigger = null;
   }
 }

@@ -1,0 +1,111 @@
+{
+  "id": "ui.zh-Hant",
+  "locale": "zh-Hant",
+  "note": "通用介面字串。每日文案在 data/days/，公告在 data/bulletins.json。",
+  "appTitleSuffix": " · 錯誤世界",
+  "cover": {
+    "eyebrow": "K O D E B A R T",
+    "title": "錯誤世界",
+    "subtitle": "ERROR OF THE WORLD",
+    "start": "開始遊戲",
+    "continue": "繼續",
+    "settings": "設定",
+    "noSave": "尚無本機紀錄",
+    "savePrefix": "本機紀錄：",
+    "footerLeft": "兩日試玩 · 入職",
+    "footerRight": "A KODEBART STORY / 0.1",
+    "artAlt": "冷藍夜色中的接待大廳，窗外下著雨，走廊延伸到深處。",
+    "artSrc": "assets/kodebart-cover.png",
+    "docTitle": "開始"
+  },
+  "phaseLabel": {
+    "day1": "第一日",
+    "overnight": "第一日交接完成",
+    "day2": "第二日",
+    "end": "兩日試玩完成"
+  },
+  "dialogs": {
+    "newGame": {
+      "heading": "開始新的紀錄？",
+      "body": "新的遊戲會取代這個瀏覽器中的試玩進度。",
+      "keep": "保留目前紀錄",
+      "start": "開始新遊戲"
+    },
+    "settings": {
+      "heading": "設定",
+      "motionLabel": "啟用選單動態",
+      "note": "本版沒有音訊。系統的「減少動態效果」設定會優先套用。",
+      "back": "返回"
+    }
+  },
+  "storage": {
+    "readIssue": "無法讀取本機紀錄。你可以另開新遊戲；原紀錄會在確認後才被取代。",
+    "writeIssue": "本機儲存不可用。本次仍可遊玩；關閉或重新整理後可能失去進度。",
+    "saved": "本機紀錄已保存"
+  },
+  "workbench": {
+    "brandLead": "K",
+    "brandRest": "odeBart ",
+    "brandSuffix": "/ 工作台",
+    "role": "新進同仁 · E 級",
+    "backToCover": "返回開始頁",
+    "navGroupPersonal": "個人工作區",
+    "navGroupTeam": "資料作業組",
+    "navLabel": "工作區",
+    "nav": {
+      "work": "工作",
+      "messages": "訊息",
+      "news": "公告"
+    },
+    "heading": {
+      "messages": "同事訊息",
+      "news": "公司公告"
+    },
+    "dayTagTemplate": "DAY / 0{day}",
+    "docTitleTemplate": "第{dayName}日 — {view}",
+    "dayName": {
+      "1": "一",
+      "2": "二"
+    }
+  },
+  "aside": {
+    "eyebrow": "TODAY",
+    "colleagueActorId": "actor.lin-yuan",
+    "quote": "「有不熟悉的地方可以先問我。第一週慢慢來就好。」",
+    "slogan": "一起讓照護更靠近生活。"
+  },
+  "sourceCard": {
+    "eyebrowTemplate": "SOURCE / {key}",
+    "name": "姓名",
+    "code": "人員編號",
+    "refusal": "拒絕紀錄",
+    "refusalNA": "不適用",
+    "refusalNull": "未附欄位 · null",
+    "refusalTrue": "已附 · true"
+  },
+  "records": {
+    "note": "來源未登記姓名時顯示的文字；不代表這個人沒有名字。",
+    "nameUnregistered": "未登記"
+  },
+  "messages": {
+    "eyebrow": "INTERNAL MESSAGES",
+    "back": "返回工作",
+    "listLabel": "頻道與私訊",
+    "backToList": "返回頻道列表",
+    "sectionTitle": {
+      "department": "部門頻道",
+      "group": "群組",
+      "direct": "私訊"
+    },
+    "sectionEmpty": "目前沒有頻道",
+    "selectHeading": "尚未選擇對話",
+    "selectPrompt": "請從列表選擇一個頻道或私訊。",
+    "emptyChannel": "這個對話目前沒有訊息。",
+    "unreadTemplate": "{count} 則未讀訊息",
+    "unreadChannelTemplate": "{channel}：{count} 則未讀訊息"
+  },
+  "news": {
+    "eyebrow": "KODEBART / BULLETIN",
+    "back": "返回工作"
+  }
+}

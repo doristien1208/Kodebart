@@ -1,227 +1,364 @@
 import { Phase, Reply } from '../core/types';
+import {
+  CONTENT,
+  actorName,
+  bulletin,
+  contentDocument,
+  contentTask,
+  dayContent,
+} from './bundle';
+import { format } from './format';
 import { NAME_UNREGISTERED } from './records';
+import { ContentDocument, ContentMessage, ContentTask, DayContent, VariantKey } from './schema';
 
 /**
- * game/content：對話、公告、報告與介面文案。全部為 Demo 試作文案，非正史。
- * 呈現層只讀取狀態並挑選文字，不得在此產生隨機效果。
+ * game/content/text：元件目前使用的文案 API。
+ *
+ * 值全部來自 data/ 的 JSON（見 content/README.md），這裡只負責挑選、組裝與代入樣板，
+ * 不保留任何寫死的玩家可見字串。匯出的名稱、型別與呼叫方式維持不變，元件不需修改。
+ * KB-R4-04 之後訊息改走頻道 API 時，本檔的 MESSAGES 轉接層可以移除。
  */
 
-export const APP_TITLE_SUFFIX = ' · 錯誤世界';
+/** 舊版匯出對應的內容 ID；只有 ID，不含文本。 */
+const LEGACY_IDS = {
+  day1Task: 'task.day1.archive',
+  day2Task: 'task.day2.reconcile',
+  day2Report: 'doc.day2.summary',
+  day2Receipt: 'doc.day2.receipt',
+  newsWelcome: 'bulletin.welcome',
+  newsMaintenance: 'bulletin.maintenance',
+} as const;
+
+/* ---------- 資料檔的文字區塊型別 ---------- */
+
+interface Day1TaskText {
+  eyebrow: string;
+  heading: string;
+  instruction: string;
+  progressTemplate: string;
+  doneHeading: string;
+  doneBody: string;
+  doneCode: string;
+  doneMethod: string;
+  methodReview: string;
+  methodArchive: string;
+  nameLabel: string;
+  fieldLabel: string;
+  useCode: string;
+  missingLegend: string;
+  policyDefault: string;
+  policyReview: string;
+  validate: string;
+  previewOk: string;
+  confirm: string;
+  footerDone: string;
+  footerPendingTemplate: string;
+  finishDay: string;
+  statusArchived: string;
+  queueEyebrow: string;
+  queueLabel: string;
+  queuePending: string;
+  queueDone: string;
+  queueDoneMark: string;
+  queueSelectedMark: string;
+}
+
+interface Day2TaskText {
+  eyebrow: string;
+  heading: string;
+  body: string;
+  openReport: string;
+  reportOpened: string;
+  openReceipt: string;
+  receiptOpened: string;
+  replyHeading: string;
+  choices: Record<Reply, string>;
+  hintNeedReport: string;
+  hintNeedReceipt: string;
+  hintReady: string;
+  dialog: {
+    headingAsk: string;
+    headingDefault: string;
+    response: Record<Reply, string>;
+    back: string;
+    finish: string;
+  };
+}
+
+interface ReportDocText {
+  heading: string;
+  versionTemplate: string;
+  sourceTemplate: string;
+  sourceOrigin: { intervention: string; rules: string };
+  arranged: string;
+  pendingReview: string;
+  notArranged: string;
+  refusalTemplate: string;
+  footer: string;
+}
+
+interface ReceiptDocText {
+  heading: string;
+  sub: string;
+  destReview: string;
+  destArchive: string;
+}
+
+interface OvernightText {
+  docTitle: string;
+  eyebrow: string;
+  heading: string;
+  body: string;
+  countLabel: string;
+  next: string;
+  backToCover: string;
+}
+
+interface EndText {
+  docTitle: string;
+  eyebrow: string;
+  heading: string;
+  body: string;
+  outcome: Record<Reply, string>;
+  thanks: string;
+  outro: string;
+  backToCover: string;
+}
+
+function taskText<T>(task: ContentTask): T {
+  return task.text as unknown as T;
+}
+
+function docText<T>(doc: ContentDocument): T {
+  return doc.text as unknown as T;
+}
+
+const ui = CONTENT.ui;
+const day1 = dayContent(1);
+const day2 = dayContent(2);
+const day1Task = taskText<Day1TaskText>(contentTask(LEGACY_IDS.day1Task));
+const day2Task = taskText<Day2TaskText>(contentTask(LEGACY_IDS.day2Task));
+const day2Report = docText<ReportDocText>(contentDocument(LEGACY_IDS.day2Report));
+const day2Receipt = docText<ReceiptDocText>(contentDocument(LEGACY_IDS.day2Receipt));
+const overnight = day1.transition.text as unknown as OvernightText;
+const ending = day2.transition.text as unknown as EndText;
+const welcome = bulletin(LEGACY_IDS.newsWelcome);
+const maintenance = bulletin(LEGACY_IDS.newsMaintenance);
+
+/*
+ * ---------- 訊息轉接（單一對話；KB-R4-04 之後畫面已不使用） ----------
+ * 訊息頁改為頻道驅動後，畫面一律走 bundle.ts 的 channelsOfKind／unlockedMessages，
+ * 以下 MESSAGES.author／time／day1／day2Lead／day2SmallTalk 只剩 content/bundle.spec.ts
+ * 在驗既有文案，故暫時保留；等該 spec 改寫後可整段移除。
+ */
+
+/** 沒有變體的訊息：目前依檔案順序直接顯示。 */
+function baseLines(d: DayContent): string[] {
+  return d.messages.filter((m) => m.variant === undefined).flatMap((m) => m.lines);
+}
+
+/** 同一 variant.key 的訊息依 value 排序；呼叫端用存檔的值取一則。 */
+function variantLines(d: DayContent, key: VariantKey): string[] {
+  const picked: { value: number; lines: readonly string[] }[] = [];
+  for (const m of d.messages) {
+    if (m.variant !== undefined && m.variant.key === key) picked.push({ value: m.variant.value, lines: m.lines });
+  }
+  picked.sort((a, b) => a.value - b.value);
+  return picked.flatMap((p) => [...p.lines]);
+}
+
+function firstTime(messages: readonly ContentMessage[]): string {
+  return messages[0]?.time ?? '';
+}
+
+/* ---------- 對外 API（名稱與型別不變） ---------- */
+
+export const APP_TITLE_SUFFIX = ui.appTitleSuffix;
 export function pageTitle(text: string): string {
   return text + APP_TITLE_SUFFIX;
 }
 
-export const COVER = {
-  eyebrow: 'K O D E B A R T',
-  title: '錯誤世界',
-  subtitle: 'ERROR OF THE WORLD',
-  start: '開始遊戲',
-  continue: '繼續',
-  settings: '設定',
-  noSave: '尚無本機紀錄',
-  savePrefix: '本機紀錄：',
-  footerLeft: '兩日試玩 · 入職',
-  footerRight: 'A KODEBART STORY / 0.1',
-  artAlt: '冷藍夜色中的接待大廳，窗外下著雨，走廊延伸到深處。',
-  artSrc: 'assets/kodebart-cover.png',
-  docTitle: '開始',
-} as const;
+export const COVER = ui.cover;
 
-export const PHASE_LABEL: Record<Phase, string> = {
-  day1: '第一日',
-  overnight: '第一日交接完成',
-  day2: '第二日',
-  end: '兩日試玩完成',
-};
+export const PHASE_LABEL: Record<Phase, string> = ui.phaseLabel;
 
-export const NEW_GAME_DIALOG = {
-  heading: '開始新的紀錄？',
-  body: '新的遊戲會取代這個瀏覽器中的試玩進度。',
-  keep: '保留目前紀錄',
-  start: '開始新遊戲',
-} as const;
+export const NEW_GAME_DIALOG = ui.dialogs.newGame;
 
-export const SETTINGS_DIALOG = {
-  heading: '設定',
-  motionLabel: '啟用選單動態',
-  note: '本版沒有音訊。系統的「減少動態效果」設定會優先套用。',
-  back: '返回',
-} as const;
+export const SETTINGS_DIALOG = ui.dialogs.settings;
 
-export const STORAGE = {
-  readIssue: '無法讀取本機紀錄。你可以另開新遊戲；原紀錄會在確認後才被取代。',
-  writeIssue: '本機儲存不可用。本次仍可遊玩；關閉或重新整理後可能失去進度。',
-  saved: '本機紀錄已保存',
-} as const;
+export const STORAGE = ui.storage;
+
+const WORKBENCH_NAV = ui.workbench.nav;
 
 export const WORKBENCH = {
-  brandLead: 'K',
-  brandRest: 'odeBart ',
-  brandSuffix: '/ 工作台',
-  role: '新進同仁 · E 級',
-  backToCover: '返回開始頁',
-  navGroupPersonal: '個人工作區',
-  navGroupTeam: '資料作業組',
-  navLabel: '工作區',
-  nav: { work: '工作', messages: '訊息', news: '公告' },
+  brandLead: ui.workbench.brandLead,
+  brandRest: ui.workbench.brandRest,
+  brandSuffix: ui.workbench.brandSuffix,
+  role: ui.workbench.role,
+  backToCover: ui.workbench.backToCover,
+  navGroupPersonal: ui.workbench.navGroupPersonal,
+  navGroupTeam: ui.workbench.navGroupTeam,
+  navLabel: ui.workbench.navLabel,
+  nav: WORKBENCH_NAV,
   heading: {
-    work: { 1: '今日工作', 2: '批次摘要核對' } as Record<1 | 2, string>,
-    messages: '同事訊息',
-    news: '公司公告',
+    work: { 1: day1.workbench.workHeading, 2: day2.workbench.workHeading } as Record<1 | 2, string>,
+    messages: ui.workbench.heading.messages,
+    news: ui.workbench.heading.news,
   },
-  greeting: { 1: '早安，歡迎加入柯迪巴特。', 2: '早安，昨日資料已完成交接。' } as Record<1 | 2, string>,
-  dayTag: (day: 1 | 2) => `DAY / 0${day}`,
+  greeting: { 1: day1.workbench.greeting, 2: day2.workbench.greeting } as Record<1 | 2, string>,
+  dayTag: (day: 1 | 2) => format(ui.workbench.dayTagTemplate, { day }),
   docTitle: (day: 1 | 2, view: 'work' | 'messages' | 'news') =>
-    `第${day === 1 ? '一' : '二'}日 — ${WORKBENCH.nav[view]}`,
+    format(ui.workbench.docTitleTemplate, { dayName: ui.workbench.dayName[day], view: WORKBENCH_NAV[view] }),
 } as const;
 
 export const ASIDE = {
-  eyebrow: 'TODAY',
-  heading: { 1: '資料整理', 2: '摘要交接' } as Record<1 | 2, string>,
-  body: {
-    1: '請依來源資料核對人員編號，完成歸檔。未提供的資料可以送交覆核。',
-    2: '核對昨日批次，回覆後完成本日交接。',
-  } as Record<1 | 2, string>,
-  colleague: '林予安',
-  quote: '「有不熟悉的地方可以先問我。第一週慢慢來就好。」',
-  slogan: '一起讓照護更靠近生活。',
+  eyebrow: ui.aside.eyebrow,
+  heading: { 1: day1.aside.heading, 2: day2.aside.heading } as Record<1 | 2, string>,
+  body: { 1: day1.aside.body, 2: day2.aside.body } as Record<1 | 2, string>,
+  colleague: actorName(ui.aside.colleagueActorId),
+  quote: ui.aside.quote,
+  slogan: ui.aside.slogan,
 } as const;
 
 export const SOURCE_CARD = {
-  eyebrow: (key: string) => `SOURCE / ${key}`,
-  name: '姓名',
+  eyebrow: (key: string) => format(ui.sourceCard.eyebrowTemplate, { key }),
+  name: ui.sourceCard.name,
   nameUnregistered: NAME_UNREGISTERED,
-  code: '人員編號',
-  refusal: '拒絕紀錄',
-  refusalNA: '不適用',
-  refusalNull: '未附欄位 · null',
-  refusalTrue: '已附 · true',
+  code: ui.sourceCard.code,
+  refusal: ui.sourceCard.refusal,
+  refusalNA: ui.sourceCard.refusalNA,
+  refusalNull: ui.sourceCard.refusalNull,
+  refusalTrue: ui.sourceCard.refusalTrue,
 } as const;
 
 export const DAY1 = {
-  eyebrow: 'ARCHIVE / BATCH 01',
-  heading: '人員資料歸檔',
-  instruction: '請依來源資料核對人員編號，完成歸檔。',
+  eyebrow: day1Task.eyebrow,
+  heading: day1Task.heading,
+  instruction: day1Task.instruction,
   /** 總筆數由呼叫端從資料集合傳入，不寫死。 */
-  progress: (count: number, total: number) => `${count} / ${total} 已處理`,
-  doneHeading: '已完成處理',
-  doneBody: '資料已保存至本日批次。',
-  doneCode: '人員編號：',
-  doneMethod: '處理方式：',
-  methodReview: '送資料覆核',
-  methodArchive: '正式歸檔',
-  nameLabel: '姓名',
+  progress: (count: number, total: number) => format(day1Task.progressTemplate, { count, total }),
+  doneHeading: day1Task.doneHeading,
+  doneBody: day1Task.doneBody,
+  doneCode: day1Task.doneCode,
+  doneMethod: day1Task.doneMethod,
+  methodReview: day1Task.methodReview,
+  methodArchive: day1Task.methodArchive,
+  nameLabel: day1Task.nameLabel,
   nameUnregistered: NAME_UNREGISTERED,
-  fieldLabel: '人員編號',
-  useCode: '使用來源編號',
-  missingLegend: '缺少拒絕紀錄',
-  policyDefault: '依缺值規則填入 false',
-  policyReview: '保留 null，送資料覆核',
-  validate: '驗證並預覽',
-  previewOk: '驗證通過',
-  confirm: '確認歸檔',
-  footerDone: '本日批次已完成。',
-  footerPending: (total: number) => `完成 ${total} 筆資料後即可交接。`,
-  finishDay: '完成今日交接',
-  statusArchived: '歸檔完成。',
+  fieldLabel: day1Task.fieldLabel,
+  useCode: day1Task.useCode,
+  missingLegend: day1Task.missingLegend,
+  policyDefault: day1Task.policyDefault,
+  policyReview: day1Task.policyReview,
+  validate: day1Task.validate,
+  previewOk: day1Task.previewOk,
+  confirm: day1Task.confirm,
+  footerDone: day1Task.footerDone,
+  footerPending: (total: number) => format(day1Task.footerPendingTemplate, { total }),
+  finishDay: day1Task.finishDay,
+  statusArchived: day1Task.statusArchived,
   /* 工作佇列：狀態不只靠顏色，每一列都有文字說明。 */
-  queueEyebrow: 'QUEUE',
-  queueLabel: '本日資料佇列',
-  queuePending: '待處理',
-  queueDone: '已完成',
-  queueDoneMark: '✓',
-  queueSelectedMark: '▸',
+  queueEyebrow: day1Task.queueEyebrow,
+  queueLabel: day1Task.queueLabel,
+  queuePending: day1Task.queuePending,
+  queueDone: day1Task.queueDone,
+  queueDoneMark: day1Task.queueDoneMark,
+  queueSelectedMark: day1Task.queueSelectedMark,
 } as const;
 
 export const MESSAGES = {
-  eyebrow: 'INTERNAL MESSAGES',
-  author: '林予安',
-  time: { 1: '08:36', 2: '08:42' } as Record<1 | 2, string>,
-  day1: [
-    '早安！今天先熟悉歸檔就好。左邊是送來的資料，右邊依來源核對人員編號。',
-    '遇到缺的項目可以送覆核，不用急。茶水間的杯子都能用。',
-  ],
-  day2Lead: '昨天那批已經收到。今天核對完摘要就可以交接了。',
+  eyebrow: ui.messages.eyebrow,
+  /* 頻道列表與對話區（KB-R4-04）；分類標題與空狀態都來自資料檔。 */
+  listLabel: ui.messages.listLabel,
+  backToList: ui.messages.backToList,
+  sectionTitle: ui.messages.sectionTitle,
+  sectionEmpty: ui.messages.sectionEmpty,
+  selectHeading: ui.messages.selectHeading,
+  selectPrompt: ui.messages.selectPrompt,
+  emptyChannel: ui.messages.emptyChannel,
+  /** 未讀的螢幕閱讀器文字；紅點之外一定有文字說明，不只靠顏色。 */
+  unread: (count: number) => format(ui.messages.unreadTemplate, { count }),
+  unreadChannel: (channel: string, count: number) =>
+    format(ui.messages.unreadChannelTemplate, { channel, count }),
+  author: actorName(day1.messages[0]?.actorId ?? ui.aside.colleagueActorId),
+  time: { 1: firstTime(day1.messages), 2: firstTime(day2.messages) } as Record<1 | 2, string>,
+  day1: baseLines(day1) as readonly string[],
+  day2Lead: baseLines(day2)[0] ?? '',
   /** 依 night.smallTalkVariant 0／1 選一句；無陰謀的普通亂數。 */
-  day2SmallTalk: ['對了，窗邊那台印表機有時候要多等一下。', '茶水間補了新的茶包，有空可以去拿。'],
-  back: '返回工作',
+  day2SmallTalk: variantLines(day2, 'night.smallTalkVariant') as readonly string[],
+  back: ui.messages.back,
 } as const;
 
 export const NEWS = {
-  eyebrow: 'KODEBART / BULLETIN',
-  title: '一起讓照護更靠近生活',
-  body: '新進同仁請於本週完成資料作業導覽。完整、一致的紀錄，能協助各單位提供更合適的安排。',
-  thanks: '感謝每一位同仁，讓日常作業順利進行。',
-  maintenanceTitle: '本週設施維護',
-  maintenanceBody: '二樓茶水間將於週五下班後更換濾水設備。維護期間請使用一樓飲水機。',
-  back: '返回工作',
+  eyebrow: ui.news.eyebrow,
+  title: welcome.title,
+  body: welcome.body[0] ?? '',
+  thanks: welcome.body[1] ?? '',
+  maintenanceTitle: maintenance.title,
+  maintenanceBody: maintenance.body[0] ?? '',
+  back: ui.news.back,
 } as const;
 
 export const OVERNIGHT = {
-  docTitle: '第一日交接完成',
-  eyebrow: 'DAY / 01 — COMPLETE',
-  heading: '今天辛苦了。',
-  body: '今日資料已完成交接。謝謝你的協助，明天見。',
+  docTitle: overnight.docTitle,
+  eyebrow: overnight.eyebrow,
+  heading: overnight.heading,
+  body: overnight.body,
   /** 依實際已歸檔筆數產生，補零到兩位數（3 → 03、12 → 12）；三位數以上照原樣顯示。 */
   count: (archived: number) => String(archived).padStart(2, '0'),
-  countLabel: '　筆資料已處理',
-  next: '前往第二天',
-  backToCover: '返回開始頁',
+  countLabel: overnight.countLabel,
+  next: overnight.next,
+  backToCover: overnight.backToCover,
 } as const;
 
 export const DAY2 = {
-  eyebrow: 'RECONCILIATION / BATCH 01',
-  heading: '核對昨日批次摘要',
-  body: '請確認已收到批次結果，或附上需要覆核的資料。',
-  openReport: '開啟今日摘要',
-  reportOpened: '摘要已開啟',
-  openReceipt: '開啟昨日送件副本',
-  receiptOpened: '昨日副本已開啟',
+  eyebrow: day2Task.eyebrow,
+  heading: day2Task.heading,
+  body: day2Task.body,
+  openReport: day2Task.openReport,
+  reportOpened: day2Task.reportOpened,
+  openReceipt: day2Task.openReceipt,
+  receiptOpened: day2Task.receiptOpened,
   report: {
-    heading: '自願參與安排摘要',
-    version: (rev: number) => `版本 ${rev}`,
-    source: (intervention: boolean) => `來源：${intervention ? '夜間校驗' : '規則彙整'} · 批次 01`,
-    arranged: '已列入安排',
-    pendingReview: '待資料覆核',
-    notArranged: '未列入安排',
-    refusal: (v: string) => `拒絕紀錄：${v}`,
-    footer: '此摘要僅供批次交接。安排細節由承辦單位另行通知。',
+    heading: day2Report.heading,
+    version: (rev: number) => format(day2Report.versionTemplate, { revision: rev }),
+    source: (intervention: boolean) =>
+      format(day2Report.sourceTemplate, {
+        origin: intervention ? day2Report.sourceOrigin.intervention : day2Report.sourceOrigin.rules,
+      }),
+    arranged: day2Report.arranged,
+    pendingReview: day2Report.pendingReview,
+    notArranged: day2Report.notArranged,
+    refusal: (v: string) => format(day2Report.refusalTemplate, { value: v }),
+    footer: day2Report.footer,
   },
   receipt: {
-    heading: '昨日送件副本',
-    sub: '資料送出時的內容 · 本人作業紀錄',
-    destReview: '去向：資料覆核佇列',
-    destArchive: '去向：正式歸檔',
+    heading: day2Receipt.heading,
+    sub: day2Receipt.sub,
+    destReview: day2Receipt.destReview,
+    destArchive: day2Receipt.destArchive,
   },
-  replyHeading: '本日回覆',
-  choices: { ack: '確認收到摘要', ask: '詢問彙整依據', review: '附上昨日副本，請求覆核' } as Record<Reply, string>,
-  hintNeedReport: '請先開啟今日摘要。',
-  hintNeedReceipt: '需要附檔時，可先開啟昨日送件副本。',
-  hintReady: '昨日副本可隨回覆附上。',
+  replyHeading: day2Task.replyHeading,
+  choices: day2Task.choices,
+  hintNeedReport: day2Task.hintNeedReport,
+  hintNeedReceipt: day2Task.hintNeedReceipt,
+  hintReady: day2Task.hintReady,
   dialog: {
-    headingAsk: '資料作業組回覆',
-    headingDefault: '交接回覆',
-    response: {
-      ack: '已確認收到，本日批次已完成交接。',
-      ask: '摘要依有效欄位自動彙整；未列入者待資料齊備後續辦。',
-      review: '已收到附件，將併入下次覆核。',
-    } as Record<Reply, string>,
-    back: '返回核對',
-    finish: '完成本日交接',
+    headingAsk: day2Task.dialog.headingAsk,
+    headingDefault: day2Task.dialog.headingDefault,
+    response: day2Task.dialog.response,
+    back: day2Task.dialog.back,
+    finish: day2Task.dialog.finish,
   },
 } as const;
 
 export const END = {
-  docTitle: '兩日試玩結束',
-  eyebrow: 'DAY / 02 — COMPLETE',
-  heading: '本日交接完成。',
-  body: '明日工作將於到班後更新。',
-  outcome: {
-    ack: '摘要收件紀錄已保存。',
-    ask: '彙整依據的回覆已留存。',
-    review: '你的覆核請求已登記。',
-  } as Record<Reply, string>,
-  thanks: '感謝你的協助。',
-  outro: '兩日試玩結束',
-  backToCover: '返回開始頁',
+  docTitle: ending.docTitle,
+  eyebrow: ending.eyebrow,
+  heading: ending.heading,
+  body: ending.body,
+  outcome: ending.outcome,
+  thanks: ending.thanks,
+  outro: ending.outro,
+  backToCover: ending.backToCover,
 } as const;

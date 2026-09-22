@@ -15,6 +15,10 @@ export type Origin = 'source' | 'defaulted' | 'review';
  * （tsconfig 的 noPropertyAccessFromIndexSignature）。
  */
 export type RecordKey = string;
+/** 每日識別，例如 'day.01'。 */
+export type DayId = string;
+/** 工作批次識別，例如 'batch.day01.archive'。 */
+export type BatchId = string;
 
 export const PHASES: readonly Phase[] = ['day1', 'overnight', 'day2', 'end'];
 export const MISSING_POLICIES: readonly MissingPolicy[] = ['default_false', 'request_review'];
@@ -37,12 +41,31 @@ export interface SourceRecord {
   refusalApplies: boolean;
 }
 
-/** 已提交至本日批次的紀錄（鎖定，不可再改）。 */
+/**
+ * 提交當下的來源資料快照（KB-R4-05）。
+ * 同一個人員在後續日重新出現時，歷史結果不會被目前內容檔覆寫。
+ */
+export interface SourceSnapshot {
+  name: string | null;
+  code: string;
+  refusal: boolean | null;
+  refusalApplies: boolean;
+}
+
+/** 已提交至某個批次的紀錄（鎖定，不可再改）。 */
 export interface ArchivedRecord {
   /** 歸檔的人員編號，與來源逐字相同（例如 '0102'）。 */
   archiveCode: string;
   refusal: boolean | null;
   origin: Origin;
+  /** 提交當下的來源快照。 */
+  source: SourceSnapshot;
+}
+
+/** 單一工作批次的狀態；完成條件與草稿都以批次為範圍，不是全域。 */
+export interface BatchState {
+  archived: Partial<Record<RecordKey, ArchivedRecord>>;
+  drafts: Partial<Record<RecordKey, Draft>>;
 }
 
 /** 尚未提交的草稿；切換導航仍保留。 */
@@ -72,15 +95,35 @@ export interface GameEvent {
 }
 
 /**
- * 存檔格式 v2。
- * v1 的 archiveName 會把巴特族編號存成整數（0102 → 102），v2 改存字串以保留前導零；
- * 兩者不相容，因此提高版本號，讓舊存檔被明確拒絕而不是默默誤讀。
+ * 存檔格式 v3（KB-R4-05）。
+ *
+ * 與 v2 的差別：歸檔與草稿改以「批次」為範圍（`batches`），並記錄當日識別，
+ * 因此日後新增 Day 3–10 的紀錄不會讓已完成的舊批次被判定未完成。
+ * 每筆歸檔另存提交當下的來源快照。v2 舊檔可由 `migrateSave()` 轉換，不會被捨棄。
  */
+export interface SaveV3 {
+  version: 3;
+  seed: number;
+  phase: Phase;
+  /** 目前所在的日；由每日資料決定，不從 phase 硬推。 */
+  dayId: DayId;
+  batches: Partial<Record<BatchId, BatchState>>;
+  night?: NightResult;
+  evidence: Evidence;
+  reply?: Reply;
+  events: GameEvent[];
+  /** 已讀訊息的穩定 ID；舊檔遷移時預設為空陣列。 */
+  readMessages: string[];
+}
+
+export const SAVE_VERSION = 3;
+
+/** v2 存檔的形狀，只用於載入舊檔後遷移。 */
 export interface SaveV2 {
   version: 2;
   seed: number;
   phase: Phase;
-  archived: Partial<Record<RecordKey, ArchivedRecord>>;
+  archived: Partial<Record<RecordKey, { archiveCode: string; refusal: boolean | null; origin: Origin }>>;
   drafts: Partial<Record<RecordKey, Draft>>;
   night?: NightResult;
   evidence: Evidence;
@@ -88,7 +131,7 @@ export interface SaveV2 {
   events: GameEvent[];
 }
 
-export const SAVE_VERSION = 2;
+export const LEGACY_SAVE_VERSION = 2;
 
 export interface ValidationOk {
   ok: true;

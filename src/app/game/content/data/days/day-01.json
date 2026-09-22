@@ -1,0 +1,121 @@
+{
+  "id": "day.01",
+  "day": 1,
+  "workbench": {
+    "greeting": "早安，歡迎加入柯迪巴特。",
+    "workHeading": "今日工作"
+  },
+  "aside": {
+    "heading": "資料整理",
+    "body": "請依來源資料核對人員編號，完成歸檔。未提供的資料可以送交覆核。"
+  },
+  "note": "0607 借用舊案編號，只作背景；不新增其性別、外觀或經歷。這批是舊紀錄整理，不暗示 0102 是新抓入機構的人。code 一律為字串，前導零不得消失。",
+  "records": [
+    {
+      "id": "record.h17",
+      "key": "H17",
+      "name": "林予安",
+      "code": "H-17",
+      "refusal": null,
+      "refusalApplies": false
+    },
+    {
+      "id": "record.b102",
+      "key": "B102",
+      "name": null,
+      "code": "0102",
+      "refusal": null,
+      "refusalApplies": true
+    },
+    {
+      "id": "record.b607",
+      "key": "B607",
+      "name": null,
+      "code": "0607",
+      "refusal": true,
+      "refusalApplies": true
+    }
+  ],
+  "documents": [],
+  "tasks": [
+    {
+      "id": "task.day1.archive",
+      "kind": "archive",
+      "recordIds": [
+        "record.h17",
+        "record.b102",
+        "record.b607"
+      ],
+      "documentIds": [],
+      "text": {
+        "eyebrow": "ARCHIVE / BATCH 01",
+        "heading": "人員資料歸檔",
+        "instruction": "請依來源資料核對人員編號，完成歸檔。",
+        "progressTemplate": "{count} / {total} 已處理",
+        "doneHeading": "已完成處理",
+        "doneBody": "資料已保存至本日批次。",
+        "doneCode": "人員編號：",
+        "doneMethod": "處理方式：",
+        "methodReview": "送資料覆核",
+        "methodArchive": "正式歸檔",
+        "nameLabel": "姓名",
+        "fieldLabel": "人員編號",
+        "useCode": "使用來源編號",
+        "missingLegend": "缺少拒絕紀錄",
+        "policyDefault": "依缺值規則填入 false",
+        "policyReview": "保留 null，送資料覆核",
+        "validate": "驗證並預覽",
+        "previewOk": "驗證通過",
+        "confirm": "確認歸檔",
+        "footerDone": "本日批次已完成。",
+        "footerPendingTemplate": "完成 {total} 筆資料後即可交接。",
+        "finishDay": "完成今日交接",
+        "statusArchived": "歸檔完成。",
+        "queueEyebrow": "QUEUE",
+        "queueLabel": "本日資料佇列",
+        "queuePending": "待處理",
+        "queueDone": "已完成",
+        "queueDoneMark": "✓",
+        "queueSelectedMark": "▸"
+      }
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg.day1.welcome",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "08:36",
+      "unlock": [
+        "cond.day.1"
+      ],
+      "lines": [
+        "早安！今天先熟悉歸檔就好。左邊是送來的資料，右邊依來源核對人員編號。"
+      ]
+    },
+    {
+      "id": "msg.day1.pace",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "08:36",
+      "unlock": [
+        "cond.day.1"
+      ],
+      "lines": [
+        "遇到缺的項目可以送覆核，不用急。茶水間的杯子都能用。"
+      ]
+    }
+  ],
+  "transition": {
+    "id": "transition.day1.overnight",
+    "text": {
+      "docTitle": "第一日交接完成",
+      "eyebrow": "DAY / 01 — COMPLETE",
+      "heading": "今天辛苦了。",
+      "body": "今日資料已完成交接。謝謝你的協助，明天見。",
+      "countLabel": "　筆資料已處理",
+      "next": "前往第二天",
+      "backToCover": "返回開始頁"
+    }
+  }
+}

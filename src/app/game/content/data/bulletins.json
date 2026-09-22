@@ -1,0 +1,20 @@
+{
+  "note": "公司公告。短文直接留在 JSON；長篇正文才放 content/documents/ 的 Markdown。",
+  "bulletins": [
+    {
+      "id": "bulletin.welcome",
+      "title": "一起讓照護更靠近生活",
+      "body": [
+        "新進同仁請於本週完成資料作業導覽。完整、一致的紀錄，能協助各單位提供更合適的安排。",
+        "感謝每一位同仁，讓日常作業順利進行。"
+      ]
+    },
+    {
+      "id": "bulletin.maintenance",
+      "title": "本週設施維護",
+      "body": [
+        "二樓茶水間將於週五下班後更換濾水設備。維護期間請使用一樓飲水機。"
+      ]
+    }
+  ]
+}

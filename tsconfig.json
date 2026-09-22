@@ -12,6 +12,8 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "esModuleInterop": true,
+    /* game/content 的文本與結構化內容以 JSON 匯入（KB-R4-03）。 */
+    "resolveJsonModule": true,
     "experimentalDecorators": true,
     "moduleResolution": "bundler",
     "importHelpers": true,

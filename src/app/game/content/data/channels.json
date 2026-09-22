@@ -1,0 +1,13 @@
+{
+  "note": "訊息頻道。kind 只能是 department／group／direct（見 content/schema.ts 的 CHANNEL_KINDS）。本輪只有既有的那一個私訊對話，部門大群與小圈圈尚未建立。",
+  "channels": [
+    {
+      "id": "channel.dm.lin-yuan",
+      "kind": "direct",
+      "actorIds": [
+        "actor.lin-yuan"
+      ],
+      "note": "既有 Day 1／Day 2 同事訊息所屬的私訊；標題取自對方的 displayName。"
+    }
+  ]
+}

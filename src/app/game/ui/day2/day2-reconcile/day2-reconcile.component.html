@@ -1,0 +1,70 @@
+@if (content(); as c) {
+  <div class="panel">
+    <span class="eyebrow">{{ c.task.eyebrow }}</span>
+    <h3>{{ c.task.heading }}</h3>
+    <p class="text-muted">{{ c.task.body }}</p>
+    <div class="flex gap-2.5 items-center flex-wrap mt-5">
+      <button type="button" class="btn-primary" (click)="game.openReport()">
+        {{ evidence().reportOpened ? c.task.reportOpened : c.task.openReport }}
+      </button>
+      <button type="button" (click)="game.openReceipt()">
+        {{ evidence().receiptOpened ? c.task.receiptOpened : c.task.openReceipt }}
+      </button>
+    </div>
+  </div>
+
+  @if (evidence().reportOpened && reportReady()) {
+    <app-day2-document
+      [heading]="c.report.heading"
+      [tag]="reportTag()"
+      [sub]="reportSub()"
+      [cells]="reportCells()"
+      [footer]="c.report.footer"
+    />
+  }
+
+  @if (evidence().receiptOpened && subjectArchived()) {
+    <app-day2-document
+      [heading]="c.receipt.heading"
+      [sub]="c.receipt.sub"
+      [cells]="receiptCells()"
+    />
+  }
+
+  <app-record-review-list
+    [items]="reviewItems()"
+    [locked]="replied()"
+    [busy]="busy()"
+    (review)="onReview($event)"
+  />
+
+  <div class="panel">
+    <h3>{{ c.task.replyHeading }}</h3>
+    @if (!allReviewed() && !replied()) {
+      <p class="note text-sm" data-review-required>{{ reviewUi.requiredNotice }}</p>
+    }
+    <div class="grid gap-2.5">
+      <button type="button" class="w-full" [disabled]="busy() || !game.canReply('ack')" (click)="openReply('ack', $event)">
+        {{ c.task.choices.ack }}
+      </button>
+      <button type="button" class="w-full" [disabled]="busy() || !game.canReply('ask')" (click)="openReply('ask', $event)">
+        {{ c.task.choices.ask }}
+      </button>
+      <button type="button" class="w-full" [disabled]="busy() || !game.canReply('review')" (click)="openReply('review', $event)">
+        {{ c.task.choices.review }}
+      </button>
+    </div>
+    <p class="text-sm text-muted mt-4 mb-0">{{ hint() }}</p>
+  </div>
+}
+
+<app-modal-dialog #replyDialog [heading]="dialogHeading()" (closed)="onDialogClosed()">
+  <p dialogBody>{{ dialogBody() }}</p>
+  <app-operation-status dialogBody class="mb-3" [operation]="operation()" (retry)="onRetry()" />
+  <button dialogActions type="button" data-initial-focus (click)="replyDialog.close()">
+    {{ dialog()?.back }}
+  </button>
+  <button dialogActions type="button" class="btn-primary" [disabled]="busy()" (click)="confirmReply()">
+    {{ deliverText() }}
+  </button>
+</app-modal-dialog>

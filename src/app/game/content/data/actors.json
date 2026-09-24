@@ -1,10 +1,20 @@
 {
-  "note": "人物基本資料。只列既有角色；未命名角色不得在此命名。",
+  "note": "人物基本資料。未命名角色不得在此命名。辦公室同事皆為人類。",
   "actors": [
     {
       "id": "actor.lin-yuan",
       "displayName": "林予安",
-      "note": "既有同事；Day 1–2 訊息與側欄引述的作者。"
+      "note": "既有同事；Day 1–2 訊息與側欄引述的作者，Day 3 起也出現在部門與群組頻道。"
+    },
+    {
+      "id": "actor.wu-wan-ting",
+      "displayName": "吳婉庭",
+      "note": "Demo 試作的人類同事；只定義姓名與辦公室同事身分。"
+    },
+    {
+      "id": "actor.yang-zi-qian",
+      "displayName": "楊子謙",
+      "note": "Demo 試作的人類同事；只定義姓名與辦公室同事身分。"
     }
   ]
 }

@@ -1,0 +1,15 @@
+<app-task-stepper [tasks]="game.dayTasks()" />
+@switch (game.task()?.kind) {
+  @case ('archive') {
+    <app-archive-work />
+  }
+  @case ('reconcile') {
+    <app-day2-reconcile />
+  }
+  @case ('field-map') {
+    <app-field-mapping />
+  }
+  @case ('return-review') {
+    <app-return-review />
+  }
+}

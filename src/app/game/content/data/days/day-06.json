@@ -1,0 +1,305 @@
+{
+  "id": "day.06",
+  "day": 6,
+  "nextDayId": null,
+  "chatDateLabel": "9 月 22 日",
+  "workbench": {
+    "greeting": "早安，新的匯入批次已開放。",
+    "workHeading": "今日工作"
+  },
+  "aside": {
+    "heading": "欄位轉換",
+    "body": "來源表使用舊欄位名稱。請先建立一對一欄位對應，再處理空白值。"
+  },
+  "note": "欄位映射：正確配對為 targetFields 的 sourceId。來源值一律為字串，legacy-id 的前導零不得消失；空字串＝空值，由玩家選的 blankPolicy 決定。",
+  "records": [],
+  "documents": [],
+  "tasks": [
+    {
+      "id": "task.day6.field-map",
+      "kind": "field-map",
+      "recordIds": [],
+      "documentIds": [],
+      "sourceFields": [
+        {
+          "id": "record-date",
+          "label": "資料日期"
+        },
+        {
+          "id": "contact-result",
+          "label": "聯繫結果"
+        },
+        {
+          "id": "legacy-id",
+          "label": "登記編號"
+        },
+        {
+          "id": "objection-reply",
+          "label": "異議回覆"
+        }
+      ],
+      "targetFields": [
+        {
+          "id": "personnel-code",
+          "label": "人員編號",
+          "sourceId": "legacy-id",
+          "convert": "text"
+        },
+        {
+          "id": "exclude-flag",
+          "label": "排除狀態",
+          "sourceId": "objection-reply",
+          "convert": "boolean",
+          "trueValue": "有",
+          "falseValue": "無"
+        },
+        {
+          "id": "contact-status",
+          "label": "聯繫狀態",
+          "sourceId": "contact-result",
+          "convert": "text"
+        },
+        {
+          "id": "effective-date",
+          "label": "生效日期",
+          "sourceId": "record-date",
+          "convert": "text"
+        }
+      ],
+      "rows": [
+        {
+          "id": "row.0102",
+          "values": {
+            "legacy-id": "0102",
+            "objection-reply": "",
+            "contact-result": "未接",
+            "record-date": "2026-09-16"
+          }
+        },
+        {
+          "id": "row.0314",
+          "values": {
+            "legacy-id": "0314",
+            "objection-reply": "無",
+            "contact-result": "已確認",
+            "record-date": "2026-09-17"
+          }
+        },
+        {
+          "id": "row.0521",
+          "values": {
+            "legacy-id": "0521",
+            "objection-reply": "",
+            "contact-result": "待回覆",
+            "record-date": "2026-09-17"
+          }
+        },
+        {
+          "id": "row.0716",
+          "values": {
+            "legacy-id": "0716",
+            "objection-reply": "有",
+            "contact-result": "已確認",
+            "record-date": "2026-09-18"
+          }
+        },
+        {
+          "id": "row.0905",
+          "values": {
+            "legacy-id": "0905",
+            "objection-reply": "",
+            "contact-result": "未接",
+            "record-date": "2026-09-18"
+          }
+        },
+        {
+          "id": "row.1013",
+          "values": {
+            "legacy-id": "1013",
+            "objection-reply": "無",
+            "contact-result": "待回覆",
+            "record-date": "2026-09-19"
+          }
+        },
+        {
+          "id": "row.1108",
+          "values": {
+            "legacy-id": "1108",
+            "objection-reply": "無",
+            "contact-result": "已確認",
+            "record-date": "2026-09-19"
+          }
+        },
+        {
+          "id": "row.1219",
+          "values": {
+            "legacy-id": "1219",
+            "objection-reply": "",
+            "contact-result": "未接",
+            "record-date": "2026-09-20"
+          }
+        }
+      ],
+      "text": {
+        "eyebrow": "IMPORT / MAPPING 06",
+        "heading": "服務銜接表欄位轉換",
+        "instruction": "將來源欄位對應到目標格式，驗證預覽後完成匯入。",
+        "policyDefault": "空白視為「未排除」，繼續匯入",
+        "policyReview": "空白保留為「待確認」，送資料覆核"
+      }
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg.day6.dept-field-map",
+      "channelId": "channel.department.data-ops",
+      "actorId": "actor.lin-yuan",
+      "time": "08:18",
+      "visibleFrom": "day.06",
+      "unlock": [],
+      "lines": [
+        "今天改做服務銜接表的欄位轉換。先完成欄位對應，再確認匯入預覽。"
+      ]
+    },
+    {
+      "id": "msg.day6.dm-field-order",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "08:27",
+      "visibleFrom": "day.06",
+      "unlock": [],
+      "lines": [
+        "舊表的欄位順序每批不一樣，照欄位說明核對，不要只看畫面左右位置。"
+      ]
+    },
+    {
+      "id": "msg.day6.box-stop",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.wu-wan-ting",
+      "time": "11:56",
+      "visibleFrom": "day.06",
+      "unlock": [],
+      "lines": [
+        "昨天那箱紙本不用找了。"
+      ]
+    },
+    {
+      "id": "msg.day6.box-closed",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.yang-zi-qian",
+      "time": "11:57",
+      "visibleFrom": "day.06",
+      "unlock": [],
+      "lines": [
+        "窗口把單關了。"
+      ]
+    },
+    {
+      "id": "msg.day6.box-found",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.wu-wan-ting",
+      "time": "11:57",
+      "visibleFrom": "day.06",
+      "unlock": [],
+      "lines": [
+        "所以是找到了？"
+      ]
+    },
+    {
+      "id": "msg.day6.box-system",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.yang-zi-qian",
+      "time": "11:58",
+      "visibleFrom": "day.06",
+      "unlock": [],
+      "lines": [
+        "沒有。系統裡結案了。"
+      ],
+      "replyPrompt": {
+        "id": "prompt.day6.closed-box",
+        "availableThrough": "day.06",
+        "choices": [
+          {
+            "id": "not-found",
+            "text": "那不算找到吧。",
+            "responses": [
+              {
+                "id": "msg.day6.reply.not-found-yang",
+                "actorId": "actor.yang-zi-qian",
+                "time": "11:59",
+                "lines": [
+                  "在紙上算。"
+                ]
+              },
+              {
+                "id": "msg.day6.reply.not-found-wu",
+                "actorId": "actor.wu-wan-ting",
+                "time": "12:00",
+                "lines": [
+                  "紙不見了，紙上倒是很清楚。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "no-more-calls",
+            "text": "至少不會再有人來問。",
+            "responses": [
+              {
+                "id": "msg.day6.reply.calls-wu",
+                "actorId": "actor.wu-wan-ting",
+                "time": "11:59",
+                "lines": [
+                  "你適應得好快。"
+                ]
+              },
+              {
+                "id": "msg.day6.reply.calls-yang",
+                "actorId": "actor.yang-zi-qian",
+                "time": "12:00",
+                "lines": [
+                  "這句也可以放進新人評語。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "ask-closer",
+            "text": "誰把單關掉的？",
+            "responses": [
+              {
+                "id": "msg.day6.reply.closer-yang",
+                "actorId": "actor.yang-zi-qian",
+                "time": "11:59",
+                "lines": [
+                  "承辦欄是共用帳號。"
+                ]
+              },
+              {
+                "id": "msg.day6.reply.closer-wu",
+                "actorId": "actor.wu-wan-ting",
+                "time": "12:00",
+                "lines": [
+                  "你看，又是一個很完整的答案。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "transition": {
+    "id": "transition.day6.end",
+    "text": {
+      "docTitle": "六日試玩結束",
+      "eyebrow": "DAY / 06 — COMPLETE",
+      "heading": "本日匯入已完成。",
+      "body": "欄位對應與處理結果已保存至本日批次。",
+      "summary": "明日工作將於到班後更新。",
+      "thanks": "感謝你的協助。",
+      "outro": "六日試玩結束",
+      "backToCover": "返回開始頁"
+    }
+  }
+}

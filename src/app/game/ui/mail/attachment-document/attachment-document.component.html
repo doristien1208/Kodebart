@@ -1,0 +1,102 @@
+@if (view(); as v) {
+  <article class="doc" [attr.aria-labelledby]="headingId" [attr.data-attachment-document]="v.state">
+    <p class="doc-banner" [attr.data-doc-state]="v.state" data-doc-banner>{{ v.banner }}</p>
+
+    <header class="doc-head">
+      <h4 class="doc-case" [id]="headingId" data-doc-case>{{ v.caseNumber }}</h4>
+      <span class="tag" data-doc-version>{{ v.versionLabel }}</span>
+    </header>
+
+    <section class="doc-section" data-doc-section="result">
+      <h5 class="doc-section-title doc-result-title" data-doc-title>{{ v.title }}</h5>
+      <dl class="doc-fields">
+        <dt>{{ checkedLabel }}</dt>
+        <dd class="font-mono" data-doc-field="checked">{{ v.checkedCode }}</dd>
+        @if (v.kind === 'returned') {
+          <dt>{{ rt.reason }}</dt>
+          <dd data-doc-field="reason">{{ v.reason }}</dd>
+        }
+        <dt>{{ t.received }}</dt>
+        <dd data-doc-field="received">{{ v.received }}</dd>
+      </dl>
+      @if (v.kind === 'resolved') {
+        <p class="doc-note" data-doc-field="resolved">{{ v.resolvedNote }}</p>
+      }
+    </section>
+
+    <div class="doc-grid">
+      <section class="doc-section" data-doc-section="original">
+        <h5 class="doc-section-title">{{ issues.sections.original }}</h5>
+        <dl class="doc-fields">
+          <dt>{{ nameLabel }}</dt>
+          <dd data-doc-field="name">{{ v.name ?? unregistered }}</dd>
+          <dt>{{ rt.source }}</dt>
+          <dd class="font-mono" data-doc-field="source">{{ v.sourceCode }}</dd>
+          <dt>{{ rt.firstSubmission }}</dt>
+          <dd class="font-mono" data-doc-field="first">{{ v.submittedCode }}</dd>
+        </dl>
+      </section>
+      <section class="doc-section" data-doc-section="review">
+        <h5 class="doc-section-title">{{ issues.sections.reviewRecord }}</h5>
+        <p class="doc-review" data-doc-field="review">{{ released }} <code>{{ v.reviewedCode }}</code></p>
+      </section>
+    </div>
+
+    @if (v.versions.length > 0) {
+      <section class="doc-section" data-doc-section="versions">
+        <h5 class="doc-section-title">{{ issues.sections.versions }}</h5>
+        <ol class="doc-versions">
+          @for (h of v.versions; track h.index) {
+            <li [attr.data-doc-version-row]="h.index" [attr.data-outcome]="h.outcome">
+              <span class="text-muted">{{ h.submission }}</span>
+              <span>{{ h.action }}</span>
+              <code>{{ h.code }}</code>
+              <span data-doc-version-result>{{ h.result }}</span>
+            </li>
+          }
+        </ol>
+      </section>
+    }
+
+    @if (editable()) {
+      <form class="doc-form" novalidate data-doc-form (submit)="$event.preventDefault()">
+        <label class="doc-label" [for]="inputId">{{ codeLabel }}</label>
+        <input
+          #codeInput
+          class="input"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          data-doc-code
+          [id]="inputId"
+          [value]="code()"
+          [readOnly]="busy()"
+          [attr.aria-invalid]="error() ? 'true' : 'false'"
+          [attr.aria-describedby]="errorId"
+          (input)="onInput($event)"
+        />
+        <p class="field-error" role="status" [id]="errorId">{{ error() }}</p>
+        <div class="doc-actions">
+          <button type="button" class="btn-primary" data-doc-action="resubmit" [disabled]="busy()" (click)="onResubmit()">
+            {{ rt.resubmit }}
+          </button>
+          <button type="button" data-doc-action="window" [disabled]="busy()" (click)="onSendToWindow()">
+            {{ rt.sendToWindow }}
+          </button>
+        </div>
+      </form>
+    } @else if (staleDraft() !== null) {
+      <div class="doc-stale" data-doc-stale>
+        <p class="doc-stale-text">{{ t.stale }}</p>
+        <dl class="doc-fields">
+          <dt>{{ codeLabel }}</dt>
+          <dd class="font-mono" data-doc-stale-value>{{ staleDraft() }}</dd>
+        </dl>
+      </div>
+    }
+
+    <app-operation-status class="doc-operation" [operation]="operation()" (retry)="onRetry()" />
+  </article>
+} @else {
+  <p class="doc-missing" role="alert" data-doc-missing>{{ t.missingAttachment }}</p>
+}

@@ -1,0 +1,26 @@
+/*
+ * 郵件應用：填滿郵件視窗的內文區；清單與閱讀區各自捲動（標題與篩選不捲走）。
+ * 寬時兩欄並列，窄時（.is-narrow）一次只顯示清單或閱讀區。
+ */
+:host { display: block; height: 100%; min-height: 0; min-width: 0; }
+
+.mail-shell {
+  display: grid;
+  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+}
+.mail-pane { min-height: 0; min-width: 0; }
+.mail-pane-list { border-right: 1px solid var(--color-border); background: var(--color-background); }
+.mail-pane-reader { display: flex; flex-direction: column; background: var(--color-background); }
+.mail-pane-reader > * { flex: 1 1 auto; min-height: 0; }
+
+.mail-placeholder { margin: 0; padding: 1rem; color: var(--color-muted); }
+
+:host(.is-narrow) .mail-shell { grid-template-columns: minmax(0, 1fr); }
+:host(.is-narrow) .mail-pane-list { border-right: 0; }
+.mail-pane.is-hidden { display: none; }
+
+.mail-failed { padding: 1rem; }

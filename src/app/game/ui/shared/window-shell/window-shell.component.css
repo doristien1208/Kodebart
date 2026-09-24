@@ -1,0 +1,91 @@
+/*
+ * 共用浮動視窗（R10 §2／R12 DESIGN）：直角、2px 外框、標題列下 1px 內線、4px 4px 0 硬陰影；內文在視窗內捲動。
+ * 只用專案 token（var(--color-*)），不發光、不做玻璃模糊。
+ */
+:host(.is-floating) {
+  position: absolute;
+  pointer-events: auto;
+  min-width: 0;
+  box-shadow: 4px 4px 0 var(--color-shade);
+}
+/* 一般浮動視窗可由右下角原生拉柄調整尺寸（尺寸回寫到視窗管理服務） */
+:host(.is-resizable) { resize: both; overflow: hidden; }
+:host(.is-fill) { inset: 0; width: auto; height: auto; box-shadow: none; }
+
+.window {
+  display: flex;
+  flex-direction: column;
+  border: 2px solid var(--color-border);
+  background: var(--color-background);
+  min-width: 0;
+}
+:host(.is-floating) .window { height: 100%; }
+:host(.is-top) .window { border-color: var(--color-muted); }
+
+.window-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: .5rem;
+  min-height: 2.75rem;
+  padding: 0 0 0 .75rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+:host(.is-top) .window-bar { background: var(--color-elevated); }
+:host(.is-floating:not(.is-fill)) .window-bar { cursor: move; touch-action: none; user-select: none; }
+.window.is-dragging .window-bar { cursor: grabbing; }
+.window-bar:focus-visible { outline: 3px solid var(--color-primary); outline-offset: -3px; }
+
+.window-title {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--color-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:host(.is-top) .window-title { color: var(--color-text); }
+
+.window-controls { display: flex; flex: none; }
+
+/* 圖示 16px、點擊範圍 44px；按鈕不觸發拖曳（見 onBarPointerDown） */
+.window-control {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+.window-control:hover:not(:disabled) { color: var(--color-text); }
+.window-control:focus-visible { outline-offset: -3px; }
+.window-icon { display: block; pointer-events: none; }
+
+.window-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: .75rem;
+}
+/* 應用主視窗：內容自行分欄與捲動（內容元件以 flex-1／min-h-0 填滿） */
+.window-body.is-app { display: flex; flex-direction: column; padding: 0; }
+.window-body:focus-visible { outline: 3px solid var(--color-primary); outline-offset: -3px; }
+
+/* 開啟／還原時的淡入：只在動態開啟時；系統減少動態由 styles.css 的全域規則停用 */
+.window.kb-motion { animation: kb-window-in 120ms cubic-bezier(.2, .7, .3, 1) both; }
+@keyframes kb-window-in { from { opacity: 0; } to { opacity: 1; } }
+
+@media (forced-colors: active) {
+  .window { border: 2px solid CanvasText; }
+  .window-bar { border-bottom: 1px solid CanvasText; }
+  .window-control { color: ButtonText; }
+}

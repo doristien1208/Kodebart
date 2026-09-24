@@ -1,0 +1,132 @@
+@let h = header();
+<header class="flex items-center gap-3 min-w-0 px-4 py-3 border-b border-border bg-surface">
+  <button type="button" class="btn-ghost thread-back shrink-0 px-2 -ml-2" (click)="back.emit()">
+    {{ t.backToList }}
+  </button>
+  @if (h.kind === 'direct') {
+    <span
+      aria-hidden="true"
+      class="inline-flex items-center justify-center size-8 shrink-0 bg-elevated border border-border text-primary text-sm font-semibold"
+      >{{ h.initial }}</span
+    >
+    <div class="min-w-0">
+      <h3 class="m-0 text-base leading-snug truncate">{{ h.title }}</h3>
+      <p class="m-0 text-sm text-muted" data-thread-status>{{ h.status }}</p>
+    </div>
+  } @else {
+    <div class="min-w-0">
+      <h3 class="m-0 text-base leading-snug truncate">
+        <span aria-hidden="true" class="font-mono text-muted mr-1">#</span>{{ h.title }}
+      </h3>
+      <p class="m-0 text-sm text-muted truncate">
+        <span data-thread-topic>{{ h.topic }}</span>
+        <span aria-hidden="true" class="mx-1.5">·</span>
+        <span data-thread-members>{{ h.members }}</span>
+      </p>
+    </div>
+  }
+</header>
+
+<div class="thread-body">
+  <div
+    #scroller
+    class="thread-scroller px-2 py-3"
+    tabindex="0"
+    role="region"
+    data-thread-scroller
+    [attr.aria-label]="h.title"
+    (scroll)="onScroll()"
+  >
+    @if (entries().length === 0) {
+      <p class="text-muted px-2 m-0">{{ t.emptyChannel }}</p>
+    }
+    <ol role="list" class="list-none p-0 m-0">
+      @for (entry of entries(); track entry.id) {
+        @if (entry.kind === 'date') {
+          <li
+            class="flex items-center gap-3 px-2 my-3 text-sm text-muted"
+            [attr.data-entry-id]="entry.id"
+            [attr.data-date-label]="entry.label"
+          >
+            <span aria-hidden="true" class="h-px flex-1 bg-border"></span>
+            <span>{{ entry.label }}</span>
+            <span aria-hidden="true" class="h-px flex-1 bg-border"></span>
+          </li>
+        } @else if (entry.kind === 'typing') {
+          <li
+            class="flex gap-3 px-2 pt-2 mt-1 pb-1 border border-transparent row-fresh"
+            [attr.data-entry-id]="entry.id"
+            [attr.data-typing]="entry.sourceId"
+          >
+            <span
+              aria-hidden="true"
+              class="inline-flex items-center justify-center size-8 shrink-0 mt-0.5 text-sm border bg-elevated text-primary border-border"
+              >{{ entry.initial }}</span
+            >
+            <p class="flex items-center gap-2 m-0 leading-snug text-sm text-muted">
+              <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+              <span>{{ t.typing(entry.author) }}</span>
+            </p>
+          </li>
+        } @else {
+          <li
+            class="flex gap-3 px-2 border"
+            [class.pt-2]="!entry.continued"
+            [class.mt-1]="!entry.continued"
+            [class.pb-1]="!entry.player"
+            [class.py-2]="entry.player"
+            [class.border-transparent]="!entry.player"
+            [class.border-border]="entry.player"
+            [class.bg-background]="entry.player"
+            [class.row-fresh]="entry.fresh"
+            [attr.data-entry-id]="entry.id"
+            [attr.data-message-id]="entry.id"
+            [attr.data-player]="entry.player ? 'true' : null"
+            [attr.data-continued]="entry.continued ? 'true' : null"
+          >
+            @if (entry.continued) {
+              <span aria-hidden="true" class="w-8 shrink-0"></span>
+            } @else {
+              <span
+                aria-hidden="true"
+                class="inline-flex items-center justify-center size-8 shrink-0 mt-0.5 text-sm border"
+                [class.bg-elevated]="!entry.player"
+                [class.text-primary]="!entry.player"
+                [class.border-border]="!entry.player"
+                [class.bg-primary]="entry.player"
+                [class.text-background]="entry.player"
+                [class.border-primary]="entry.player"
+                >{{ entry.initial }}</span
+              >
+            }
+            <div class="flex-1 min-w-0">
+              @if (entry.continued) {
+                <span class="sr-only">{{ entry.author }} {{ entry.time }}</span>
+              } @else {
+                <p class="flex items-baseline gap-2 m-0 leading-snug">
+                  <span class="text-primary" data-author>{{ entry.author }}</span>
+                  <span class="font-mono text-sm text-muted" data-time>{{ entry.time }}</span>
+                </p>
+              }
+              @for (line of entry.lines; track line.id) {
+                <p class="m-0 whitespace-pre-wrap [overflow-wrap:anywhere]" data-line>{{ line.text }}</p>
+              }
+            </div>
+          </li>
+        }
+      }
+    </ol>
+  </div>
+  @if (newBelow()) {
+    <button
+      type="button"
+      class="new-below px-3 py-1.5 text-sm"
+      data-new-below
+      [attr.aria-label]="t.newBelowAria"
+      [title]="t.newBelowAria"
+      (click)="jumpToLatest()"
+    >
+      {{ t.newBelow }}
+    </button>
+  }
+</div>

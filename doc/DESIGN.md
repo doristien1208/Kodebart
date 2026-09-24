@@ -1,7 +1,7 @@
 ---
-version: alpha
-name: KodeBart prototype
-description: 冷藍像素夜間大廳與友善的公司工作介面
+version: R12-target
+name: KodeBart desktop
+description: 冷色像素電腦桌面與正常、友善的公司應用程式
 colors:
   background: '#0b1424'
   surface: '#14253a'
@@ -12,65 +12,76 @@ colors:
   border: '#46617b'
   error: '#ffb8bc'
 typography:
-  body:
-    fontFamily: '"PingFang TC", "Microsoft JhengHei", system-ui, sans-serif'
-    fontSize: '1rem'
-    lineHeight: '1.75'
-  mono:
-    fontFamily: '"SFMono-Regular", Consolas, monospace'
-rounded:
-  DEFAULT: '0px'
-spacing:
-  panel: '1.5rem'
-  gap: '1rem'
-components:
-  button:
-    rounded: '0px'
+  body: '"Chocolate Classical Sans", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif'
+  heading: '"Saira", "Chocolate Classical Sans", "PingFang TC", sans-serif'
+  mono: '"SFMono-Regular", Consolas, "Chocolate Classical Sans", monospace'
+rounded: '0px'
 ---
 
-# KodeBart UI design reference
+# KodeBart 介面規格
 
-## Overview
+## 狀態與適用範圍
 
-試作設計，不代表完整正式設計系統。受眾為繁體中文玩家；桌機優先，手機可試玩。產品／遊戲混合：封面表現情境，工作台重視操作。記憶點是夜間接待廳右側的冷光走廊，左側清楚的遊戲標題與選單。工作台維持正常、友善的公司用語，不用故障特效預告陰謀。
+使用者已確認：封面與內部風格一致、有電腦桌面感、公司平台只是其中一個應用、可控視窗、通用郵件及黑底白字入職。本文具體配置為 Codex 本輪設計決定，交 Claude 實作後仍待試玩；不是目前畫面已符合的宣告。保留既有封面構圖與標題字體，不重新生成封面。
 
-這是新建的獨立參考稿，沒有可重用的既有元件或同專案畫面。token採runtime source ownership：HTML內`:root`為參考稿的唯一執行定義，此文件記錄相同值與用途。Angular移植由共享全域CSS接手，Tailwind僅引用變數，不各元件手抄色碼。
+## 視覺方向
 
-## Colors
+冷色像素工作電腦：直角外框、清楚像素圖示、硬邊陰影、精簡視窗標題列與桌面視窗列。公司內頁乾淨、普通、友善；不以紅色機密章、監控符號、掃描線、故障字或霓虹營造邪惡。像素風作用在框架與圖示，不把中文正文像素化。
 
-frontmatter的background、surface、elevated、primary、text、muted、border、error分別對應`--background`、`--surface`、`--elevated`、`--primary`、`--text`、`--muted`、`--border`、`--error`。primary用於焦點與主要按鈕，error僅表示輸入格式錯誤，不代表道德立場。進度與驗證狀態同時使用文字。
+桌面背景可用低對比 CSS 點陣，文件／聊天內文保持純色。沒有玻璃模糊、漂浮統計卡或裝飾 dashboard。所有入口均可操作，不做一整套假作業系統。
 
-## Typography
+## 字體與密度
 
-正文16px／1.75，次要中繼資訊14px。像素感由圖像、直角邊框與英文等寬字提供；不犧牲中文可讀性、不烘焙文字進封面。正文使用body stack，代碼用mono stack。封面中文標題可較大但不得擋住選單。
+- 正文、聊天、表單：Chocolate Classical Sans 400，16px／1.65；日期／寄件資訊 14px／1.5，不用 12px 長文。
+- 英文應用標題、視窗標題、導航：Saira 500／600，16–20px；中文回退 Chocolate Classical Sans 400。中文層級靠大小、位置與色彩，不合成粗體。不把所有按鈕放大成海報。
+- JSON、命令與識別碼：現有系統等寬字 14px／1.6；保留縮排、捲動、選取。不以非等寬標題字取代程式碼。
+- 入職：同一正文字體，18–22px，白字黑底；合約正文16px。保留引號與段落，不加 glitch。
+- 不載入 Share Tech、Smooch Sans、Titillium Web、Orbitron，避免多套字形競爭。字型 display: swap；遠端失敗仍可操作，不等待字型才進遊戲。
+- 官方參考：[Saira](https://fonts.google.com/specimen/Saira)、[Chocolate Classical Sans](https://fonts.google.com/specimen/Chocolate+Classical+Sans)。後者目前提供 regular 400，不指定不存在的粗體檔。
 
-## Layout
+## Token 所有權
 
-開始頁滿版場景，左側菜單安全區约40%。工作台有頂列、左導覽、主要作業區與右側摘要；小於900px取消右欄，小於620px轉單欄與橫向導航。文件區自然捲動；不以全頁overflow:hidden壓縮表單。間距與字級以rem支援放大。
+保留上述色碼，src/styles.css 共用 token 為實作唯一來源；元件與 Tailwind 引用，不各自複製色碼。本文件記錄目標用途，執行 token 更新後同步此處；不再以舊 HTML 原型的 :root 作準。
 
-## Elevation & Depth
+| 規則 | 用途 |
+| --- | --- |
+| background / surface / elevated | 桌面、應用內容、標題列與浮層 |
+| primary / text / muted / border | 操作焦點、主文字、次文字、邊界 |
+| error | 輸入／儲存錯誤，不是道德判斷 |
+| 4、8、12、16、24px 間距 | 圖示、控制項、表單與區段；主要內距16px |
+| 0 圓角、1px 內框、2px 視窗外框 | 統一桌面風格 |
+| 4px 4px 0 硬陰影 | 區分前後視窗，不做大光暈 |
+| 16／20px 圖示，至少44px點擊區 | 圖示精簡但可操作 |
 
-封面深度由插畫呈現。工作台以色階與邊框區分區塊，不用玻璃模糊、浮動統計卡或發光霓虹。對話框使用原生dialog的焦點隔離配合自訂樣式。
+狀態同時有文字，不只靠顏色。正文採 rem、允許縮放；全域 scrollbar 維持標準屬性與 WebKit fallback，forced-colors 尊重系統色。
 
-## Shapes
+## 桌面與資訊分工
 
-直角、1px框線；重點菜單2px。像素圖以pixelated顯示，不用CSS拼製大廳。不要以圓角膠囊、漸層大標題或儀表板KPI取代遊戲語彙。
+- 桌面提供工作平台、通訊、郵件三個入口；底部視窗列常駐，只列真的開啟／最小化視窗。首次登入自動開工作平台，可最小化回桌面。
+- 工作平台：左側單組功能導航、中央目前工作／佇列；右上顯示玩家姓名與「資料作業組」。不再雙 group、不留右側 TODAY 或固定 log 空欄。
+- 通訊：對話列表、聊天時間線、固定回覆選項。窄視窗先列表再對話，保留返回入口。日期採實際遊戲日期，不用 Day N 當聊天室名。
+- 郵件：信件列表與閱讀區；窄視窗依次呈現。主旨、寄件者、日期、正文、附件層級明確。案件待處理不等同信件未讀。
+- 文件與 terminal：桌面層獨立視窗，前者呈現固定版本／新修訂，後者呈現實際遊戲作業紀錄；兩者不占正文欄寬。
+- 桌面限定 viewport，捲動由各視窗內容區負責，標題列／視窗列不捲走。表格可橫向捲動，表單不得被表格高度裁掉。
+- 小於700px／放大後放不下時採單視窗最大化、底部切換，不強迫拖動找按鈕。還原後限制於可見範圍，提供重設位置。
 
-## Components
+## 共用元件與狀態契約
 
-共用button：主按鈕primary底深色字，次按鈕surface底text字；hover改亮，focus-visible清楚外框，disabled保留文字與邊框但減弱。最小高度44px。form及report用相同panel。
+| 介面 | 唯一責任與必要行為 |
+| --- | --- |
+| WindowShell + WindowManager | 同一套標題列、拖移、置前、最小化、最大化／還原、關閉與焦點；作用於桌面，不各頁另造 |
+| 視窗 icon | 減號、方框／雙框、叉號；繁中 aria-label、tooltip、focus-visible；按鈕不觸發拖曳 |
+| 主選單 | icon 入口＋有文字的選項；Escape 關閉並返回焦點；不加無功能設定 |
+| 郵件附件 | caseId＋receiptId＋版本；舊附件唯讀，當前退件可建立新修訂；找不到附件不誤開最新 |
+| 紅點 | 依實際送達／已讀 ID 計算，附 accessible 未讀說明，不靠路由進出推算 |
+| 提示／對話框 | 一般狀態不打斷；覆蓋存檔用既有 modal、取消優先焦點；不每次送件都多加確認 |
+| 表單 | 原生 input／radio＋label，錯誤文字及 aria-invalid；編號不驗來源相符 |
+| 前情／合約 | 前情可補完當段；合約一次顯示、明確簽名；輸入組字不推進 |
 
-Canonical UI Map：Form由共用驗證函式与欄位訊息擁有；Scrollbar由全域CSS擁有；Status由頁面固定aria-live區擁有；Modal由native dialog擁有。無日期、搜尋、多選表格或下拉選單，無需新增這些元件。
+關閉文件與切換應用保留草稿，再開啟仍檢查版本。郵件／通訊的載入中、空內容、讀取錯誤各有短文案與恢復方式，不白屏。提交中防重複，失敗保留輸入並可重試。
 
-歸檔處理使用原生radio配合可點label；輸入綁定錯誤說明與aria-invalid。提交為顯式按鈕，不以Enter全域快捷鍵送件，避免中文輸入法誤觸。返回工作區保存草稿。
+延用 log 作業節奏，不加假網路等待，也不讓每個元件都打字。前情尊重動態設定及 prefers-reduced-motion，不閃爍。新增圖像需求為零，用 SVG／CSS 完成圖示與邊框。
 
-全域scrollbar-color/width與WebKit fallback同時存在；forced-colors使用系統色。動態只有低強度菜單游標，可關閉且尊重prefers-reduced-motion。原型不附音訊。
+## 驗收邊界
 
-重開存檔使用應用對話框，預設焦點在取消，Escape取消並恢復焦點。一般歸檔不多加確認對話框；預覽後明確提交即可。狀態區說明儲存失敗、不靜默吞錯。
-
-## Do's and Don'ts
-
-- 保留真實普通同事訊息；第一天讓玩家正常完成工作。
-- 冷色像素是表現風格，不是每頁加「機密」「監控」「異常」字樣。
-- 不在玩家可見UI放實作解說、seed、幕後判定或作者的道德提示。
-- 不繪製0102的未定外觀；不靠血跡、牢籠、武器預告真相。
+Codex 本輪僅產出設計規格、內容 JSON 與原始碼覆核，未執行 build、測試或介面操作，不宣稱字型排版／響應式已驗證。Claude 實作自驗後由使用者試玩，特別檢查可讀性、視窗重疊、放大與小螢幕、中文輸入、刷新續接與紅點。無新音訊、未定角色外觀或提前暴露世界觀的裝飾。

@@ -1,0 +1,29 @@
+<div class="chat-shell border border-border bg-surface" [class.has-thread]="thread() !== null">
+  <app-channel-list
+    class="chat-list"
+    [sections]="sections()"
+    [selectedId]="selectedId()"
+    (select)="open($event)"
+  />
+  @if (thread(); as view) {
+    <div class="chat-thread">
+      <app-message-thread
+        [header]="view.header"
+        [entries]="view.entries"
+        [unreadIds]="view.unreadIds"
+        [reveal]="view.reveal"
+        (back)="closeThread()"
+        (visibleChange)="onVisible($event)"
+        (revealed)="onRevealed($event)"
+      />
+      @if (openPrompt(); as p) {
+        <app-quick-reply [promptId]="p.promptId" [choices]="p.choices" (choose)="answer($event)" (skip)="skip()" />
+      }
+    </div>
+  } @else {
+    <div class="chat-thread chat-placeholder items-center justify-center p-6 text-center">
+      <h3>{{ t.selectHeading }}</h3>
+      <p class="text-muted m-0">{{ t.selectPrompt }}</p>
+    </div>
+  }
+</div>

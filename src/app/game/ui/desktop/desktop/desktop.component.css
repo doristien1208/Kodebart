@@ -1,0 +1,27 @@
+/* 桌面（R12 §5）：整頁固定為視窗高度；捲動只發生在各視窗內容區，標題列與工作列不捲走。 */
+:host { display: flex; flex-direction: column; height: 100svh; overflow: hidden; }
+
+/* 低對比 CSS 點陣（每 16px 一個 2px 方點）；文件與聊天內文維持純色 */
+.desktop-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background-color: var(--color-background);
+  background-image: conic-gradient(at 2px 2px, transparent 75%, var(--color-surface) 0);
+  background-size: 16px 16px;
+}
+
+/* 浮動視窗圖層：覆蓋整個桌面區、自成堆疊環境；圖層本身不攔指標事件，視窗（WindowShell）才接收 */
+.window-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  isolation: isolate;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+@media (forced-colors: active) {
+  .desktop-area { background-image: none; }
+}

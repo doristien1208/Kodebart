@@ -104,19 +104,29 @@
 正式實作以純TypeScript函式處理，避免將邏輯塞入元件。
 
 ```ts
-type Phase = 'day1' | 'overnight' | 'day2' | 'end';
+type Stage = 'work' | 'wrap' | 'end';            // 通用畫面階段：工作台／日結轉場／Demo結束
 type MissingPolicy = 'default_false' | 'request_review';
 type Reply = 'ack' | 'ask' | 'review';
-interface SaveV2 {
-  version: 2;
+interface SaveV4 {
+  version: 4;
   seed: number;
-  phase: Phase;
-  archived: Record<string, { archiveCode: string; refusal: boolean | null; origin: 'source' | 'defaulted' | 'review' }>;
-  drafts: Record<string, { value: string; policy?: MissingPolicy }>;
+  dayId: string;                                  // 內容日，例如 'day.01'；由內容目錄解析，不從階段硬推
+  stage: Stage;
+  taskId: string;                                 // 當日工作，例如 'task.day1.archive'
+  batches: Record<string, {                       // 以工作批次為範圍
+    archived: Record<string, {
+      archiveCode: string;                        // 人員編號原字串，'0102' 逐字保留
+      refusal: boolean | null;
+      origin: 'source' | 'defaulted' | 'review';
+      source: { name: string | null; code: string; refusal: boolean | null; refusalApplies: boolean }; // 提交當下的來源快照
+    }>;
+    drafts: Record<string, { value: string; policy?: MissingPolicy }>;
+  }>;
   night?: { intervention: boolean; smallTalkVariant: number; reportRevision: number };
   evidence: { reportOpened: boolean; receiptOpened: boolean };
   reply?: Reply;
   events: Array<{ id: string; kind: string; payload: unknown }>;
+  readMessages: string[];                         // 已讀訊息的穩定 ID
 }
 ```
 
@@ -126,7 +136,18 @@ interface SaveV2 {
 
 本機存檔採versioned JSON，try/catch處理存取失敗，顯示可見提示並維持本次遊玩。格式不符不得默默覆蓋；提供另存／清除重新開始的明確操作。存檔包含完整當前狀態，不只保存day數字。
 
-目前格式為v2，localStorage鍵為 `kodebart-save-v2`。v1把人員編號存成整數（`0102` 會變成102），v2改存字串以逐字保留前導零，兩者不相容；因此不做自動轉換，v1存檔由schema明確拒絕並提示，而不是默默誤讀。
+目前格式為 **v4**，localStorage 鍵沿用 `kodebart-save-v2`——版本號寫在內容裡，換鍵只會讓既有進度憑空消失。
+
+版本沿革與相容性：
+
+| 版本 | 特徵 | 載入時的處理 |
+|---|---|---|
+| v1 | 人員編號存成整數（`0102` 變成 102） | 由 schema 明確拒絕並提示，不誤讀 |
+| v2 | 編號改字串；全域 `archived`／`drafts`；以 `phase` 表示流程 | 自動轉換為現行格式（歸入 Day 1 的歸檔批次，補來源快照） |
+| v3 | 歸檔以批次為範圍、加來源快照與 `readMessages`；仍用 `phase` | 自動轉換為現行格式（`phase` 拆成 `dayId`＋`stage`＋`taskId`） |
+| v4 | `dayId`＋通用 `stage`＋`taskId`；新增日別只需增加內容檔 | 現行格式；轉換結果必須通過驗證才採用 |
+
+驗證以存檔自己的 `dayId` 查內容目錄：拒絕 dayId／stage／taskId／批次互相矛盾的資料，也拒絕目前批次中不存在的紀錄鍵；歷史批次只驗結構與快照，不拿新版內容覆寫。
 
 ## 7. 驗收條件
 

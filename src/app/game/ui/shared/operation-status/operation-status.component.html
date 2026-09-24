@@ -1,0 +1,28 @@
+<div role="status" [attr.aria-label]="t.ariaLabel" data-operation-status>
+  @if (operation(); as op) {
+    <ol class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm list-none p-0 m-0" [attr.data-operation-stage]="op.stage">
+      @for (step of steps(); track $index) {
+        <li
+          class="flex items-center gap-2"
+          [class.text-muted]="!step.current"
+          [class.text-error]="step.current && step.stage === 'failed'"
+          [class.font-semibold]="step.current"
+          [attr.aria-current]="step.current ? 'step' : null"
+        >
+          @if ($index > 0) {
+            <span aria-hidden="true" class="inline-block w-2.5 h-px bg-border"></span>
+          }
+          <span>{{ step.label }}</span>
+        </li>
+      }
+    </ol>
+    @if (failed()) {
+      <div class="flex flex-wrap items-center gap-2.5 mt-2">
+        <p class="text-sm text-muted mb-0" data-operation-hint>{{ rejected() ? t.rejectedHint : t.failedHint }}</p>
+        @if (canRetry()) {
+          <button type="button" class="text-sm py-1.5 px-3 min-h-9" (click)="retry.emit()">{{ t.retry }}</button>
+        }
+      </div>
+    }
+  }
+</div>

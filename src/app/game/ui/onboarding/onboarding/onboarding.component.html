@@ -1,0 +1,18 @@
+<div class="onboarding" data-onboarding>
+  <!-- 常駐 live region：換段與登入時播報完整文字（畫面上的逐字文字對輔助技術隱藏） -->
+  <p class="sr-only" aria-live="polite" data-onboarding-announce>{{ announcement() }}</p>
+  @for (line of lineStep(); track line.id) {
+    <app-onboarding-line
+      [text]="line.text"
+      [intervalMs]="presentation.characterIntervalMs"
+      [animate]="animate()"
+      (advance)="onLineAdvance()"
+    />
+  }
+  @if (contractStep(); as contract) {
+    <app-onboarding-contract [step]="contract" />
+  }
+  @if (showLogin()) {
+    <p class="login" aria-hidden="true" data-onboarding-login>{{ loginText() }}</p>
+  }
+</div>

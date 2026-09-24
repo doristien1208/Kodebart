@@ -1,0 +1,8 @@
+@if (count() > 0) {
+  <span
+    aria-hidden="true"
+    class="inline-flex items-center justify-center shrink-0 min-w-5 h-5 px-1 rounded-[9999px] bg-error text-background font-mono text-xs leading-none"
+    >{{ count() }}</span
+  >
+  <span class="sr-only">{{ label() }}</span>
+}

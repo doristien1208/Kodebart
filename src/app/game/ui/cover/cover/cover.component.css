@@ -1,0 +1,49 @@
+/* 對應原型 .cover-shade：左→右暗色漸層；手機改整片半透明 */
+.cover-shade {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-shade) 84%, transparent),
+    color-mix(in srgb, var(--color-shade) 30%, transparent) 46%,
+    transparent 75%
+  );
+}
+.subtitle {
+  font-size: clamp(.8rem, 1.25vw, 1rem);
+  line-height: 1.8;
+  letter-spacing: .27em;
+}
+.cover-menu button {
+  padding: .7rem 1rem;
+  letter-spacing: .12em;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-background) 67%, transparent);
+}
+.cover-menu button:first-child {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-elevated) 85%, transparent);
+}
+/* 元件樣式不在 @layer 內，會壓過全域 base 的 hover，故在此重申 */
+.cover-menu button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-elevated);
+}
+/* 未停用按鈕前有「›」游標（低強度脈動）；停用按鈕以同寬空白佔位 */
+.cover-menu button::before {
+  content: ' ';
+  display: inline-block;
+  width: 2rem;
+}
+.cover-menu button:not(:disabled)::before {
+  content: '›';
+  color: var(--color-primary);
+  animation: kb-pulse 3s steps(2, end) infinite;
+}
+:host-context(body.no-motion) .cover-menu button::before { animation: none; }
+@media (max-width: 699.98px) {
+  .cover-shade {
+    background: color-mix(in srgb, var(--color-shade) 65%, transparent);
+  }
+}
+@media (forced-colors: active) {
+  .cover-shade { background: Canvas; }
+}

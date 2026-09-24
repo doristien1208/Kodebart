@@ -1,0 +1,67 @@
+/*
+ * 閱讀區：主旨（最大字）→ 寄件資訊（14px）→ 正文（16px／1.65）→ 附件。
+ * 只用專案 token；直角；中文層級靠大小與色彩，不合成粗體。
+ */
+:host { min-height: 0; min-width: 0; }
+
+.mail-reader { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
+.mail-reader-back { flex: none; padding: .5rem .75rem; border-bottom: 1px solid var(--color-border); }
+.mail-back { min-height: 2.75rem; padding: .25rem .75rem; font-size: .875rem; }
+
+.mail-reader-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 1rem;
+}
+
+.mail-subject {
+  margin: 0 0 .75rem;
+  font-size: 1.25rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+.mail-subject:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
+
+.mail-meta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: .125rem 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: .75rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: .875rem;
+  line-height: 1.5;
+}
+.mail-meta dt { color: var(--color-muted); }
+
+.mail-text { font-size: 1rem; line-height: 1.65; }
+.mail-text p { margin: 0 0 .75rem; overflow-wrap: anywhere; }
+
+.mail-attachments { margin-top: 1.25rem; padding-top: .75rem; border-top: 1px solid var(--color-border); }
+.mail-attachments-title { margin: 0 0 .5rem; font-size: .875rem; font-weight: 400; line-height: 1.5; color: var(--color-muted); }
+.mail-attachment-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.mail-attachment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem 1rem;
+  padding: .75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.mail-attachment[data-attachment-state='current'] { border-left: 4px solid var(--color-primary); }
+.mail-attachment-label { margin: 0; font-family: var(--font-mono); font-size: .875rem; line-height: 1.6; overflow-wrap: anywhere; }
+.mail-attachment-state { margin: 0; font-size: .875rem; line-height: 1.5; color: var(--color-muted); }
+.mail-attachment[data-attachment-state='current'] .mail-attachment-state { color: var(--color-primary); }
+.mail-attachment[data-attachment-state='missing'] .mail-attachment-state { color: var(--color-error); }
+.mail-attachment-open { min-height: 2.75rem; padding: .25rem .75rem; font-size: .875rem; }
+
+@media (forced-colors: active) {
+  .mail-attachment { border: 1px solid CanvasText; }
+}

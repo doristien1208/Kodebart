@@ -1,0 +1,76 @@
+{
+  "id": "onboarding.first-arrival",
+  "schemaVersion": 1,
+  "presentation": {
+    "background": "#000000",
+    "foreground": "#ffffff",
+    "characterIntervalMs": 40,
+    "advance": "reveal-current-then-next",
+    "reducedMotion": "show-current-step"
+  },
+  "steps": [
+    {
+      "id": "offer",
+      "kind": "line",
+      "text": "「恭喜你通過面試。」"
+    },
+    {
+      "id": "letter",
+      "kind": "line",
+      "text": "那天，我在信箱裡收到了等候已久的錄取通知。"
+    },
+    {
+      "id": "company",
+      "kind": "line",
+      "text": "寄件者是柯迪巴特——那間我一直希望能進去的大公司。"
+    },
+    {
+      "id": "arrival",
+      "kind": "line",
+      "text": "一個月後，我搬到了這座城市，按約定的時間來到公司報到。"
+    },
+    {
+      "id": "welcome",
+      "kind": "line",
+      "text": "“Welcome to KodeBart.”"
+    },
+    {
+      "id": "contract",
+      "kind": "contract",
+      "heading": "現在，請閱讀以下合約內容。",
+      "clauses": [
+        "一、請遵守工作守則，配合作業。",
+        "二、請勿進入未獲授權的限制區域。",
+        "三、請勿將機密資料攜出公司。"
+      ],
+      "footer": "……其餘條款略。",
+      "signature": {
+        "label": "若同意以上內容，請在下方簽名。",
+        "placeholder": "你的名字",
+        "submit": "同意並簽名",
+        "required": "請填寫你的名字。",
+        "tooLong": "名字請控制在 24 個字以內。",
+        "maxGraphemes": 24
+      }
+    },
+    {
+      "id": "signed",
+      "kind": "line",
+      "text": "“Welcome to KodeBart.”"
+    },
+    {
+      "id": "workday",
+      "kind": "line",
+      "text": "「祝你度過快樂的工作天。」"
+    }
+  ],
+  "ui": {
+    "continue": "點擊畫面或按 Enter 繼續",
+    "reveal": "點擊可顯示完整文字",
+    "signing": "正在保存簽名…",
+    "saveFailed": "簽名尚未保存，請再試一次。",
+    "retry": "重試",
+    "loggingIn": "正在登入，{playerName}。",
+    "legacyPlayerName": "員工"
+  }
+}

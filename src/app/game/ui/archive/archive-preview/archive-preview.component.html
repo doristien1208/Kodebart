@@ -1,0 +1,15 @@
+<div class="preview">
+  <p class="text-sm">{{ t.previewOk }}</p>
+  <h4 class="font-semibold mb-2">{{ t.previewHeading }}</h4>
+  <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm" data-archive-summary>
+    <dt class="text-muted">{{ t.previewCode }}</dt>
+    <dd class="font-mono" data-summary="code">{{ summary().code }}</dd>
+    <dt class="text-muted">{{ t.previewStatus }}</dt>
+    <dd data-summary="status">{{ summary().status }}</dd>
+    <dt class="text-muted">{{ t.previewDestination }}</dt>
+    <dd data-summary="destination">{{ summary().destination }}</dd>
+  </dl>
+  <div class="flex gap-2.5 items-center flex-wrap mt-5">
+    <button type="button" class="btn-primary" [disabled]="busy()" (click)="confirm.emit()">{{ t.confirm }}</button>
+  </div>
+</div>

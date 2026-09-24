@@ -1,0 +1,8 @@
+<div class="desktop-taskbar" data-desktop-taskbar>
+  <app-main-menu />
+  <app-window-taskbar class="taskbar-windows" />
+  <div class="taskbar-status">
+    <span class="sr-only">{{ ui.statusLabel }}</span>
+    <span class="truncate min-w-0" role="status" aria-live="polite" data-desktop-status>{{ game.statusText() }}</span>
+  </div>
+</div>

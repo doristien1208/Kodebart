@@ -1,0 +1,339 @@
+{
+  "id": "day.04",
+  "day": 4,
+  "nextDayId": "day.05",
+  "chatDateLabel": "9 月 18 日",
+  "workbench": {
+    "greeting": "早安，補充批次已排入今日佇列。",
+    "workHeading": "今日工作"
+  },
+  "aside": {
+    "heading": "資料整理",
+    "body": "本批包含已附欄位與待補欄位；請以每筆來源資料為準。"
+  },
+  "note": "code 一律為字串，前導零不得消失。無姓名者畫面顯示「未登記」。共同介面字串在 ui.zh-Hant.json 的 archive。午休群組的 review-returned／review-name／review-mood（cond.review.any）與 quick-praise／green-number（cond.review.none）以 batch.day03.archive 是否有 origin=review 互斥；吳婉庭的三則私訊依 Day 3 午餐回覆（cond.chat.day3.lunch-plan.*）至多出現一則。",
+  "records": [
+    {
+      "id": "record.day4-h233",
+      "key": "H233",
+      "name": "楊以安",
+      "code": "H-233",
+      "refusal": null,
+      "refusalApplies": false
+    },
+    {
+      "id": "record.day4-h240",
+      "key": "H240",
+      "name": "謝宗翰",
+      "code": "H-240",
+      "refusal": null,
+      "refusalApplies": false
+    },
+    {
+      "id": "record.day4-b716",
+      "key": "B716",
+      "name": null,
+      "code": "0716",
+      "refusal": null,
+      "refusalApplies": true
+    },
+    {
+      "id": "record.day4-b731",
+      "key": "B731",
+      "name": null,
+      "code": "0731",
+      "refusal": false,
+      "refusalApplies": true
+    },
+    {
+      "id": "record.day4-b842",
+      "key": "B842",
+      "name": null,
+      "code": "0842",
+      "refusal": true,
+      "refusalApplies": true
+    },
+    {
+      "id": "record.day4-b905",
+      "key": "B905",
+      "name": null,
+      "code": "0905",
+      "refusal": null,
+      "refusalApplies": true
+    }
+  ],
+  "documents": [],
+  "tasks": [
+    {
+      "id": "task.day4.archive",
+      "kind": "archive",
+      "batchId": "batch.day04.archive",
+      "recordIds": [
+        "record.day4-h233",
+        "record.day4-h240",
+        "record.day4-b716",
+        "record.day4-b731",
+        "record.day4-b842",
+        "record.day4-b905"
+      ],
+      "documentIds": [],
+      "text": {
+        "eyebrow": "ARCHIVE / BATCH 04",
+        "heading": "補充資料歸檔",
+        "instruction": "請核對補充資料的人員編號與欄位狀態。"
+      }
+    },
+    {
+      "id": "task.day4.return-review",
+      "kind": "return-review",
+      "auditId": "day1-code-audit",
+      "recordIds": [],
+      "documentIds": [],
+      "text": {
+        "eyebrow": "RETURN / REVIEW 04"
+      }
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg.day4.dept-report",
+      "channelId": "channel.department.data-ops",
+      "actorId": "actor.yang-zi-qian",
+      "time": "08:15",
+      "visibleFrom": "day.04",
+      "unlock": [],
+      "lines": [
+        "昨天的處理量已經併進本週報表。今天批次格式一樣。"
+      ]
+    },
+    {
+      "id": "msg.day4.dm-lunch-join",
+      "channelId": "channel.dm.wu-wan-ting",
+      "actorId": "actor.wu-wan-ting",
+      "time": "09:07",
+      "visibleFrom": "day.04",
+      "unlock": [
+        "cond.chat.day3.lunch-plan.join"
+      ],
+      "lines": [
+        "昨天午餐的 85 我晚點再跟你收，先記著。"
+      ]
+    },
+    {
+      "id": "msg.day4.dm-lunch-floor",
+      "channelId": "channel.dm.wu-wan-ting",
+      "actorId": "actor.wu-wan-ting",
+      "time": "09:07",
+      "visibleFrom": "day.04",
+      "unlock": [
+        "cond.chat.day3.lunch-plan.ask-floor"
+      ],
+      "lines": [
+        "七樓今天恢復收外送了。楊子謙說這不構成反證。"
+      ]
+    },
+    {
+      "id": "msg.day4.dm-lunch-own",
+      "channelId": "channel.dm.wu-wan-ting",
+      "actorId": "actor.wu-wan-ting",
+      "time": "09:07",
+      "visibleFrom": "day.04",
+      "unlock": [
+        "cond.chat.day3.lunch-plan.brought-own"
+      ],
+      "lines": [
+        "你今天也有帶嗎？我正在認真考慮改過自新。"
+      ]
+    },
+    {
+      "id": "msg.day4.review-returned",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.wu-wan-ting",
+      "time": "10:51",
+      "visibleFrom": "day.04",
+      "unlock": [
+        "cond.review.any.batch.day03.archive"
+      ],
+      "lines": [
+        "昨天送覆核的幾筆，早上又回到佇列了。"
+      ]
+    },
+    {
+      "id": "msg.day4.review-name",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.yang-zi-qian",
+      "time": "10:52",
+      "visibleFrom": "day.04",
+      "unlock": [
+        "cond.review.any.batch.day03.archive"
+      ],
+      "lines": [
+        "窗口說這叫「等待補件」，不是退件。"
+      ]
+    },
+    {
+      "id": "msg.day4.review-mood",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.wu-wan-ting",
+      "time": "10:53",
+      "visibleFrom": "day.04",
+      "unlock": [
+        "cond.review.any.batch.day03.archive"
+      ],
+      "lines": [
+        "換個名字，心情有比較好嗎？"
+      ],
+      "replyPrompt": {
+        "id": "prompt.day4.review-returned",
+        "availableThrough": "day.04",
+        "choices": [
+          {
+            "id": "ask-useful",
+            "text": "那送覆核有用嗎？",
+            "responses": [
+              {
+                "id": "msg.day4.reply.useful-yang",
+                "actorId": "actor.yang-zi-qian",
+                "time": "10:54",
+                "lines": [
+                  "有。至少原欄位還留著。"
+                ]
+              },
+              {
+                "id": "msg.day4.reply.useful-lin",
+                "actorId": "actor.lin-yuan",
+                "time": "10:55",
+                "lines": [
+                  "把你看到的來源留在紀錄裡就好。窗口怎麼處理是下一段流程。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "follow-rules",
+            "text": "我今天還是照規則做。",
+            "responses": [
+              {
+                "id": "msg.day4.reply.rules-lin",
+                "actorId": "actor.lin-yuan",
+                "time": "10:54",
+                "lines": [
+                  "嗯。今天的批次照來源做，退回來的由窗口再整理。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "msg.day4.quick-praise",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.wu-wan-ting",
+      "time": "10:51",
+      "visibleFrom": "day.04",
+      "unlock": [
+        "cond.review.none.batch.day03.archive"
+      ],
+      "lines": [
+        "昨天那批結得很快，主管剛在大群稱讚進度。"
+      ]
+    },
+    {
+      "id": "msg.day4.green-number",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.yang-zi-qian",
+      "time": "10:52",
+      "visibleFrom": "day.04",
+      "unlock": [
+        "cond.review.none.batch.day03.archive"
+      ],
+      "lines": [
+        "恭喜，你現在是報表上的綠色數字。"
+      ],
+      "replyPrompt": {
+        "id": "prompt.day4.quick-close",
+        "availableThrough": "day.04",
+        "choices": [
+          {
+            "id": "is-praise",
+            "text": "這算稱讚嗎？",
+            "responses": [
+              {
+                "id": "msg.day4.reply.praise-wu",
+                "actorId": "actor.wu-wan-ting",
+                "time": "10:53",
+                "lines": [
+                  "在這裡，綠色通常都算。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "ask-where",
+            "text": "那些資料後來去哪裡？",
+            "responses": [
+              {
+                "id": "msg.day4.reply.where-yang",
+                "actorId": "actor.yang-zi-qian",
+                "time": "10:53",
+                "lines": [
+                  "下一個系統。名字常換，資料不太會消失。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "msg.day4.h204.registry",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "09:21",
+      "visibleFrom": "day.04",
+      "unlock": [
+        "cond.case.day3.h204.registry"
+      ],
+      "lines": [
+        "昨天黃品蓉那張補件，窗口說會再核一下。我看原表跟補件都還在附件裡，先不用重做。"
+      ]
+    },
+    {
+      "id": "msg.day4.h204.supplement",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "09:21",
+      "visibleFrom": "day.04",
+      "unlock": [
+        "cond.case.day3.h204.supplement"
+      ],
+      "lines": [
+        "昨天黃品蓉那筆先照補件送出了，原表也留在附件。窗口如果回問，我再轉給你。"
+      ]
+    },
+    {
+      "id": "msg.day4.h204.review",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "09:21",
+      "visibleFrom": "day.04",
+      "unlock": [
+        "cond.case.day3.h204.review"
+      ],
+      "lines": [
+        "昨天那筆待查件窗口收到了，還沒回哪個編號要用。先放著，我有消息再跟你說。"
+      ]
+    }
+  ],
+  "transition": {
+    "id": "transition.day4.wrap",
+    "text": {
+      "docTitle": "第四日交接完成",
+      "eyebrow": "DAY / 04 — COMPLETE",
+      "heading": "本日批次已完成。",
+      "body": "今日資料已完成交接。下一個工作日見。",
+      "backToCover": "返回開始頁"
+    }
+  }
+}

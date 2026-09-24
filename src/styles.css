@@ -18,9 +18,15 @@
   --color-error: #ffb8bc;
   --color-shade: #060f1d;
 
+  /* 字體（DESIGN typography）：正文 Chocolate Classical Sans 400、標題／視窗標題／導航 Saira 500／600、
+     程式碼與識別碼用系統等寬字。字型由 index.html 非阻塞載入，失敗時落到系統字。 */
   --font-*: initial;
-  --font-body: 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
-  --font-mono: 'SFMono-Regular', Consolas, monospace;
+  --font-body: 'Chocolate Classical Sans', 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
+  --font-heading: 'Saira', 'Chocolate Classical Sans', 'PingFang TC', sans-serif;
+  /* ui-monospace／Menlo：macOS 的 Chrome 沒有 SFMono-Regular 時仍用系統等寬字（中文再回退 Chocolate Classical Sans） */
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Chocolate Classical Sans', monospace;
+  /* 封面標題維持既有字體（保留已核准封面，不改用 Saira／Chocolate Classical Sans） */
+  --font-cover: 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
   --default-font-family: var(--font-body);
   --default-mono-font-family: var(--font-mono);
 
@@ -30,7 +36,7 @@
   --spacing-panel: 1.5rem;
   --spacing-gap: 1rem;
 
-  /* md：單欄 ↔ 雙欄／橫向導航；xl：顯示右側摘要欄（對應原型 700px／1100px） */
+  /* md：單欄 ↔ 雙欄（亦是桌面小螢幕單窗模式的界線）；xl：寬螢幕多欄（佇列三欄、映射並排） */
   --breakpoint-md: 700px;
   --breakpoint-xl: 1100px;
 }
@@ -46,14 +52,19 @@
   *::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
   *::-webkit-scrollbar-thumb:active { background: var(--color-primary); }
 
-  html { font-family: var(--font-body); }
+  /* 中文只有 400 字重：不合成粗體，層級靠大小、位置與色彩（DESIGN） */
+  html { font-family: var(--font-body); font-synthesis-weight: none; }
   body {
     margin: 0;
     background: var(--color-background);
     color: var(--color-text);
     font-size: 1rem;
-    line-height: 1.75;
+    line-height: 1.65;
   }
+
+  /* 標題用 Saira 500／600（英數字）；中文回退 Chocolate Classical Sans 400 */
+  h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: 600; }
+  app-cover-title h1 { font-family: var(--font-cover); font-weight: 400; }
 
   /* 還原原型仰賴的 UA 下邊距節奏（Tailwind preflight 會歸零） */
   h1 { margin: 0 0 .67em; }
@@ -143,7 +154,6 @@
 
   .receipt-cell { padding: 1rem; background: var(--color-background); border: 1px solid var(--color-border); }
 
-  .status-bar { min-height: 1.8rem; padding: .35rem 2rem; color: var(--color-muted); background: var(--color-background); border-top: 1px solid var(--color-border); font-size: .8rem; }
   .count { font-family: var(--font-mono); font-size: 3rem; color: var(--color-primary); }
 
   .transition-screen { min-height: 100svh; display: grid; place-items: center; padding: 2rem; background: var(--color-background); }
@@ -153,23 +163,23 @@
   body.no-motion .motion-pulse { animation: none; }
 
   /*
-   * 畫面層級過渡（封面 ↔ 工作台、Day 1 結束、前往 Day 2、返回封面）。
+   * 畫面層級過渡（封面 ↔ 桌面、日結、次日收件、返回封面）。
    * 路由元件的 host 在切換時會重新插入 DOM，CSS 動畫因此自動播放一次；
    * 只動 opacity，不影響版面也不會造成橫向溢出。
-   * app-workbench 自己的元件樣式已設 display:block，其餘在此補上。
+   * app-desktop 自己的元件樣式已設 display:flex，其餘在此補上。
    */
   app-cover,
   app-overnight,
   app-end { display: block; }
 
   app-cover,
-  app-workbench,
+  app-desktop,
   app-overnight,
   app-end { animation: kb-screen-in 280ms cubic-bezier(.2, .7, .3, 1) both; }
 
   /* 遊戲內關閉動態；系統 prefers-reduced-motion 由檔案末的全域規則涵蓋 */
   body.no-motion app-cover,
-  body.no-motion app-workbench,
+  body.no-motion app-desktop,
   body.no-motion app-overnight,
   body.no-motion app-end { animation: none; }
 }

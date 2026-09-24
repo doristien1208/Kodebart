@@ -1,16 +1,51 @@
 {
   "id": "day.02",
   "day": 2,
+  "nextDayId": "day.03",
+  "chatDateLabel": "9 月 16 日",
   "workbench": {
     "greeting": "早安，昨日資料已完成交接。",
-    "workHeading": "批次摘要核對"
+    "workHeading": "今日工作"
   },
   "aside": {
-    "heading": "摘要交接",
-    "body": "核對昨日批次，回覆後完成本日交接。"
+    "heading": "今日工作",
+    "body": "先核對昨日摘要，再處理今日新件。"
   },
-  "note": "Day 2 不送入新的來源紀錄；引用的是 day-01 的既有紀錄。",
-  "records": [],
+  "note": "Day 2 先核對 day-01 原批次，之後處理本日新件；新批次不得改動原摘要與四格結果。",
+  "records": [
+    {
+      "id": "record.day2-h31",
+      "key": "H31",
+      "name": "邱怡珊",
+      "code": "H-31",
+      "refusal": null,
+      "refusalApplies": false
+    },
+    {
+      "id": "record.day2-h32",
+      "key": "H32",
+      "name": "方宗翰",
+      "code": "H-32",
+      "refusal": null,
+      "refusalApplies": false
+    },
+    {
+      "id": "record.day2-h33",
+      "key": "H33",
+      "name": "洪妍希",
+      "code": "H-33",
+      "refusal": null,
+      "refusalApplies": false
+    },
+    {
+      "id": "record.day2-h34",
+      "key": "H34",
+      "name": "江祐廷",
+      "code": "H-34",
+      "refusal": null,
+      "refusalApplies": false
+    }
+  ],
   "documents": [
     {
       "id": "doc.day2.summary",
@@ -22,6 +57,7 @@
       "text": {
         "heading": "自願參與安排摘要",
         "versionTemplate": "版本 {revision}",
+        "versionNeutral": "版本 彙整中",
         "sourceTemplate": "來源：{origin} · 批次 01",
         "sourceOrigin": {
           "intervention": "夜間校驗",
@@ -53,6 +89,8 @@
     {
       "id": "task.day2.reconcile",
       "kind": "reconcile",
+      "sourceBatchId": "batch.day01.archive",
+      "subjectRecordId": "record.b102",
       "recordIds": [
         "record.b102",
         "record.b607"
@@ -86,9 +124,31 @@
             "ask": "摘要依有效欄位自動彙整；未列入者待資料齊備後續辦。",
             "review": "已收到附件，將併入下次覆核。"
           },
-          "back": "返回核對",
-          "finish": "完成本日交接"
+          "back": "返回核對"
         }
+      },
+      "returnAudit": {
+        "id": "day1-code-audit",
+        "notifyDayId": "day.03",
+        "reviewTaskId": "task.day4.return-review",
+        "caseNumberTemplate": "RT-{key}"
+      }
+    },
+    {
+      "id": "task.day2.archive",
+      "kind": "archive",
+      "batchId": "batch.day02.archive",
+      "recordIds": [
+        "record.day2-h31",
+        "record.day2-h32",
+        "record.day2-h33",
+        "record.day2-h34"
+      ],
+      "documentIds": [],
+      "text": {
+        "eyebrow": "ARCHIVE / BATCH 03",
+        "heading": "今日新件歸檔",
+        "instruction": "摘要核對完成後，請依來源資料核對這批新件的人員編號。"
       }
     }
   ],
@@ -98,20 +158,19 @@
       "channelId": "channel.dm.lin-yuan",
       "actorId": "actor.lin-yuan",
       "time": "08:42",
-      "unlock": [
-        "cond.day.2"
-      ],
+      "visibleFrom": "day.02",
+      "unlock": [],
       "lines": [
-        "昨天那批已經收到。今天核對完摘要就可以交接了。"
+        "昨天那批已經收到。今天先核對摘要，晚點還有一批新件。"
       ]
     },
     {
       "id": "msg.day2.smalltalk-printer",
       "channelId": "channel.dm.lin-yuan",
       "actorId": "actor.lin-yuan",
-      "time": "08:42",
+      "time": "08:43",
+      "visibleFrom": "day.02",
       "unlock": [
-        "cond.day.2",
         "cond.night.smalltalk.0"
       ],
       "variant": {
@@ -119,16 +178,16 @@
         "value": 0
       },
       "lines": [
-        "對了，窗邊那台印表機有時候要多等一下。"
+        "對了，窗邊那台印表機有時候要多等一下。它不是壞掉，只是很有自己的步調。"
       ]
     },
     {
       "id": "msg.day2.smalltalk-tea",
       "channelId": "channel.dm.lin-yuan",
       "actorId": "actor.lin-yuan",
-      "time": "08:42",
+      "time": "08:43",
+      "visibleFrom": "day.02",
       "unlock": [
-        "cond.day.2",
         "cond.night.smalltalk.1"
       ],
       "variant": {
@@ -136,24 +195,62 @@
         "value": 1
       },
       "lines": [
-        "茶水間補了新的茶包，有空可以去拿。"
+        "茶水間補了新的茶包。紙盒上寫高山茶，喝起來比較像熱水，但至少是熱的。"
       ]
+    },
+    {
+      "id": "msg.day2.check-in",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "08:44",
+      "visibleFrom": "day.02",
+      "unlock": [],
+      "lines": [
+        "昨天第一天還習慣嗎？"
+      ],
+      "replyPrompt": {
+        "id": "prompt.day2.check-in",
+        "availableThrough": "day.02",
+        "choices": [
+          {
+            "id": "complicated",
+            "text": "還可以，系統比我想的複雜。",
+            "responses": [
+              {
+                "id": "msg.day2.reply.complicated",
+                "actorId": "actor.lin-yuan",
+                "time": "08:45",
+                "lines": [
+                  "第一週都這樣。看到不確定的先別自己補理由，留著來源就好。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "checking-summary",
+            "text": "我還在看昨天的摘要。",
+            "responses": [
+              {
+                "id": "msg.day2.reply.summary",
+                "actorId": "actor.lin-yuan",
+                "time": "08:45",
+                "lines": [
+                  "慢慢看。你昨天送出的副本還在工作頁裡，可以一起對。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "transition": {
-    "id": "transition.day2.end",
+    "id": "transition.day2.wrap",
     "text": {
-      "docTitle": "兩日試玩結束",
+      "docTitle": "第二日交接完成",
       "eyebrow": "DAY / 02 — COMPLETE",
       "heading": "本日交接完成。",
       "body": "明日工作將於到班後更新。",
-      "outcome": {
-        "ack": "摘要收件紀錄已保存。",
-        "ask": "彙整依據的回覆已留存。",
-        "review": "你的覆核請求已登記。"
-      },
-      "thanks": "感謝你的協助。",
-      "outro": "兩日試玩結束",
       "backToCover": "返回開始頁"
     }
   }

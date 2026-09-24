@@ -1,0 +1,18 @@
+<div class="taskbar" role="group" [attr.aria-label]="ui.taskbarLabel" data-window-taskbar>
+  <ul class="taskbar-list">
+    @for (item of items(); track item.id) {
+      <li class="min-w-0">
+        <button
+          type="button"
+          class="taskbar-item"
+          [class.is-shown]="item.shown"
+          [attr.aria-pressed]="item.shown"
+          [attr.data-taskbar-window]="item.id"
+          (click)="toggle(item.id)"
+        >
+          <span class="truncate">{{ item.title }}</span>
+        </button>
+      </li>
+    }
+  </ul>
+</div>

@@ -1,0 +1,233 @@
+{
+  "id": "day.05",
+  "day": 5,
+  "nextDayId": "day.06",
+  "chatDateLabel": "9 月 19 日",
+  "workbench": {
+    "greeting": "早安，本週最後一批舊檔已送達。",
+    "workHeading": "今日工作"
+  },
+  "aside": {
+    "heading": "資料整理",
+    "body": "請在今日交接前完成本批資料；系統維護不影響已保存的草稿。"
+  },
+  "note": "code 一律為字串，前導零不得消失。無姓名者畫面顯示「未登記」。共同介面字串在 ui.zh-Hant.json 的 archive。",
+  "records": [
+    {
+      "id": "record.day5-h251",
+      "key": "H251",
+      "name": "沈若庭",
+      "code": "H-251",
+      "refusal": null,
+      "refusalApplies": false
+    },
+    {
+      "id": "record.day5-h267",
+      "key": "H267",
+      "name": "江柏宇",
+      "code": "H-267",
+      "refusal": null,
+      "refusalApplies": false
+    },
+    {
+      "id": "record.day5-b1013",
+      "key": "B1013",
+      "name": null,
+      "code": "1013",
+      "refusal": null,
+      "refusalApplies": true
+    },
+    {
+      "id": "record.day5-b1044",
+      "key": "B1044",
+      "name": null,
+      "code": "1044",
+      "refusal": true,
+      "refusalApplies": true
+    },
+    {
+      "id": "record.day5-b1108",
+      "key": "B1108",
+      "name": null,
+      "code": "1108",
+      "refusal": null,
+      "refusalApplies": true
+    },
+    {
+      "id": "record.day5-b1160",
+      "key": "B1160",
+      "name": null,
+      "code": "1160",
+      "refusal": false,
+      "refusalApplies": true
+    },
+    {
+      "id": "record.day5-b1202",
+      "key": "B1202",
+      "name": null,
+      "code": "1202",
+      "refusal": true,
+      "refusalApplies": true
+    },
+    {
+      "id": "record.day5-b1219",
+      "key": "B1219",
+      "name": null,
+      "code": "1219",
+      "refusal": null,
+      "refusalApplies": true
+    }
+  ],
+  "documents": [],
+  "tasks": [
+    {
+      "id": "task.day5.archive",
+      "kind": "archive",
+      "batchId": "batch.day05.archive",
+      "recordIds": [
+        "record.day5-h251",
+        "record.day5-h267",
+        "record.day5-b1013",
+        "record.day5-b1044",
+        "record.day5-b1108",
+        "record.day5-b1160",
+        "record.day5-b1202",
+        "record.day5-b1219"
+      ],
+      "documentIds": [],
+      "text": {
+        "eyebrow": "ARCHIVE / BATCH 05",
+        "heading": "週末批次歸檔",
+        "instruction": "請依來源逐筆完成核對；已提交的紀錄將鎖定。"
+      }
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg.day5.dept-maintenance",
+      "channelId": "channel.department.data-ops",
+      "actorId": "actor.lin-yuan",
+      "time": "08:31",
+      "visibleFrom": "day.05",
+      "unlock": [],
+      "lines": [
+        "下午會做例行維護，請在下班前完成交接。"
+      ]
+    },
+    {
+      "id": "msg.day5.box-question",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.wu-wan-ting",
+      "time": "12:06",
+      "visibleFrom": "day.05",
+      "unlock": [],
+      "lines": [
+        "樓上昨天是不是少了一箱紙本？剛剛又打來問。"
+      ]
+    },
+    {
+      "id": "msg.day5.box-receipt",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.yang-zi-qian",
+      "time": "12:07",
+      "visibleFrom": "day.05",
+      "unlock": [],
+      "lines": [
+        "窗口顯示已簽收。"
+      ]
+    },
+    {
+      "id": "msg.day5.box-is-box",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.wu-wan-ting",
+      "time": "12:07",
+      "visibleFrom": "day.05",
+      "unlock": [],
+      "lines": [
+        "我知道系統有寫。我是問箱子。"
+      ],
+      "replyPrompt": {
+        "id": "prompt.day5.missing-box",
+        "availableThrough": "day.05",
+        "choices": [
+          {
+            "id": "ask-signer",
+            "text": "簽收人是誰？",
+            "responses": [
+              {
+                "id": "msg.day5.reply.signer-yang",
+                "actorId": "actor.yang-zi-qian",
+                "time": "12:08",
+                "lines": [
+                  "那欄空著。其他欄倒是都很完整。"
+                ]
+              },
+              {
+                "id": "msg.day5.reply.signer-wu",
+                "actorId": "actor.wu-wan-ting",
+                "time": "12:09",
+                "lines": [
+                  "好喔，完整地找不到人。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "wait-slip",
+            "text": "先等移交單回來。",
+            "responses": [
+              {
+                "id": "msg.day5.reply.wait-wu",
+                "actorId": "actor.wu-wan-ting",
+                "time": "12:08",
+                "lines": [
+                  "好，我把電話留給下午班。"
+                ]
+              },
+              {
+                "id": "msg.day5.reply.wait-yang",
+                "actorId": "actor.yang-zi-qian",
+                "time": "12:09",
+                "lines": [
+                  "非常標準的交接。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "ask-upstairs",
+            "text": "要不要直接問樓上？",
+            "responses": [
+              {
+                "id": "msg.day5.reply.upstairs-wu",
+                "actorId": "actor.wu-wan-ting",
+                "time": "12:08",
+                "lines": [
+                  "我剛問了。他們叫我問窗口。"
+                ]
+              },
+              {
+                "id": "msg.day5.reply.upstairs-yang",
+                "actorId": "actor.yang-zi-qian",
+                "time": "12:09",
+                "lines": [
+                  "流程閉環。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "transition": {
+    "id": "transition.day5.wrap",
+    "text": {
+      "docTitle": "第五日交接完成",
+      "eyebrow": "DAY / 05 — COMPLETE",
+      "heading": "本日批次已完成。",
+      "body": "今日資料已完成交接。下一個工作日見。",
+      "backToCover": "返回開始頁"
+    }
+  }
+}

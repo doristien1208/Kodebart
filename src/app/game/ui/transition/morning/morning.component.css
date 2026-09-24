@@ -1,0 +1,27 @@
+:host { display: block; }
+
+/*
+ * 動態開啟（SettingsService.animationsEnabled）時才加上 .kb-motion：
+ * 280ms 淡入＋一次由上而下的細掃描線，只動 opacity／transform，不影響版面、不延遲按鈕。
+ * 關閉動態或系統減少動態時沒有這個 class，畫面直接顯示。
+ */
+:host(.kb-motion) { animation: kb-morning-in 280ms cubic-bezier(.2, .7, .3, 1) both; }
+
+/* 掃描線以 section 為定位基準；位移終點＝ min-height 100svh 的底部，不產生溢出，因此不需要 overflow:hidden（避免遮住真正的溢出）。 */
+.transition-screen { position: relative; }
+:host(.kb-motion) .transition-screen::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: var(--color-primary);
+  opacity: 0;
+  pointer-events: none;
+  animation: kb-morning-scan 600ms linear 1 both;
+}
+
+@keyframes kb-morning-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kb-morning-scan {
+  0% { transform: translateY(0); opacity: .35; }
+  100% { transform: translateY(100svh); opacity: 0; }
+}

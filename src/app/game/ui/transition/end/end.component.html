@@ -1,0 +1,15 @@
+<section class="transition-screen">
+  @if (text(); as t) {
+    <div class="w-[38rem] max-w-full">
+      <div class="eyebrow mb-8">{{ t.eyebrow }}</div>
+      <h1 class="text-[2rem] md:text-[2.5rem] tracking-[.1em]">{{ t.heading }}</h1>
+      <p class="text-muted">{{ t.body }}</p>
+      <div class="panel">
+        <p>{{ t.summary }}</p>
+        <p class="text-sm text-muted mb-0">{{ t.thanks }}</p>
+      </div>
+      <p class="text-sm text-muted">{{ t.outro }}</p>
+      <button type="button" class="btn-primary mt-8" (click)="router.navigateByUrl('/')">{{ t.backToCover }}</button>
+    </div>
+  }
+</section>

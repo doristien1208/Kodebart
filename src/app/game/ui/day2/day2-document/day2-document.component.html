@@ -1,0 +1,23 @@
+<article class="panel">
+  @if (tag()) {
+    <div class="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">
+      <h3>{{ heading() }}</h3>
+      <span class="tag">{{ tag() }}</span>
+    </div>
+  } @else {
+    <h3>{{ heading() }}</h3>
+  }
+  <p class="text-sm text-muted">{{ sub() }}</p>
+  <div class="grid gap-3 md:grid-cols-2">
+    @for (cell of cells(); track cell.key) {
+      <div class="receipt-cell">
+        <code>{{ cell.code }}</code>
+        <p>{{ cell.line }}</p>
+        <span class="text-sm text-muted">{{ cell.note }}</span>
+      </div>
+    }
+  </div>
+  @if (footer()) {
+    <p class="text-sm text-muted mt-4">{{ footer() }}</p>
+  }
+</article>

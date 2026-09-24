@@ -104,3 +104,10 @@
 第二輪完成當下，`KodeBart-Demo-Spec.md` §4「操作 A」仍描述「人類接受 string、巴特族接受 int」的型別玩法，§7 驗收條件也還寫著「人類 string 通過；巴特族文字失敗」。該落差已由 KB-02-04 處理：Demo-Spec §4（操作 A 與測試資料表格）、§6（存檔介面範例與版本說明）、§7（編號驗收條件），以及 `KodeBart-Game-Plan.md` §5 的型別條目，均已改寫為現行的「核對人員編號」玩法，並註明型別差異玩法係 2026-09-22 由使用者決定移除。世界觀、0102 設定與舊案保留事項未因文件同步而變動。
 
 `KodeBart-Demo-Spec.md` §2 畫面表格中「Day 1 工作台」原列有「型別規格」，已一併改為「人員編號核對」。`Claude-Handoff.md` 為原始交接稿，已於開頭加註哪一條已被取代，內文保留原貌。
+
+
+---
+
+# 第五輪（2026-09-23）：存檔 v4 與十天通用日程
+
+以上各輪對存檔 v2／v3 的描述為當時的實測歷史，保留不改。現行格式為 **v4**：`phase` 拆成 `dayId`（內容日）＋`stage`（`work`／`wrap`／`end`）＋`taskId`；核心透過 `DayDirectory` 介面查日程，由 `state/day-directory.ts` 從內容資料建立。v2 與 v3 舊檔皆會自動轉換為 v4（v2 先經 v3），轉換結果需通過現行驗證；localStorage 鍵仍為 `kodebart-save-v2`。詳細驗收紀錄見 `COLLABORATION.md` 第五輪回報。

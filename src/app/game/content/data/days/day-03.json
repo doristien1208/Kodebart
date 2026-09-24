@@ -1,0 +1,404 @@
+{
+  "id": "day.03",
+  "day": 3,
+  "nextDayId": "day.04",
+  "chatDateLabel": "9 月 17 日",
+  "workbench": {
+    "greeting": "早安，今日舊檔批次已送達。",
+    "workHeading": "今日工作"
+  },
+  "aside": {
+    "heading": "資料整理",
+    "body": "資料量較昨日增加。請依來源逐筆核對，缺少的欄位仍可送交覆核。"
+  },
+  "note": "code 一律為字串，前導零不得消失。無姓名者畫面顯示「未登記」。共同介面字串在 ui.zh-Hant.json 的 archive。",
+  "records": [
+    {
+      "id": "record.day3-h204",
+      "key": "H204",
+      "name": "黃品蓉",
+      "code": "H-204",
+      "refusal": null,
+      "refusalApplies": false
+    },
+    {
+      "id": "record.day3-h219",
+      "key": "H219",
+      "name": "邱奕辰",
+      "code": "H-219",
+      "refusal": null,
+      "refusalApplies": false
+    },
+    {
+      "id": "record.day3-b314",
+      "key": "B314",
+      "name": null,
+      "code": "0314",
+      "refusal": null,
+      "refusalApplies": true
+    },
+    {
+      "id": "record.day3-b448",
+      "key": "B448",
+      "name": null,
+      "code": "0448",
+      "refusal": true,
+      "refusalApplies": true
+    },
+    {
+      "id": "record.day3-b521",
+      "key": "B521",
+      "name": null,
+      "code": "0521",
+      "refusal": null,
+      "refusalApplies": true
+    }
+  ],
+  "documents": [
+    {
+      "id": "doc.day3.h204.registry",
+      "kind": "case-source",
+      "recordIds": [
+        "record.day3-h204"
+      ],
+      "text": {
+        "heading": "來源登記表",
+        "fields": [
+          {
+            "label": "收件參照",
+            "value": "HR-3-204"
+          },
+          {
+            "label": "姓名",
+            "value": "黃品蓉"
+          },
+          {
+            "label": "人員編號",
+            "value": "H-204"
+          },
+          {
+            "label": "登錄時間",
+            "value": "08:42"
+          }
+        ]
+      }
+    },
+    {
+      "id": "doc.day3.h204.supplement",
+      "kind": "case-source",
+      "recordIds": [
+        "record.day3-h204"
+      ],
+      "text": {
+        "heading": "補件資料",
+        "fields": [
+          {
+            "label": "收件參照",
+            "value": "HR-3-204"
+          },
+          {
+            "label": "姓名",
+            "value": "黃品蓉"
+          },
+          {
+            "label": "人員編號",
+            "value": "H-205"
+          },
+          {
+            "label": "送件時間",
+            "value": "09:06"
+          }
+        ]
+      }
+    },
+    {
+      "id": "doc.day3.h204.received",
+      "kind": "case-source",
+      "recordIds": [
+        "record.day3-h204"
+      ],
+      "text": {
+        "heading": "補件收件狀態",
+        "fields": [
+          {
+            "label": "收件參照",
+            "value": "HR-3-204"
+          },
+          {
+            "label": "窗口狀態",
+            "value": "已收件"
+          },
+          {
+            "label": "更新時間",
+            "value": "09:18"
+          }
+        ]
+      }
+    },
+    {
+      "id": "doc.day3.h204.pending",
+      "kind": "case-source",
+      "recordIds": [
+        "record.day3-h204"
+      ],
+      "text": {
+        "heading": "補件收件狀態",
+        "fields": [
+          {
+            "label": "收件參照",
+            "value": "HR-3-204"
+          },
+          {
+            "label": "窗口狀態",
+            "value": "回條待回傳"
+          },
+          {
+            "label": "更新時間",
+            "value": "09:18"
+          }
+        ]
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task.day3.archive",
+      "kind": "archive",
+      "batchId": "batch.day03.archive",
+      "recordIds": [
+        "record.day3-h204",
+        "record.day3-h219",
+        "record.day3-b314",
+        "record.day3-b448",
+        "record.day3-b521"
+      ],
+      "documentIds": [
+        "doc.day3.h204.registry",
+        "doc.day3.h204.supplement",
+        "doc.day3.h204.received",
+        "doc.day3.h204.pending"
+      ],
+      "text": {
+        "eyebrow": "ARCHIVE / BATCH 03",
+        "heading": "舊檔資料歸檔",
+        "instruction": "請依來源資料核對人員編號，完成本日舊檔歸檔。"
+      },
+      "caseReview": {
+        "id": "case.day3.h204",
+        "recordId": "record.day3-h204",
+        "sourceDocumentIds": [
+          "doc.day3.h204.registry",
+          "doc.day3.h204.supplement"
+        ],
+        "receiptVariants": [
+          {
+            "id": "received",
+            "documentId": "doc.day3.h204.received"
+          },
+          {
+            "id": "pending",
+            "documentId": "doc.day3.h204.pending"
+          }
+        ],
+        "decisions": [
+          {
+            "id": "registry",
+            "label": "依來源登記表歸檔",
+            "archiveCode": "H-204",
+            "destination": "archive",
+            "basisDocumentId": "doc.day3.h204.registry",
+            "note": "原表與補件編號不同；採用原表，保留補件。"
+          },
+          {
+            "id": "supplement",
+            "label": "依補件歸檔並附註",
+            "archiveCode": "H-205",
+            "destination": "archive",
+            "basisDocumentId": "doc.day3.h204.supplement",
+            "note": "原表與補件編號不同；採用補件，保留原表。"
+          },
+          {
+            "id": "review",
+            "label": "保留原表編號，送窗口待查",
+            "archiveCode": "H-204",
+            "destination": "review",
+            "basisDocumentId": "doc.day3.h204.registry",
+            "note": "兩份來源編號不同，待窗口確認。"
+          }
+        ]
+      }
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg.day3.dept-large-batch",
+      "channelId": "channel.department.data-ops",
+      "actorId": "actor.lin-yuan",
+      "time": "08:19",
+      "visibleFrom": "day.03",
+      "unlock": [],
+      "lines": [
+        "早，舊檔那批進佇列了。有補件的話，記得連原表一起看。"
+      ]
+    },
+    {
+      "id": "msg.day3.dm-drafts",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "08:24",
+      "visibleFrom": "day.03",
+      "unlock": [],
+      "lines": [
+        "今天那批有點厚。我先去回窗口電話，卡住再敲我。"
+      ]
+    },
+    {
+      "id": "msg.day3.lunch-order",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.wu-wan-ting",
+      "time": "11:43",
+      "visibleFrom": "day.03",
+      "unlock": [],
+      "unlockAfter": {
+        "archiveBatchId": "batch.day03.archive",
+        "archivedCount": 2
+      },
+      "lines": [
+        "有人要訂午餐嗎？七樓今天又不收外送。"
+      ]
+    },
+    {
+      "id": "msg.day3.lunch-yesterday",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.yang-zi-qian",
+      "time": "11:44",
+      "visibleFrom": "day.03",
+      "unlock": [],
+      "unlockAfter": {
+        "archiveBatchId": "batch.day03.archive",
+        "archivedCount": 2
+      },
+      "lines": [
+        "妳昨天才說那家很難吃。"
+      ]
+    },
+    {
+      "id": "msg.day3.lunch-hungry",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.wu-wan-ting",
+      "time": "11:44",
+      "visibleFrom": "day.03",
+      "unlock": [],
+      "unlockAfter": {
+        "archiveBatchId": "batch.day03.archive",
+        "archivedCount": 2
+      },
+      "lines": [
+        "昨天的我沒有今天這麼餓。"
+      ]
+    },
+    {
+      "id": "msg.day3.lunch-ask-player",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.wu-wan-ting",
+      "time": "11:45",
+      "visibleFrom": "day.03",
+      "unlock": [],
+      "unlockAfter": {
+        "archiveBatchId": "batch.day03.archive",
+        "archivedCount": 2
+      },
+      "lines": [
+        "新來的，你中午吃什麼？"
+      ],
+      "replyPrompt": {
+        "id": "prompt.day3.lunch-plan",
+        "availableThrough": "day.03",
+        "choices": [
+          {
+            "id": "join",
+            "text": "都可以，我跟你們一起。",
+            "responses": [
+              {
+                "id": "msg.day3.reply.join-wu",
+                "actorId": "actor.wu-wan-ting",
+                "time": "11:46",
+                "lines": [
+                  "成交。要是警衛又攔人，你負責看起來像主管。"
+                ]
+              },
+              {
+                "id": "msg.day3.reply.join-yang",
+                "actorId": "actor.yang-zi-qian",
+                "time": "11:47",
+                "lines": [
+                  "他才第三天。不要害人。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "ask-floor",
+            "text": "七樓為什麼不收外送？",
+            "responses": [
+              {
+                "id": "msg.day3.reply.floor-yang",
+                "actorId": "actor.yang-zi-qian",
+                "time": "11:46",
+                "lines": [
+                  "說是盤點。奇怪的是每次都挑午餐時間。"
+                ]
+              },
+              {
+                "id": "msg.day3.reply.floor-wu",
+                "actorId": "actor.wu-wan-ting",
+                "time": "11:47",
+                "lines": [
+                  "你不要把普通偷懶講得像都市傳說。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "brought-own",
+            "text": "我自己帶了。",
+            "responses": [
+              {
+                "id": "msg.day3.reply.own-wu",
+                "actorId": "actor.wu-wan-ting",
+                "time": "11:46",
+                "lines": [
+                  "好羨慕。明天記得提醒今天的我。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "msg.day3.return-code-audit",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "09:32",
+      "visibleFrom": "day.03",
+      "unlock": [
+        "cond.return.notified.day1-code-audit"
+      ],
+      "lines": [
+        "窗口剛把文件退回來了，人員編號跟原表對不上。你昨天核對時怎麼還是放行了？",
+        "退件明天會回到你的待辦，原表跟送件紀錄都附在裡面。這次請逐筆看過再送。"
+      ]
+    }
+  ],
+  "transition": {
+    "id": "transition.day3.wrap",
+    "text": {
+      "docTitle": "第三日交接完成",
+      "eyebrow": "DAY / 03 — COMPLETE",
+      "heading": "本日批次已完成。",
+      "body": "今日資料已完成交接。下一個工作日見。",
+      "backToCover": "返回開始頁"
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
   "id": "ui.zh-Hant",
   "locale": "zh-Hant",
-  "note": "通用介面字串。每日文案在 data/days/，公告在 data/bulletins.json。",
+  "note": "通用介面字串。每日文案在 data/days/，公告在 data/bulletins.json。archive／fieldMap 是各該任務種類共用的介面字，每日檔只放標題與說明；tasks／handoff／morning／executionLog 是同日多工作、日結、次日收件與系統作業紀錄的共用字（R8）。operation／windows／recordReview／returnedReview 是提交執行階段、浮動視窗、逐筆審查與退件複審的共用字（R10；recordReview 的 heading／release／hold 與整個 returnedReview 逐字取自 doc/content/R10-return-review.json）。documentIssues 是文件問題案件與每日「錯誤文件處理」工作的共用字（R11；R12 起案件入口改為郵件，郵件應用的字在 data/mail/ 的郵件包）。desktop 是電腦桌面的應用入口、主選單與狀態區（R12）；入職前情與詢問說明的文字在 data/onboarding/、data/help/。",
   "appTitleSuffix": " · 錯誤世界",
   "cover": {
     "eyebrow": "K O D E B A R T",
@@ -12,17 +12,17 @@
     "settings": "設定",
     "noSave": "尚無本機紀錄",
     "savePrefix": "本機紀錄：",
-    "footerLeft": "兩日試玩 · 入職",
+    "footerLeft": "六日試玩 · 入職",
     "footerRight": "A KODEBART STORY / 0.1",
     "artAlt": "冷藍夜色中的接待大廳，窗外下著雨，走廊延伸到深處。",
     "artSrc": "assets/kodebart-cover.png",
     "docTitle": "開始"
   },
-  "phaseLabel": {
-    "day1": "第一日",
-    "overnight": "第一日交接完成",
-    "day2": "第二日",
-    "end": "兩日試玩完成"
+  "progressLabel": {
+    "workTemplate": "第{dayName}日",
+    "wrapTemplate": "第{dayName}日交接完成",
+    "morningTemplate": "第{dayName}日收件",
+    "endTemplate": "{dayName}日試玩完成"
   },
   "dialogs": {
     "newGame": {
@@ -47,25 +47,27 @@
     "brandLead": "K",
     "brandRest": "odeBart ",
     "brandSuffix": "/ 工作台",
-    "role": "新進同仁 · E 級",
-    "backToCover": "返回開始頁",
-    "navGroupPersonal": "個人工作區",
-    "navGroupTeam": "資料作業組",
     "navLabel": "工作區",
     "nav": {
       "work": "工作",
-      "messages": "訊息",
-      "news": "公告"
+      "messages": "通訊",
+      "news": "公告",
+      "mail": "郵件"
     },
+    "team": "資料作業組",
+    "identityLabel": "目前登入",
     "heading": {
-      "messages": "同事訊息",
       "news": "公司公告"
     },
     "dayTagTemplate": "DAY / 0{day}",
     "docTitleTemplate": "第{dayName}日 — {view}",
     "dayName": {
       "1": "一",
-      "2": "二"
+      "2": "二",
+      "3": "三",
+      "4": "四",
+      "5": "五",
+      "6": "六"
     }
   },
   "aside": {
@@ -78,18 +80,24 @@
     "eyebrowTemplate": "SOURCE / {key}",
     "name": "姓名",
     "code": "人員編號",
-    "refusal": "拒絕紀錄",
-    "refusalNA": "不適用",
-    "refusalNull": "未附欄位 · null",
-    "refusalTrue": "已附 · true"
+    "refusal": "拒絕紀錄"
+  },
+  "recordStatus": {
+    "notApplicable": "不適用",
+    "missing": "未提供",
+    "refused": "已拒絕",
+    "notRefused": "未拒絕",
+    "unconfirmed": "未確認",
+    "defaultedNotRefused": "未拒絕（依規則補登）",
+    "sourceNotRefused": "未拒絕（來源資料）",
+    "sourceRefused": "已拒絕（來源資料）"
   },
   "records": {
     "note": "來源未登記姓名時顯示的文字；不代表這個人沒有名字。",
     "nameUnregistered": "未登記"
   },
   "messages": {
-    "eyebrow": "INTERNAL MESSAGES",
-    "back": "返回工作",
+    "workspace": "柯迪巴特通訊",
     "listLabel": "頻道與私訊",
     "backToList": "返回頻道列表",
     "sectionTitle": {
@@ -97,15 +105,299 @@
       "group": "群組",
       "direct": "私訊"
     },
-    "sectionEmpty": "目前沒有頻道",
-    "selectHeading": "尚未選擇對話",
-    "selectPrompt": "請從列表選擇一個頻道或私訊。",
-    "emptyChannel": "這個對話目前沒有訊息。",
+    "sectionEmpty": "目前沒有對話",
+    "selectHeading": "選擇一個對話",
+    "selectPrompt": "從左側開啟頻道或私訊。",
+    "emptyChannel": "目前沒有訊息。",
+    "online": "在線",
+    "memberCountTemplate": "{count} 位成員",
+    "you": "你",
+    "quickReplyHeading": "選擇回覆",
+    "skipReply": "不回覆",
+    "typingTemplate": "{name} 正在輸入…",
     "unreadTemplate": "{count} 則未讀訊息",
-    "unreadChannelTemplate": "{channel}：{count} 則未讀訊息"
+    "unreadChannelTemplate": "{channel}：{count} 則未讀訊息",
+    "newBelow": "有新訊息",
+    "newBelowAria": "捲到最新訊息"
   },
   "news": {
     "eyebrow": "KODEBART / BULLETIN",
     "back": "返回工作"
+  },
+  "archive": {
+    "progressTemplate": "{count} / {total} 已處理",
+    "doneHeading": "已完成處理",
+    "doneBody": "資料已保存至本日批次。",
+    "doneCode": "人員編號：",
+    "doneMethod": "處理方式：",
+    "methodReview": "送資料覆核",
+    "methodArchive": "正式歸檔",
+    "nameLabel": "姓名",
+    "fieldLabel": "人員編號",
+    "missingLegend": "這筆來源沒有提供拒絕紀錄",
+    "policyDefault": "視為「未拒絕」，完成正式歸檔",
+    "policyReview": "保留為「未確認」，送交資料覆核",
+    "validate": "驗證並預覽",
+    "previewOk": "資料檢查完成",
+    "confirm": "確認歸檔",
+    "footerDone": "本日批次已完成。",
+    "footerPendingTemplate": "完成 {total} 筆資料後即可交接。",
+    "statusArchived": "歸檔完成。",
+    "queueEyebrow": "QUEUE",
+    "queueLabel": "本日資料佇列",
+    "queuePending": "待處理",
+    "queueDone": "已完成",
+    "queueDoneMark": "✓",
+    "queueSelectedMark": "▸",
+    "policyDefaultHint": "系統將依預設值補齊此欄位。",
+    "policyReviewHint": "此筆資料將進入待補佇列。",
+    "previewHeading": "歸檔結果",
+    "previewCode": "人員編號",
+    "previewStatus": "拒絕狀態",
+    "previewDestination": "資料去向",
+    "destinationArchive": "正式歸檔",
+    "destinationReview": "資料覆核佇列"
+  },
+  "fieldMap": {
+    "sourceEyebrow": "SOURCE / LEGACY",
+    "sourceLabel": "來源資料表",
+    "targetHeading": "目標欄位對應",
+    "selectPlaceholder": "選擇來源欄位",
+    "mappingError": "欄位對應有誤：每個目標欄位需對應一個不重複的來源欄位。",
+    "convertError": "部分來源值無法轉換成目標欄位的格式，請檢查欄位對應。",
+    "policyRequired": "請選擇空白值的處理方式。",
+    "blankLegend": "來源的「異議回覆」為空白時",
+    "blankValue": "（空白）",
+    "validate": "驗證並預覽",
+    "previewHeading": "匯入預覽",
+    "rowCountLabel": "總列數",
+    "affectedLabel": "空白資料",
+    "policyHandledLabel": "依本次規則處理",
+    "codeSampleLabel": "人員編號樣本",
+    "confirm": "確認匯入",
+    "doneHeading": "已完成匯入",
+    "doneBody": "匯入結果已保存至本日批次。",
+    "footerDone": "本日匯入已完成。",
+    "footerPending": "確認匯入後即可完成今日交接。",
+    "statusImported": "匯入完成。",
+    "excluded": "排除",
+    "notExcluded": "未排除",
+    "pendingReview": "待確認"
+  },
+  "tasks": {
+    "listLabel": "今日工作項目",
+    "stepTemplate": "第 {index} / {total} 項",
+    "statusDone": "已完成",
+    "statusActive": "進行中",
+    "statusPending": "待處理",
+    "statusWaived": "不適用",
+    "deliver": "交付此項工作",
+    "finishDay": "完成今日交接",
+    "kind": {
+      "archive": "歸檔",
+      "reconcile": "核對",
+      "field-map": "匯入",
+      "return-review": "複審"
+    },
+    "unit": {
+      "archive": "筆",
+      "reconcile": "筆",
+      "field-map": "列",
+      "return-review": "筆"
+    }
+  },
+  "handoff": {
+    "eyebrow": "HANDOFF / SUMMARY",
+    "heading": "本日交接",
+    "totalTemplate": "共 {count} 項工作",
+    "itemTemplate": "{kind} {count} {unit}",
+    "doneMark": "✓",
+    "next": "結束今日，查看明日收件",
+    "backToCover": "返回開始頁"
+  },
+  "morning": {
+    "eyebrow": "INBOX / TODAY",
+    "heading": "今日收件",
+    "listHeading": "今日工作",
+    "pendingTemplate": "待處理 {count} {unit}",
+    "start": "開始今日工作",
+    "backToCover": "返回開始頁",
+    "docTitleTemplate": "第{dayName}日 — 收件"
+  },
+  "executionLog": {
+    "heading": "系統作業紀錄",
+    "ariaLabel": "系統作業紀錄（唯讀）",
+    "empty": "等待作業輸入",
+    "prompt": "$",
+    "command": {
+      "archive": "archive.submit",
+      "reply": "reply.submit",
+      "fieldMap": "import.submit",
+      "handoff": "task.handoff",
+      "returnReview": "return.submit",
+      "recordReview": "review.record",
+      "receiptCheck": "receipt.check"
+    },
+    "key": {
+      "check": "check",
+      "personnelId": "personnelId",
+      "source": "source",
+      "status": "status",
+      "destination": "destination",
+      "reply": "reply",
+      "rows": "rows",
+      "blank": "blank",
+      "blankPolicy": "blankPolicy",
+      "result": "result",
+      "items": "items",
+      "basis": "basis",
+      "note": "note"
+    },
+    "check": {
+      "pass": "通過"
+    },
+    "result": {
+      "delivered": "已交付",
+      "sentReview": "送覆核",
+      "sent": "已送出"
+    }
+  },
+  "caseReview": {
+    "eyebrow": "CASE / SOURCES",
+    "heading": "來源比對",
+    "instruction": "兩份來源的人員編號不同，請選擇處理方式並保留依據。",
+    "open": "開啟來源比對",
+    "sourcesHeading": "來源文件",
+    "supportingHeading": "附加文件",
+    "fieldHeader": "欄位",
+    "valueHeader": "內容",
+    "markDiff": "標記差異",
+    "unmarkDiff": "取消標記",
+    "markedLabel": "已標記差異",
+    "markedCountTemplate": "已標記 {count} 處差異",
+    "decisionsHeading": "處理方式",
+    "decisionRequired": "請選擇一種處理方式。",
+    "codeLabel": "人員編號",
+    "codeInputLabel": "歸檔人員編號",
+    "basisLabel": "依據文件",
+    "noteLabel": "差異註記",
+    "destinationLabel": "資料去向",
+    "destination": {
+      "archive": "正式歸檔",
+      "review": "窗口待查"
+    },
+    "confirm": "確認處理",
+    "doneHeading": "此筆已處理",
+    "receiptHeading": "處理紀錄",
+    "closeLabel": "返回佇列"
+  },
+  "windowShell": {
+    "history": {
+      "show": "顯示較早紀錄",
+      "hide": "收合"
+    }
+  },
+  "operation": {
+    "ariaLabel": "作業執行狀態",
+    "received": "已接收提交",
+    "validating": "格式檢查中",
+    "validated": "格式檢查通過",
+    "processing": "資料處理中",
+    "saving": "保存中",
+    "done": "已保存",
+    "failed": "保存失敗",
+    "failedHint": "本次提交尚未保存，可重新嘗試。",
+    "rejectedHint": "狀態已變更，本次提交沒有套用；請確認目前的狀態後再處理。",
+    "retry": "重試",
+    "busy": "作業處理中，請稍候"
+  },
+  "windows": {
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "還原",
+    "close": "關閉",
+    "taskbarLabel": "視窗列",
+    "openLog": "開啟系統作業紀錄",
+    "documentsLabel": "文件",
+    "moveHint": "標題列取得焦點時，可用方向鍵移動視窗。"
+  },
+  "recordReview": {
+    "heading": "逐筆審查",
+    "release": "核對後放行",
+    "hold": "保留待查",
+    "listLabel": "逐筆審查清單",
+    "statusPending": "尚未審查",
+    "statusReleased": "已放行",
+    "statusHeld": "已保留待查",
+    "requiredNotice": "請先完成每筆資料的審查處置，再送出本日回覆。"
+  },
+  "returnedReview": {
+    "heading": "退件複審",
+    "instruction": "請核對退件原因與歷次送件資料，填寫本次處理結果。",
+    "source": "原始來源",
+    "firstSubmission": "第一次送件",
+    "reviewRecord": "第二輪審查紀錄",
+    "reason": "退件原因",
+    "codeMismatch": "送件的人員編號與隨附原表不一致，請核對後重新送審。",
+    "resubmit": "重新送審",
+    "sendToWindow": "註記並送窗口待查",
+    "resubmitted": "已重新送審",
+    "pendingWindow": "等待窗口確認"
+  },
+  "documentIssues": {
+    "status": {
+      "pending": "待修正",
+      "awaitingCheck": "已重送／待核對",
+      "awaitingWindow": "待窗口回覆",
+      "resolved": "已解決"
+    },
+    "next": {
+      "windowWaiting": "等待窗口回覆"
+    },
+    "submissionTemplate": "第 {number} 次送件",
+    "sourceTaskTemplate": "第{dayName}日 · {task}",
+    "sections": {
+      "original": "原件",
+      "versions": "歷次修改",
+      "reviewRecord": "第二輪審查紀錄"
+    },
+    "outcome": {
+      "resolved": "核對一致",
+      "returned": "再次退回"
+    },
+    "receipts": {
+      "returnedTemplate": "退件回條：{caseNumber}",
+      "resolvedTemplate": "收件回條：{caseNumber}",
+      "codeLabel": "送件編號",
+      "resolvedNote": "下游已核對送件編號與隨附原表一致，本案結案。"
+    },
+    "close": "返回清單",
+    "taskEyebrow": "ISSUES / TODAY",
+    "taskHeading": "錯誤文件處理",
+    "taskInstruction": "以下是排入今日處理的退件案件；同一批案件也可以從郵件附件開啟處理。",
+    "task": {
+      "openMail": "開啟最新郵件",
+      "handled": "已處理"
+    }
+  },
+  "desktop": {
+    "label": "桌面",
+    "appsLabel": "桌面應用",
+    "apps": {
+      "work": "工作平台",
+      "messages": "通訊",
+      "mail": "郵件"
+    },
+    "openAppTemplate": "開啟{app}",
+    "mailUnreadTemplate": "{count} 封未讀郵件",
+    "menu": {
+      "button": "主選單",
+      "label": "主選單",
+      "backToCover": "返回開始頁",
+      "motion": "動態效果",
+      "resetLayout": "重設視窗位置"
+    },
+    "statusLabel": "系統狀態",
+    "docTitle": "桌面"
   }
 }

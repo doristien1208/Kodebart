@@ -5,7 +5,7 @@ import { SettingsService } from './game/platform/settings.service';
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet],
-  template: '<router-outlet />',
+  templateUrl: './app.component.html',
 })
 export class AppComponent {
   /** 提早建立以套用 body.no-motion 等全域設定。 */

@@ -1,0 +1,35 @@
+<section class="transition-screen grid-cols-[minmax(0,1fr)]">
+  @if (text(); as t) {
+    <div class="w-[38rem] max-w-full min-w-0">
+      <div class="eyebrow mb-8">{{ t.eyebrow }}</div>
+      <h1 class="text-[2rem] md:text-[2.5rem] tracking-[.1em]">{{ t.heading }}</h1>
+      <p class="text-muted">{{ t.body }}</p>
+
+      <div class="panel">
+        <span class="eyebrow">{{ ui.eyebrow }}</span>
+        <h2 class="text-[1.1rem] mb-4">{{ ui.heading }}</h2>
+        <ol class="list-none m-0 p-0 border-t border-border">
+          @for (r of rows(); track r.taskId) {
+            <li class="flex items-baseline gap-3 py-3 border-b border-border min-w-0" data-handoff-item>
+              <span class="font-mono text-muted">{{ r.index }}</span>
+              <span class="flex-1 min-w-0 [overflow-wrap:anywhere]">{{ r.heading }}</span>
+              <span class="text-sm text-muted whitespace-nowrap">{{ r.summary }}</span>
+              @if (r.done) {
+                <span class="text-primary w-4 text-center" aria-hidden="true">{{ ui.doneMark }}</span>
+                <span class="sr-only">{{ doneLabel }}</span>
+              } @else {
+                <span class="tag whitespace-nowrap">{{ waivedLabel }}</span>
+              }
+            </li>
+          }
+        </ol>
+        <p class="mt-4 mb-0 font-mono text-primary" data-handoff-total>{{ totalText() }}</p>
+      </div>
+
+      <button type="button" class="btn-primary mt-8" (click)="onNext()">{{ ui.next }}</button>
+      <div class="flex gap-2.5 items-center flex-wrap mt-5">
+        <button type="button" class="btn-ghost" (click)="router.navigateByUrl('/')">{{ ui.backToCover }}</button>
+      </div>
+    </div>
+  }
+</section>

@@ -1,0 +1,50 @@
+:host {
+  display: block;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* 自成堆疊環境，讓動態層能與背景圖做 screen 混合 */
+  isolation: isolate;
+}
+.cover-art { z-index: 0; }
+.ambience-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 1;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+/* 由 TS 依 object-fit: cover 的實際結果設定 left/top/width/height */
+.ambience { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+/* 位置與大小＝玻璃區外接矩形，實際形狀再由 canvas 裁切 */
+.rain-layer {
+  position: absolute;
+  /* 供 TS 以 getComputedStyle(canvas).color 取得已解析的色票 */
+  color: color-mix(in srgb, var(--color-primary) 45%, var(--color-text));
+}
+/* 燈光只在走廊亮框：背景圖座標的 x 62–74%、y 28–55% */
+.corridor-light {
+  position: absolute;
+  left: 62%;
+  top: 28%;
+  width: 12%;
+  height: 27%;
+  opacity: 0;
+  filter: blur(10px);
+  background: radial-gradient(
+    ellipse at 50% 45%,
+    color-mix(in srgb, var(--color-primary) 55%, transparent),
+    color-mix(in srgb, var(--color-primary) 18%, transparent) 45%,
+    transparent 72%
+  );
+}
+/* 關閉動態時排程已停止，這裡再收掉殘影 */
+:host-context(body.no-motion) .ambience-clip { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ambience-clip { display: none; }
+}
+@media (forced-colors: active) {
+  .cover-art,
+  .ambience-clip { display: none; }
+}

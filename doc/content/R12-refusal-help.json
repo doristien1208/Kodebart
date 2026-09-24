@@ -1,0 +1,85 @@
+{
+  "id": "help.refusal-record",
+  "schemaVersion": 1,
+  "request": {
+    "id": "request.refusal-record",
+    "channelId": "channel.dm.lin-yuan",
+    "unlockCondition": "cond.help.refusal-record.requested",
+    "playerText": "予安，歸檔的「拒絕紀錄」是指什麼？來源沒寫，我不太確定下面兩個選項怎麼分。",
+    "oncePerSave": true
+  },
+  "ui": {
+    "ask": "這個欄位是什麼？",
+    "revisit": "查看予安的說明"
+  },
+  "messages": [
+    {
+      "id": "msg.help.refusal.meaning",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "09:00",
+      "visibleFrom": "day.01",
+      "unlock": [
+        "cond.help.refusal-record.requested"
+      ],
+      "lines": [
+        "是看當事人有沒有拒絕原表上的那項安排。這裡整理的是之前留下的紀錄，不是要你現在去問本人。",
+        "來源如果有寫拒絕，就照記錄保留。你現在看到的這筆沒寫，所以才會要你選怎麼處理。"
+      ]
+    },
+    {
+      "id": "msg.help.refusal.paths",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "09:01",
+      "visibleFrom": "day.01",
+      "unlock": [
+        "cond.help.refusal-record.requested"
+      ],
+      "lines": [
+        "選「未拒絕」，系統就會把空白補成未拒絕，完成正式歸檔。",
+        "選「未確認」，就先保留缺資料的狀態，送窗口覆核。不是退回叫你重填，也不保證今天就會有回覆。"
+      ],
+      "replyPrompt": {
+        "id": "prompt.help.refusal",
+        "availableThrough": "day.06",
+        "choices": [
+          {
+            "id": "ask-blank",
+            "text": "可是沒寫拒絕，也不代表已經問過吧？",
+            "responses": [
+              {
+                "id": "msg.help.refusal.blank-response",
+                "actorId": "actor.lin-yuan",
+                "time": "09:02",
+                "lines": [
+                  "對，單看空白看不出來。",
+                  "「未拒絕」是這邊歸檔時用的預設值，不是另外問到的答案。你想等資料補齊再處理，就選「未確認」。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "ack",
+            "text": "懂了，我再看一下原表。",
+            "responses": [
+              {
+                "id": "msg.help.refusal.ack-response",
+                "actorId": "actor.lin-yuan",
+                "time": "09:02",
+                "lines": [
+                  "嗯，有卡住再問我。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "integration": {
+    "timePolicy": "以實際詢問時間起算並保存；模板 time 僅沿用現有 schema，不作固定發送時間。",
+    "requestPolicy": "先保存玩家提問，再依排程逐則送達說明；unlock 只表示已觸發，不代表全部回覆已送達。",
+    "availabilityPolicy": "說明永久留存；新增 Day 7–10 時延長 availableThrough，不新增同一份說明。"
+  }
+}

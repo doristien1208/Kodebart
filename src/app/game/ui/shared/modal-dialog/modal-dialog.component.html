@@ -1,0 +1,7 @@
+<dialog #dialog [attr.aria-labelledby]="headingId()" (close)="onClose()">
+  <h2 [id]="headingId()">{{ heading() }}</h2>
+  <ng-content select="[dialogBody]" />
+  <div class="actions mt-5 flex flex-wrap items-center gap-2.5">
+    <ng-content select="[dialogActions]" />
+  </div>
+</dialog>

@@ -1,0 +1,48 @@
+/* 顏色來自父元件由入職包 presentation 綁定的 --onboarding-bg／--onboarding-fg（不在元件寫色碼） */
+:host { display: flex; flex-direction: column; }
+
+/* 整個畫面都是點擊區；旁白置中，繼續提示固定在下方 */
+.stage {
+  box-sizing: border-box;
+  flex: 1 0 auto;
+  display: grid;
+  /* 欄寬固定為可用寬度（minmax(0,1fr)），旁白的 36rem 上限不會把欄撐出窄螢幕 */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  justify-items: center;
+  gap: 1.5rem;
+  padding: 2rem 1rem 1.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+.line-wrap { align-self: center; width: 36rem; max-width: 100%; }
+
+/* 入職正文 18–22px；保留引號與原段落，不加 glitch 或閃爍 */
+.line {
+  margin: 0;
+  font-size: clamp(1.125rem, 1rem + .6vw, 1.375rem);
+  line-height: 1.8;
+  letter-spacing: .04em;
+  overflow-wrap: anywhere;
+}
+/* 尚未出現的字佔位但不可見，打字時版面不跳動 */
+.pending { visibility: hidden; }
+
+.hint {
+  min-height: 44px;
+  padding: .5rem 1rem;
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--onboarding-fg) 68%, transparent);
+  font-size: .875rem;
+  line-height: 1.5;
+  letter-spacing: .08em;
+  text-align: center;
+}
+.hint:hover:not(:disabled) { background: transparent; color: var(--onboarding-fg); }
+.hint:focus-visible { outline: 2px solid var(--onboarding-fg); outline-offset: 2px; }
+
+@media (forced-colors: active) {
+  .hint { color: CanvasText; }
+  .hint:focus-visible { outline-color: Highlight; }
+}

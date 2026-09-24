@@ -1,0 +1,31 @@
+<!--
+  桌面區：position: relative 的定位範圍。應用入口在底層；視窗圖層蓋在上面、本身不接收指標事件，
+  只有視窗接收（WindowShell 會移到圖層內，以桌面座標浮動）。
+-->
+<main #area class="desktop-area" data-desktop [attr.aria-label]="ui.label">
+  <app-desktop-icons />
+  <div #layer class="window-layer" data-window-layer></div>
+</main>
+
+<app-desktop-taskbar class="flex-none" />
+
+@if (ready()) {
+  @if (appDefaults(); as d) {
+    <!-- 應用主視窗（host 移到視窗圖層；關閉只隱藏，內容與草稿保留） -->
+    <app-window-shell [windowId]="ids.work" [title]="ui.apps.work" [defaults]="d.work" [level]="2" variant="app">
+      <app-workbench class="flex-1 min-h-0" />
+    </app-window-shell>
+    <app-window-shell [windowId]="ids.messages" [title]="ui.apps.messages" [defaults]="d.messages" [level]="2" variant="app">
+      <app-messages class="flex-1 min-h-0" />
+    </app-window-shell>
+    <app-window-shell [windowId]="ids.mail" [title]="ui.apps.mail" [defaults]="d.mail" [level]="2" variant="app">
+      <app-mail class="flex-1 min-h-0" />
+    </app-window-shell>
+  }
+  @if (logDefaults(); as defaults) {
+    <!-- 系統作業紀錄（輔助視窗；host 為 display: contents，視窗本身移到圖層內） -->
+    <app-execution-log [entries]="logEntries()" [defaults]="defaults" (retry)="retryOperation()" />
+  }
+  <!-- 郵件附件文件視窗（UI-B）：郵件主視窗最小化或關閉時仍保留 -->
+  <app-mail-attachment-windows />
+}

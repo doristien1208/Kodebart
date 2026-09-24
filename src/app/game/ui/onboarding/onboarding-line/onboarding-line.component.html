@@ -1,0 +1,10 @@
+<section class="stage" data-onboarding-stage (click)="activate()">
+  <div class="line-wrap">
+    <p class="line" aria-hidden="true" data-onboarding-line>
+      <span data-onboarding-typed>{{ typed() }}</span><span class="pending">{{ rest() }}</span>
+    </p>
+  </div>
+  <button type="button" #hint class="hint" data-onboarding-hint>
+    {{ revealed() ? ui.continue : ui.reveal }}
+  </button>
+</section>

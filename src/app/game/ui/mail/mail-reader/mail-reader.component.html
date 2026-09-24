@@ -1,0 +1,56 @@
+@let m = mail();
+<article class="mail-reader" [attr.aria-labelledby]="headingId" data-mail-reader>
+  @if (showBack()) {
+    <div class="mail-reader-back">
+      <button type="button" class="mail-back" data-mail-back (click)="back.emit()">{{ backLabel }}</button>
+    </div>
+  }
+
+  @if (m.failed) {
+    <div class="mail-reader-body" role="alert" data-mail-load-failed>
+      <h3 #heading class="mail-subject" tabindex="-1" [id]="headingId">{{ t.loadFailed }}</h3>
+      <button type="button" data-mail-retry (click)="retry.emit()">{{ t.retry }}</button>
+    </div>
+  } @else {
+    <div class="mail-reader-body">
+      <h3 #heading class="mail-subject" tabindex="-1" [id]="headingId" data-mail-reader-subject>{{ m.subject }}</h3>
+      <dl class="mail-meta">
+        <dt>{{ t.sender }}</dt>
+        <dd data-mail-reader-sender>{{ m.sender }}</dd>
+        <dt>{{ t.received }}</dt>
+        <dd data-mail-reader-received>{{ m.received }}</dd>
+      </dl>
+
+      <div class="mail-text" data-mail-reader-body>
+        @for (line of m.lines; track $index) {
+          <p>{{ line }}</p>
+        }
+      </div>
+
+      @if (m.attachments.length > 0) {
+        <section class="mail-attachments" [attr.aria-labelledby]="attachmentsId" data-mail-attachments>
+          <h4 class="mail-attachments-title" [id]="attachmentsId">{{ t.attachments }}</h4>
+          <ul class="mail-attachment-list">
+            @for (a of m.attachments; track $index) {
+              <li class="mail-attachment" [attr.data-attachment-state]="a.state">
+                <div class="min-w-0">
+                  <p class="mail-attachment-label" [id]="attachmentsId + '-' + $index" data-attachment-label>{{ a.label }}</p>
+                  <p class="mail-attachment-state" data-attachment-state-text>{{ a.stateText }}</p>
+                </div>
+                @if (a.state !== 'missing') {
+                  <button
+                    type="button"
+                    class="mail-attachment-open"
+                    data-attachment-open
+                    [attr.aria-describedby]="attachmentsId + '-' + $index"
+                    (click)="openAttachment.emit(a.ref)"
+                  >{{ t.openAttachment }}</button>
+                }
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    </div>
+  }
+</article>

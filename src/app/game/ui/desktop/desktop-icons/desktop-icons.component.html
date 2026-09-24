@@ -1,0 +1,26 @@
+<ul class="desktop-icons" [attr.aria-label]="ui.appsLabel" data-desktop-icons>
+  @for (icon of icons(); track icon.app) {
+    <li>
+      <button
+        type="button"
+        class="desktop-icon"
+        [attr.aria-label]="icon.aria"
+        [attr.aria-describedby]="icon.unread > 0 ? 'desktop-unread-' + icon.app : null"
+        [attr.data-desktop-app]="icon.app"
+        [attr.data-window-open]="icon.windowId"
+        (click)="open(icon.app)"
+      >
+        <span class="desktop-icon-tile">
+          <app-app-icon [name]="icon.app" />
+          @if (icon.unread > 0) {
+            <span class="desktop-icon-badge" aria-hidden="true" [attr.data-desktop-badge]="icon.app">{{ icon.unread }}</span>
+          }
+        </span>
+        <span class="desktop-icon-label">{{ icon.label }}</span>
+      </button>
+      @if (icon.unread > 0) {
+        <span class="sr-only" [id]="'desktop-unread-' + icon.app">{{ icon.unreadText }}</span>
+      }
+    </li>
+  }
+</ul>

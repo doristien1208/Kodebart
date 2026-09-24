@@ -1,0 +1,58 @@
+<section class="mail-list" [attr.aria-labelledby]="headingId" data-mail-list>
+  <div class="mail-list-head">
+    <h3 class="mail-inbox-title" tabindex="-1" [id]="headingId">{{ t.inbox }}</h3>
+    <div class="mail-filters" role="group" [attr.aria-labelledby]="headingId" data-mail-filters>
+      @for (f of filters; track f) {
+        <button
+          type="button"
+          class="mail-filter"
+          [class.is-active]="filter() === f"
+          [attr.aria-pressed]="filter() === f"
+          [attr.data-mail-filter]="f"
+          (click)="filterChange.emit(f)"
+        >
+          <span>{{ filterLabel(f) }}</span>
+          <span class="font-mono" data-mail-count>{{ counts()[f] }}</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (rows().length > 0) {
+    <ul class="mail-rows" data-mail-rows>
+      @for (m of rows(); track m.id) {
+        @let selected = m.id === selectedId();
+        <li>
+          <button
+            type="button"
+            class="mail-row"
+            [class.is-unread]="!m.read"
+            [class.is-selected]="selected"
+            [attr.aria-current]="selected ? 'true' : null"
+            [attr.data-mail-row]="m.id"
+            [attr.data-unread]="m.read ? null : ''"
+            (click)="select.emit(m.id)"
+          >
+            <span class="mail-row-meta">
+              <span class="min-w-0 truncate" data-mail-sender>{{ m.sender }}</span>
+              <span class="whitespace-nowrap" data-mail-received>{{ m.received }}</span>
+            </span>
+            <span class="mail-row-subject" data-mail-subject>{{ m.failed ? t.loadFailed : m.subject }}</span>
+            @if (!m.read || m.pending) {
+              <span class="mail-row-tags">
+                @if (!m.read) {
+                  <span class="tag mail-tag-unread" data-mail-unread>{{ t.unread }}</span>
+                }
+                @if (m.pending) {
+                  <span class="tag" data-mail-pending>{{ t.pending }}</span>
+                }
+              </span>
+            }
+          </button>
+        </li>
+      }
+    </ul>
+  } @else {
+    <p class="mail-empty" data-mail-empty>{{ emptyText(filter()) }}</p>
+  }
+</section>

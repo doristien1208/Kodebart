@@ -1,0 +1,36 @@
+{
+  "messages": [
+    {
+      "id": "msg.day3.return-code-audit",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "09:32",
+      "visibleFrom": "day.03",
+      "unlock": ["cond.return.notified.day1-code-audit"],
+      "lines": [
+        "窗口剛把文件退回來了，人員編號跟原表對不上。你昨天核對時怎麼還是放行了？",
+        "退件明天會回到你的待辦，原表跟送件紀錄都附在裡面。這次請逐筆看過再送。"
+      ]
+    }
+  ],
+  "ui": {
+    "recordReview": {
+      "heading": "逐筆審查",
+      "release": "核對後放行",
+      "hold": "保留待查"
+    },
+    "returnedReview": {
+      "heading": "退件複審",
+      "instruction": "請核對退件原因與歷次送件資料，填寫本次處理結果。",
+      "source": "原始來源",
+      "firstSubmission": "第一次送件",
+      "reviewRecord": "第二輪審查紀錄",
+      "reason": "退件原因",
+      "codeMismatch": "送件的人員編號與隨附原表不一致，請核對後重新送審。",
+      "resubmit": "重新送審",
+      "sendToWindow": "註記並送窗口待查",
+      "resubmitted": "已重新送審",
+      "pendingWindow": "等待窗口確認"
+    }
+  }
+}

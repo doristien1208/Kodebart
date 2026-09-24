@@ -1,0 +1,50 @@
+<section class="contract" data-onboarding-contract [attr.aria-labelledby]="ids.heading">
+  <h1 class="heading" #heading tabindex="-1" [id]="ids.heading">{{ step().heading }}</h1>
+
+  <ol class="clauses" data-contract-clauses>
+    @for (clause of step().clauses; track $index) {
+      <li>{{ clause }}</li>
+    }
+  </ol>
+  <p class="footer">{{ step().footer }}</p>
+
+  <div class="signature" data-signature>
+    <label class="signature-label" [for]="ids.input">{{ step().signature.label }}</label>
+    <input
+      #field
+      type="text"
+      class="signature-input"
+      data-signature-input
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+      [id]="ids.input"
+      [value]="name()"
+      [placeholder]="step().signature.placeholder"
+      [attr.aria-invalid]="errorText() ? 'true' : 'false'"
+      [attr.aria-describedby]="errorText() ? ids.error : null"
+      (input)="onInput($event)"
+    />
+    <p class="field-error" data-signature-error [id]="ids.error">{{ errorText() }}</p>
+
+    <div class="actions">
+      <button
+        type="button"
+        class="submit"
+        data-signature-submit
+        [attr.aria-disabled]="state() === 'signing' ? 'true' : null"
+        (click)="submit()"
+      >
+        {{ step().signature.submit }}
+      </button>
+    </div>
+
+    <p class="status" role="status" data-signature-status>{{ state() === 'signing' ? ui.signing : '' }}</p>
+    @if (state() === 'failed') {
+      <div class="failed" data-signature-failed>
+        <p role="alert">{{ ui.saveFailed }}</p>
+        <button type="button" class="retry" (click)="submit()">{{ ui.retry }}</button>
+      </div>
+    }
+  </div>
+</section>

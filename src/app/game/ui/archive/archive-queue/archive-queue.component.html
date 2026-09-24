@@ -1,0 +1,33 @@
+<section class="mb-[1.4rem]">
+  <span class="eyebrow">{{ t.queueEyebrow }}</span>
+  <ul
+    role="list"
+    [attr.aria-label]="t.queueLabel"
+    class="grid gap-2 p-2 mt-1.5 border border-border bg-background max-h-[17rem] overflow-y-auto md:grid-cols-2 xl:grid-cols-3"
+  >
+    @for (item of items(); track item.key) {
+      <li class="min-w-0">
+        <button
+          type="button"
+          class="w-full flex items-center gap-2 py-2 px-2.5"
+          [class.border-primary]="item.key === selectedKey()"
+          [class.bg-elevated]="item.key === selectedKey()"
+          [attr.aria-current]="item.key === selectedKey() ? 'true' : null"
+          (click)="select.emit(item.key)"
+        >
+          <span class="font-mono text-primary w-[.9em] shrink-0" aria-hidden="true">{{
+            item.key === selectedKey() ? t.queueSelectedMark : ''
+          }}</span>
+          <span class="flex-1 min-w-0 truncate">{{ item.label }}</span>
+          @if (item.done) {
+            <span class="tag shrink-0 text-primary border-primary"
+              ><span aria-hidden="true">{{ t.queueDoneMark }}</span> {{ t.queueDone }}</span
+            >
+          } @else {
+            <span class="tag shrink-0">{{ t.queuePending }}</span>
+          }
+        </button>
+      </li>
+    }
+  </ul>
+</section>

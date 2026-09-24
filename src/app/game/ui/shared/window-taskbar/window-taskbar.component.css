@@ -1,0 +1,29 @@
+/* 視窗列（R10 §2／R12 §5）：桌面底部工作列中的視窗按鈕；只用專案 token，直角。 */
+.taskbar { display: flex; align-items: center; min-width: 0; height: 100%; }
+
+.taskbar-list {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: .25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.taskbar-item {
+  display: flex;
+  align-items: center;
+  max-width: 14rem;
+  min-height: 2.75rem;
+  padding: .2rem .75rem;
+  font-size: .875rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  border-color: var(--color-border);
+  background: var(--color-background);
+  color: var(--color-muted);
+  border-bottom-width: 2px;
+}
+.taskbar-item.is-shown { color: var(--color-text); border-bottom-color: var(--color-primary); }

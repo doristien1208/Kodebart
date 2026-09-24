@@ -1,0 +1,69 @@
+{
+  "id": "mail.return-receipts",
+  "schemaVersion": 1,
+  "sender": {
+    "id": "sender.data-desk",
+    "name": "資料作業窗口"
+  },
+  "templates": {
+    "returned": {
+      "subject": "文件退回｜{caseNumber}",
+      "lines": [
+        "你好，這筆文件核對後仍需修正。",
+        "案件：{caseNumber}",
+        "核對版本：{versionLabel}",
+        "退回原因：{reason}",
+        "請從本信附件開啟文件，確認後重新送審；需要補查的項目也可以轉交窗口。"
+      ],
+      "attachmentLabel": "{caseNumber}｜{versionLabel}｜核對結果"
+    },
+    "resolved": {
+      "subject": "文件核對完成｜{caseNumber}",
+      "lines": [
+        "你好，這次送件的人員編號已與隨附原表核對一致，本案處理完成。",
+        "案件：{caseNumber}",
+        "核對版本：{versionLabel}",
+        "本次核對結果隨信留存，供後續查閱。"
+      ],
+      "attachmentLabel": "{caseNumber}｜{versionLabel}｜核對結果"
+    }
+  },
+  "ui": {
+    "appName": "郵件",
+    "inbox": "收件匣",
+    "all": "全部郵件",
+    "unread": "未讀",
+    "pending": "待處理",
+    "empty": "目前沒有郵件。",
+    "emptyUnread": "沒有未讀郵件。",
+    "emptyPending": "目前沒有待處理郵件。",
+    "selectMail": "選擇一封郵件閱讀。",
+    "sender": "寄件者",
+    "received": "收到時間",
+    "attachments": "附件",
+    "openAttachment": "開啟文件",
+    "historical": "歷史版本・僅供檢閱",
+    "current": "目前待處理版本",
+    "awaiting": "已送出・等待核對",
+    "resolved": "已結案",
+    "stale": "此版本已不是目前待處理版本，請從最新郵件開啟文件。",
+    "missingAttachment": "找不到這份附件的版本資料，無法開啟。",
+    "loadFailed": "郵件暫時無法讀取，請再試一次。",
+    "retry": "重新讀取",
+    "initialVersion": "原始送件",
+    "revisionTemplate": "修訂 {revision}",
+    "codeMismatch": "送件的人員編號與隨附原表不一致。"
+  },
+  "integration": {
+    "idPolicy": "由 receiptId 產生穩定 mailId；同一回條只寄一次。",
+    "attachmentFields": [
+      "kind",
+      "caseId",
+      "receiptId",
+      "versionIndex"
+    ],
+    "attachmentKind": "return-receipt",
+    "versionPolicy": "null 指原始送件；數字指保存的版本 index。畫面修訂號由 index + 1 呈現，不改底層 ID。",
+    "templatePolicy": "只插入已驗證的案件識別與安全文字；不執行 HTML 或任意運算。resolved 模板僅用於本輪 code-mismatch 核對，不延伸為其他案件的真相判定。"
+  }
+}

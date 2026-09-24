@@ -1,0 +1,54 @@
+<app-window-shell [windowId]="windowId" [title]="ui.heading" [ariaLabel]="ui.ariaLabel" [defaults]="defaults()">
+  <div class="font-mono text-[.8rem] leading-relaxed">
+    @if (entries().length === 0) {
+      <p class="text-muted mb-0" data-log-empty>{{ ui.empty }}</p>
+    } @else {
+      <ol class="list-none m-0 p-0">
+        @for (e of visible(); track e.id; let first = $first) {
+          <li
+            class="py-2.5 border-border"
+            [class.border-t]="!first"
+            [class.pt-0]="first"
+            data-log-entry
+            [attr.data-log-pending]="e.pending ?? null"
+          >
+            <!-- 指令列：提示符號＋指令（＋參數）；只是紀錄，不是可輸入的命令列 -->
+            <div class="[overflow-wrap:anywhere]" data-log-command><span class="text-primary">{{ ui.prompt }}</span>{{ ' ' + e.command }}@if (e.arg !== null) {<span class="text-primary">{{ ' ' + e.arg }}</span>}</div>
+            <!-- 提交過程：每個階段一行 JSON，隨階段追加 -->
+            @for (s of e.trail ?? []; track $index) {
+              <div class="text-muted [overflow-wrap:anywhere]" data-log-stage>{{ '{' }}<span>{{ '"' + s.key + '"' }}</span>:<span class="text-text">{{ s.value }}</span>{{ '}' }}</div>
+            }
+            <!-- 精簡 JSON 輸出：鍵為低彩度、字串值為一般文字色、數字為主色；窄欄時在欄位之間換行 -->
+            @if (e.fields.length > 0) {
+              <div class="text-muted [overflow-wrap:anywhere]" data-log-output>{{ '{' }}@for (f of e.fields; track f.key; let last = $last) {<span class="inline-block max-w-full" data-log-field><span>{{ '"' + f.key + '"' }}</span>:<span [class.text-text]="f.type === 'string'" [class.text-primary]="f.type === 'number'">{{ f.value }}</span>@if (!last) {<span>,</span>}</span>}{{ '}' }}</div>
+            }
+            @if (e.pending === 'failed') {
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 font-body" data-log-failed>
+                <span class="text-muted">{{ e.retryable === false ? opUi.rejectedHint : opUi.failedHint }}</span>
+                @if (e.retryable !== false) {
+                  <button
+                    type="button"
+                    class="min-h-9 py-1 px-2.5 text-[.8rem]"
+                    data-log-retry
+                    (click)="retry.emit()"
+                  >{{ opUi.retry }}</button>
+                }
+              </div>
+            }
+          </li>
+        }
+      </ol>
+    }
+  </div>
+  @if (hiddenCount() > 0) {
+    <div windowFooter class="flex-none border-t border-border px-1.5 py-1">
+      <button
+        type="button"
+        class="min-h-9 py-1 px-2.5 text-[.8rem] border-transparent bg-transparent text-muted"
+        data-log-history
+        [attr.aria-expanded]="showHistory()"
+        (click)="toggleHistory()"
+      >{{ showHistory() ? shellUi.history.hide : shellUi.history.show }}</button>
+    </div>
+  }
+</app-window-shell>

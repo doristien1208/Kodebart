@@ -1,0 +1,44 @@
+<section class="panel" data-record-review>
+  <h3>{{ t.heading }}</h3>
+  <ul role="list" [attr.aria-label]="t.listLabel" class="grid gap-3 md:grid-cols-2 list-none p-0 m-0">
+    @for (item of items(); track item.key; let i = $index) {
+      <li class="receipt-cell min-w-0" [attr.data-review-index]="i">
+        <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+          <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+            <dt class="text-muted">{{ nameLabel }}</dt>
+            <dd>{{ item.name ?? unregistered }}</dd>
+            <dt class="text-muted">{{ codeLabel }}</dt>
+            <dd class="font-mono" data-review-code>{{ item.code }}</dd>
+            <dt class="text-muted">{{ sourceLabel }}</dt>
+            <dd class="font-mono" data-review-source>{{ item.sourceCode }}</dd>
+          </dl>
+          <span class="tag whitespace-nowrap" data-review-status>{{ statusText(item.disposition) }}</span>
+        </div>
+        @if (!locked()) {
+          <div class="flex flex-wrap gap-2" role="group" [attr.aria-label]="t.heading">
+            <button
+              type="button"
+              class="py-1.5 px-3 min-h-10 text-sm"
+              data-review-action="release"
+              [class.border-primary]="item.disposition === 'release'"
+              [class.bg-elevated]="item.disposition === 'release'"
+              [attr.aria-pressed]="item.disposition === 'release'"
+              [disabled]="busy()"
+              (click)="choose(item.key, 'release')"
+            >{{ t.release }}</button>
+            <button
+              type="button"
+              class="py-1.5 px-3 min-h-10 text-sm"
+              data-review-action="hold"
+              [class.border-primary]="item.disposition === 'hold'"
+              [class.bg-elevated]="item.disposition === 'hold'"
+              [attr.aria-pressed]="item.disposition === 'hold'"
+              [disabled]="busy()"
+              (click)="choose(item.key, 'hold')"
+            >{{ t.hold }}</button>
+          </div>
+        }
+      </li>
+    }
+  </ul>
+</section>

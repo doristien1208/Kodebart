@@ -1,0 +1,80 @@
+@if (win(); as w) {
+  <section
+    class="window"
+    [class.kb-motion]="motion()"
+    [class.is-dragging]="dragging()"
+    [attr.aria-label]="ariaLabel() || null"
+    [attr.aria-labelledby]="ariaLabel() ? null : titleId"
+  >
+    <div
+      class="window-bar"
+      tabindex="0"
+      data-window-bar
+      [attr.aria-describedby]="hintId"
+      (pointerdown)="onBarPointerDown($event)"
+      (pointermove)="onBarPointerMove($event)"
+      (pointerup)="onBarPointerUp($event)"
+      (pointercancel)="onBarPointerUp($event)"
+      (lostpointercapture)="onBarPointerUp($event)"
+      (keydown)="onBarKeydown($event)"
+      (dblclick)="onBarDoubleClick($event)"
+    >
+      <div class="window-title" role="heading" [attr.aria-level]="level()" [id]="titleId">{{ title() }}</div>
+      <span class="sr-only" [id]="hintId">{{ ui.moveHint }}</span>
+      <div class="window-controls">
+        <button
+          type="button"
+          class="window-control"
+          data-window-minimize
+          [attr.aria-label]="ui.minimize"
+          [title]="ui.minimize"
+          (click)="minimize()"
+        >
+          <svg class="window-icon" viewBox="0 0 8 8" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false">
+            <path [attr.d]="icons.minimize" fill="currentColor" />
+          </svg>
+        </button>
+        @if (!manager.compact()) {
+          <button
+            type="button"
+            class="window-control"
+            data-window-maximize
+            [attr.aria-label]="maximized() ? ui.restore : ui.maximize"
+            [title]="maximized() ? ui.restore : ui.maximize"
+            (click)="toggleMaximize()"
+          >
+            <svg class="window-icon" viewBox="0 0 8 8" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false">
+              <path [attr.d]="maximized() ? icons.restore : icons.maximize" fill="currentColor" />
+            </svg>
+          </button>
+        }
+        @if (closable()) {
+          <button
+            type="button"
+            class="window-control"
+            data-window-close
+            [attr.aria-label]="ui.close"
+            [title]="ui.close"
+            (click)="close()"
+          >
+            <svg class="window-icon" viewBox="0 0 8 8" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true" focusable="false">
+              <path [attr.d]="icons.close" fill="currentColor" />
+            </svg>
+          </button>
+        }
+      </div>
+    </div>
+    <div
+      #body
+      class="window-body"
+      [class.is-app]="variant() === 'app'"
+      tabindex="0"
+      data-window-body
+      [id]="bodyId"
+      [style.max-height.px]="floating() ? null : w.height"
+    >
+      <ng-content />
+    </div>
+    <ng-content select="[windowFooter]" />
+  </section>
+}

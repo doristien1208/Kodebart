@@ -1,0 +1,69 @@
+<!-- 應用列：品牌、工具列（系統作業紀錄）、右上身分區（玩家姓名＋組別） -->
+<header class="wb-bar">
+  <div class="wb-brand">
+    <span class="text-primary">{{ WORKBENCH.brandLead }}</span>{{ WORKBENCH.brandRest }}<span class="wb-brand-suffix">{{ WORKBENCH.brandSuffix }}</span>
+  </div>
+  <div class="wb-tools">
+    <button type="button" class="wb-tool" [attr.data-window-open]="logWindowId" data-open-log (click)="openLog()">{{ WINDOWS.openLog }}</button>
+    <div class="wb-identity" role="group" [attr.aria-label]="WORKBENCH.identityLabel" data-identity>
+      <span class="wb-identity-name" data-identity-name>{{ game.displayName() }}</span>
+      <span class="wb-identity-team" data-identity-team>{{ WORKBENCH.team }}</span>
+    </div>
+  </div>
+</header>
+
+<div class="wb-body">
+  <!-- 左側單組功能導航（窄視窗時在上方橫列） -->
+  <nav class="wb-nav" [attr.aria-label]="WORKBENCH.navLabel" data-workbench-nav>
+    <ul class="wb-nav-list">
+      @for (item of navItems; track item.label) {
+        <li class="wb-nav-cell">
+          @if (item.kind === 'view') {
+            <button
+              type="button"
+              class="wb-nav-item"
+              [class.active]="view() === item.view"
+              [attr.aria-current]="view() === item.view ? 'page' : null"
+              [attr.data-nav-view]="item.view"
+              (click)="select(item)"
+            >
+              <span class="truncate">{{ item.label }}</span>
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="wb-nav-item"
+              [attr.data-nav-app]="item.app"
+              [attr.data-window-open]="item.windowId"
+              (click)="select(item)"
+            >
+              <span class="truncate">{{ item.label }}</span>
+              @if (item.app === 'messages') {
+                <app-unread-badge [count]="unreadTotal()" [label]="MESSAGES.unread(unreadTotal())" />
+              } @else {
+                <app-unread-badge [count]="unreadMail()" [label]="unreadMailLabel()" />
+              }
+            </button>
+          }
+        </li>
+      }
+    </ul>
+  </nav>
+
+  <div class="wb-content" data-work-scroll>
+    <!-- 只有這層（標題區＋目前視圖）在切換視圖時過渡；應用列與導航維持不動 -->
+    <div #viewPane>
+      <div class="wb-heading">
+        <div class="min-w-0">
+          <h2 class="mb-1">{{ headingText() }}</h2>
+          <p class="text-sm text-muted mb-0">{{ greeting() }}</p>
+        </div>
+        <span class="font-mono leading-tight text-primary whitespace-nowrap" data-day-tag>{{ WORKBENCH.dayTag(dayNumber()) }}</span>
+      </div>
+      <app-work-view [hidden]="view() !== 'work'" />
+      @if (view() === 'news') {
+        <app-news />
+      }
+    </div>
+  </div>
+</div>

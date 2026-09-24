@@ -1,0 +1,81 @@
+<div class="grid gap-4 md:grid-cols-2">
+  <app-source-card [record]="record()" />
+
+  @if (archived(); as a) {
+    <div>
+      <h3>{{ t.doneHeading }}</h3>
+      <p class="text-muted">{{ t.doneBody }}</p>
+      <p>{{ t.nameLabel }}：{{ nameText() }}</p>
+      <p>{{ t.doneCode }}<code>{{ a.archiveCode }}</code></p>
+      <p>{{ t.doneMethod }}{{ a.origin === 'review' ? t.methodReview : t.methodArchive }}</p>
+      <app-operation-status [operation]="operation()" (retry)="retry.emit()" />
+    </div>
+  } @else {
+    <form novalidate (submit)="$event.preventDefault()">
+      <p class="mt-0 mb-4">
+        <span class="block font-semibold">{{ t.nameLabel }}</span>
+        <span>{{ nameText() }}</span>
+      </p>
+
+      <label for="archive-input" class="block mb-1.5 font-semibold">{{ t.fieldLabel }}</label>
+      <input
+        #archiveInput
+        id="archive-input"
+        class="input"
+        type="text"
+        autocomplete="off"
+        [value]="draft().value"
+        [attr.aria-invalid]="fieldError() ? 'true' : 'false'"
+        aria-describedby="field-error"
+        (input)="onInput($event)"
+      />
+      <p id="field-error" class="field-error" role="status">{{ fieldError() }}</p>
+
+      @if (needsPolicy()) {
+        <fieldset>
+          <legend class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>{{ t.missingLegend }}</span>
+            @if (helpLabel(); as label) {
+              <button type="button" class="text-sm font-normal" data-help-ask (click)="askHelp.emit()">
+                {{ label }}
+              </button>
+            }
+          </legend>
+          <label class="radio">
+            <input
+              type="radio"
+              name="policy"
+              value="default_false"
+              [checked]="draft().policy === 'default_false'"
+              (change)="policySelect.emit('default_false')"
+            />
+            <span>
+              <span class="block">{{ t.policyDefault }}</span>
+              <span class="block text-sm text-muted">{{ t.policyDefaultHint }}</span>
+            </span>
+          </label>
+          <label class="radio">
+            <input
+              type="radio"
+              name="policy"
+              value="request_review"
+              [checked]="draft().policy === 'request_review'"
+              (change)="policySelect.emit('request_review')"
+            />
+            <span>
+              <span class="block">{{ t.policyReview }}</span>
+              <span class="block text-sm text-muted">{{ t.policyReviewHint }}</span>
+            </span>
+          </label>
+        </fieldset>
+      }
+
+      <button type="button" class="btn-primary" [disabled]="busy()" (click)="validate.emit()">{{ t.validate }}</button>
+
+      @if (preview(); as p) {
+        <app-archive-preview [preview]="p" [busy]="busy()" (confirm)="confirm.emit()" />
+      }
+      <app-operation-status class="mt-3" [operation]="operation()" (retry)="retry.emit()" />
+    </form>
+  }
+</div>

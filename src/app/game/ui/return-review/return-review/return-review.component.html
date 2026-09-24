@@ -1,0 +1,53 @@
+@if (text(); as rt) {
+  <div class="panel" data-return-review>
+    <div class="flex flex-col md:flex-row md:justify-between items-start gap-4 mb-6">
+      <div>
+        <span class="eyebrow">{{ rt.eyebrow }}</span>
+        <h3>{{ rt.heading }}</h3>
+      </div>
+      <span class="tag" data-return-progress>{{ progressText() }}</span>
+    </div>
+
+    <p class="text-muted">{{ rt.instruction }}</p>
+
+    <ul class="list-none p-0 m-0 grid gap-3" data-return-list>
+      @for (row of rows(); track row.id; let i = $index) {
+        <li class="receipt-cell min-w-0" data-return-item [attr.data-return-status]="row.status">
+          <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+            <h4 class="font-mono text-base mb-0 min-w-0" [id]="idPrefix + '-case-' + i" data-return-case>{{ row.caseNumber }}</h4>
+            <span class="flex flex-wrap gap-2">
+              <span class="tag whitespace-nowrap" data-return-state>{{ row.statusText }}</span>
+              @if (row.handled) {
+                <span class="tag whitespace-nowrap" data-return-handled>{{ ui.handled }}</span>
+              }
+            </span>
+          </div>
+          @if (row.latestLabel) {
+            <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm mb-3">
+              <dt class="text-muted">{{ latestLabel }}</dt>
+              <dd class="font-mono [overflow-wrap:anywhere]" data-return-latest>{{ row.latestLabel }}</dd>
+              <dt class="text-muted">{{ receivedLabel }}</dt>
+              <dd data-return-received>{{ row.latestReceived }}</dd>
+            </dl>
+          }
+          <button
+            type="button"
+            class="text-sm py-1.5 px-3"
+            data-return-open
+            [attr.aria-describedby]="idPrefix + '-case-' + i"
+            (click)="openLatest(row.id)"
+          >{{ ui.openMail }}</button>
+        </li>
+      }
+    </ul>
+  </div>
+
+  <div class="flex gap-2.5 items-center flex-wrap mt-5">
+    <button
+      type="button"
+      class="btn-primary ml-auto"
+      [disabled]="busy() || !game.taskDone()"
+      (click)="onDeliver()"
+    >{{ deliverText() }}</button>
+  </div>
+}

@@ -1,0 +1,51 @@
+<section class="cover relative isolate flex min-h-svh items-center px-[7vw] pt-12 pb-28 md:pt-20 md:pb-24">
+  <app-cover-scene class="-z-30" />
+  <div class="cover-shade absolute inset-0 -z-20" aria-hidden="true"></div>
+
+  <div class="cover-content w-full max-w-[36rem]">
+    <div class="cover-rule mb-4 h-[3px] w-12 bg-primary" aria-hidden="true"></div>
+    <div class="eyebrow">{{ text.eyebrow }}</div>
+    <app-cover-title [text]="text.title" />
+    <p class="subtitle font-mono text-muted">{{ text.subtitle }}</p>
+
+    <div class="cover-menu mt-8 grid w-72 max-w-full gap-[.55rem] md:mt-14">
+      <button type="button" #startBtn (click)="onStart()">{{ text.start }}</button>
+      <button type="button" [disabled]="!game.hasSave()" (click)="onContinue()">{{ text.continue }}</button>
+      <button type="button" #settingsBtn (click)="openSettings()">{{ text.settings }}</button>
+    </div>
+    <p class="menu-help mt-3 text-[.8rem] text-muted">{{ saveHelp() }}</p>
+    @if (game.storageIssue(); as issue) {
+      <p role="status" class="text-sm">{{ issue }}</p>
+    }
+  </div>
+
+  <footer
+    class="cover-bottom absolute right-[4vw] bottom-6 left-[7vw] flex flex-col justify-between gap-4 text-[.8rem] text-muted md:flex-row"
+  >
+    <span>{{ text.footerLeft }}</span>
+    <span class="font-mono">{{ text.footerRight }}</span>
+  </footer>
+</section>
+
+<app-modal-dialog #newGameDialog [heading]="newGameText.heading">
+  <p dialogBody>{{ newGameText.body }}</p>
+  <button dialogActions type="button" data-initial-focus (click)="newGameDialog.close()">
+    {{ newGameText.keep }}
+  </button>
+  <button dialogActions type="button" class="btn-primary" (click)="confirmNewGame()">
+    {{ newGameText.start }}
+  </button>
+</app-modal-dialog>
+
+<app-modal-dialog #settingsDialog [heading]="settingsText.heading">
+  <div dialogBody>
+    <label class="flex gap-3 py-4">
+      <input type="checkbox" class="accent-primary" [checked]="settings.motion()" (change)="onMotionChange($event)" />
+      <span>{{ settingsText.motionLabel }}</span>
+    </label>
+    <p class="text-sm text-muted">{{ settingsText.note }}</p>
+  </div>
+  <button dialogActions type="button" class="btn-primary" data-initial-focus (click)="settingsDialog.close()">
+    {{ settingsText.back }}
+  </button>
+</app-modal-dialog>

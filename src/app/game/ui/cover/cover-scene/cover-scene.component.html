@@ -1,0 +1,21 @@
+<img
+  #art
+  class="cover-art absolute inset-0 h-full w-full object-cover object-[65%_center] [image-rendering:pixelated]"
+  [src]="text.artSrc"
+  [alt]="text.artAlt"
+  (load)="onArtLoad()"
+/>
+
+<div class="ambience-clip" aria-hidden="true">
+  <div #ambience class="ambience">
+    <canvas
+      #rainCanvas
+      class="rain-layer"
+      [style.left]="rainRect().left"
+      [style.top]="rainRect().top"
+      [style.width]="rainRect().width"
+      [style.height]="rainRect().height"
+    ></canvas>
+    <div #corridorLight class="corridor-light"></div>
+  </div>
+</div>

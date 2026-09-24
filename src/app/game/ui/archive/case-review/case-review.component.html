@@ -1,0 +1,185 @@
+<section class="mt-2" data-case-review>
+  <span class="eyebrow">{{ t.eyebrow }}</span>
+  <h4 class="text-[1.05rem] font-semibold mb-1">{{ t.heading }}</h4>
+  <p class="text-sm text-muted">{{ t.instruction }}</p>
+
+  <!-- 文件入口：開啟或聚焦文件視窗；關閉的視窗從這裡重開 -->
+  <div class="flex flex-wrap items-center gap-1.5 mb-4" role="group" [attr.aria-label]="windowsUi.documentsLabel" data-case-documents>
+    <span class="text-sm text-muted mr-1">{{ windowsUi.documentsLabel }}</span>
+    @for (w of windows(); track w.id) {
+      <button
+        type="button"
+        class="min-h-10 py-1.5 px-3 text-sm"
+        [attr.data-window-open]="w.id"
+        (click)="openWindow(w.id)"
+      >{{ w.doc.text.heading }}</button>
+    }
+  </div>
+
+  @for (w of windowsReady() ? windows() : []; track w.id) {
+    <app-window-shell
+      [windowId]="w.id"
+      [title]="w.doc.text.heading"
+      [defaults]="w.defaults"
+      [level]="5"
+      [attr.data-case-window]="w.markable ? 'source' : 'supporting'"
+    >
+      @if (!w.markable) {
+        <p class="text-sm text-muted mb-1.5">{{ t.supportingHeading }}</p>
+      }
+      <table class="w-full text-sm border-collapse">
+        <thead>
+          <tr class="text-left text-muted">
+            <th scope="col" class="font-normal pb-1 pr-2">{{ t.fieldHeader }}</th>
+            <th scope="col" class="font-normal pb-1 pr-2">{{ t.valueHeader }}</th>
+            @if (w.markable) {
+              <th scope="col" class="pb-1"><span class="sr-only">{{ t.markDiff }}</span></th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (f of w.doc.text.fields; track f.label) {
+            @let marked = w.markable && isMarked(f.label);
+            <tr
+              class="border-t border-border align-middle"
+              [class.bg-elevated]="marked"
+              [attr.data-case-field]="f.label"
+              [attr.data-marked]="marked ? '' : null"
+            >
+              <th
+                scope="row"
+                class="font-normal text-left py-1.5 pr-2 pl-2 border-l-2"
+                [class.border-primary]="marked"
+                [class.border-transparent]="!marked"
+              >{{ f.label }}</th>
+              <td class="font-mono py-1.5 pr-2 [overflow-wrap:anywhere]">{{ f.value }}</td>
+              @if (w.markable) {
+                <td class="py-1 text-right">
+                  @if (done()) {
+                    @if (marked) {
+                      <span class="tag">{{ t.markedLabel }}</span>
+                    }
+                  } @else {
+                    <button
+                      type="button"
+                      class="min-h-9 py-1 px-2 text-[.8rem] whitespace-nowrap"
+                      [attr.aria-pressed]="marked"
+                      [attr.aria-label]="(marked ? t.unmarkDiff : t.markDiff) + ' ' + f.label"
+                      (click)="toggleMark.emit(f.label)"
+                    >{{ marked ? t.unmarkDiff : t.markDiff }}</button>
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </app-window-shell>
+  }
+
+  <div class="min-w-0 max-w-[30rem]">
+    <p class="text-sm text-muted mb-2" data-case-marked-count>{{ markedText() }}</p>
+
+    @if (done(); as d) {
+      <div class="preview mt-0" data-case-done>
+        <h4 #doneHeading tabindex="-1" class="font-semibold mb-1">{{ t.doneHeading }}</h4>
+        <p class="text-sm text-muted mb-2">{{ t.receiptHeading }}</p>
+        <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+          <dt class="text-muted">{{ t.codeLabel }}</dt>
+          <dd class="font-mono" data-case-done-field="code">{{ d.code }}</dd>
+          <dt class="text-muted">{{ t.destinationLabel }}</dt>
+          <dd data-case-done-field="destination">{{ d.destination }}</dd>
+          <dt class="text-muted">{{ t.basisLabel }}</dt>
+          <dd data-case-done-field="basis">{{ d.basis }}</dd>
+          <dt class="text-muted">{{ t.noteLabel }}</dt>
+          <dd data-case-done-field="note">{{ d.note }}</dd>
+        </dl>
+        <app-operation-status class="mt-3" [operation]="operation()" (retry)="retry.emit()" />
+        <div class="mt-4">
+          <button type="button" (click)="back.emit()">{{ t.closeLabel }}</button>
+        </div>
+      </div>
+    } @else {
+      <form novalidate (submit)="$event.preventDefault()">
+        <label for="case-code-input" class="block mb-1.5 font-semibold">{{ t.codeInputLabel }}</label>
+        <input
+          #codeInput
+          id="case-code-input"
+          class="input"
+          type="text"
+          autocomplete="off"
+          data-case-code
+          [value]="draft().value"
+          [attr.aria-invalid]="error() ? 'true' : 'false'"
+          aria-describedby="case-error"
+          (input)="onCodeInput($event)"
+        />
+
+        <fieldset>
+          <legend>{{ t.decisionsHeading }}</legend>
+          @for (d of view().review.decisions; track d.id) {
+            <label class="radio">
+              <input
+                type="radio"
+                [name]="'case-decision-' + view().caseId"
+                [value]="d.id"
+                [checked]="choice() === d.id"
+                (change)="decide.emit(d.id)"
+              />
+              <span>{{ d.label }}</span>
+            </label>
+          }
+        </fieldset>
+
+        @if (chosenSummary(); as s) {
+          <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm mb-3" data-case-selected>
+            <dt class="text-muted">{{ t.codeLabel }}</dt>
+            <dd class="font-mono" data-case-selected-field="code">{{ s.code }}</dd>
+            <dt class="text-muted">{{ t.destinationLabel }}</dt>
+            <dd>{{ s.destination }}</dd>
+            <dt class="text-muted">{{ t.basisLabel }}</dt>
+            <dd>{{ s.basis }}</dd>
+            <dt class="text-muted">{{ t.noteLabel }}</dt>
+            <dd>{{ s.note }}</dd>
+          </dl>
+        }
+
+        @if (needsPolicy()) {
+          <fieldset>
+            <legend>{{ a.missingLegend }}</legend>
+            <label class="radio">
+              <input
+                type="radio"
+                name="case-policy"
+                value="default_false"
+                [checked]="draft().policy === 'default_false'"
+                (change)="policySelect.emit('default_false')"
+              />
+              <span>
+                <span class="block">{{ a.policyDefault }}</span>
+                <span class="block text-sm text-muted">{{ a.policyDefaultHint }}</span>
+              </span>
+            </label>
+            <label class="radio">
+              <input
+                type="radio"
+                name="case-policy"
+                value="request_review"
+                [checked]="draft().policy === 'request_review'"
+                (change)="policySelect.emit('request_review')"
+              />
+              <span>
+                <span class="block">{{ a.policyReview }}</span>
+                <span class="block text-sm text-muted">{{ a.policyReviewHint }}</span>
+              </span>
+            </label>
+          </fieldset>
+        }
+
+        <p id="case-error" class="field-error" role="status" data-case-error>{{ error() }}</p>
+        <button type="button" class="btn-primary" [disabled]="busy()" (click)="confirm.emit()">{{ t.confirm }}</button>
+        <app-operation-status class="mt-3" [operation]="operation()" (retry)="retry.emit()" />
+      </form>
+    }
+  </div>
+</section>

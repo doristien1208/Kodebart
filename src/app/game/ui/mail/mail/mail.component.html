@@ -1,0 +1,33 @@
+@if (views() !== null) {
+  <div class="mail-shell" data-mail-app>
+    <app-mail-list
+      class="mail-pane mail-pane-list"
+      [class.is-hidden]="narrow() && selected() !== null"
+      [rows]="rows()"
+      [counts]="counts()"
+      [filter]="nav.filter()"
+      [selectedId]="nav.selectedId()"
+      (select)="onSelect($event)"
+      (filterChange)="nav.setFilter($event)"
+    />
+    <div class="mail-pane mail-pane-reader" [class.is-hidden]="narrow() && selected() === null">
+      @if (selected(); as mail) {
+        <app-mail-reader
+          class="h-full"
+          [mail]="mail"
+          [showBack]="narrow()"
+          (back)="onBack()"
+          (openAttachment)="onOpenAttachment($event)"
+          (retry)="onRetry()"
+        />
+      } @else {
+        <p class="mail-placeholder" data-mail-select>{{ t.selectMail }}</p>
+      }
+    </div>
+  </div>
+} @else {
+  <div class="mail-failed" role="alert" data-mail-app data-mail-load-failed>
+    <p class="mb-3">{{ t.loadFailed }}</p>
+    <button type="button" data-mail-retry (click)="onRetry()">{{ t.retry }}</button>
+  </div>
+}

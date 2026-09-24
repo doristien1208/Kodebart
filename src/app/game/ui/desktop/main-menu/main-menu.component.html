@@ -1,0 +1,21 @@
+<button
+  #trigger
+  type="button"
+  class="menu-button"
+  data-main-menu-button
+  [attr.aria-label]="ui.button"
+  [title]="ui.button"
+  [attr.aria-expanded]="open()"
+  [attr.aria-controls]="panelId"
+  (click)="toggle()"
+>
+  <app-app-icon name="menu" />
+</button>
+<div class="menu-panel" role="group" data-main-menu [id]="panelId" [attr.aria-label]="ui.label" [hidden]="!open()">
+  <button #firstItem type="button" class="menu-item" data-menu-back (click)="backToCover()">{{ ui.backToCover }}</button>
+  <label class="menu-item menu-check">
+    <input type="checkbox" data-menu-motion [checked]="settings.motion()" (change)="setMotion($event)" />
+    <span>{{ ui.motion }}</span>
+  </label>
+  <button type="button" class="menu-item" data-menu-reset (click)="resetLayout()">{{ ui.resetLayout }}</button>
+</div>

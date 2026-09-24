@@ -1,0 +1,29 @@
+<section class="transition-screen grid-cols-[minmax(0,1fr)]">
+  <div class="w-[38rem] max-w-full min-w-0">
+    <div class="flex justify-between items-baseline gap-4 mb-8">
+      <span class="eyebrow">{{ ui.eyebrow }}</span>
+      <span class="font-mono leading-tight text-primary whitespace-nowrap">{{ dayTag() }}</span>
+    </div>
+    <h1 class="text-[2rem] md:text-[2.5rem] tracking-[.1em]">{{ ui.heading }}</h1>
+    <p class="text-muted">{{ greeting() }}</p>
+
+    <div class="panel">
+      <h2 class="text-[1.1rem] mb-4">{{ ui.listHeading }}</h2>
+      <ol class="list-none m-0 p-0 border-t border-border">
+        @for (r of rows(); track r.taskId) {
+          <li class="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-3 border-b border-border min-w-0" data-morning-item>
+            <span class="font-mono text-muted">{{ r.index }}</span>
+            <span class="tag whitespace-nowrap">{{ r.kind }}</span>
+            <span class="flex-1 min-w-0 [overflow-wrap:anywhere]">{{ r.heading }}</span>
+            <span class="text-sm text-muted whitespace-nowrap">{{ r.pending }}</span>
+          </li>
+        }
+      </ol>
+    </div>
+
+    <button type="button" class="btn-primary mt-8" (click)="onStart()">{{ ui.start }}</button>
+    <div class="flex gap-2.5 items-center flex-wrap mt-5">
+      <button type="button" class="btn-ghost" (click)="router.navigateByUrl('/')">{{ ui.backToCover }}</button>
+    </div>
+  </div>
+</section>

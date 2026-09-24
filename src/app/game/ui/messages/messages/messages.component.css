@@ -1,0 +1,35 @@
+/*
+ * 通訊應用外殼：填滿通訊視窗的內容區，頻道欄與對話區各自捲動；對話 header 與固定回覆區因此一直可見。
+ * 版面依通訊視窗本身的寬度（容器查詢 chat），不看整個瀏覽器：窄時一次只顯示列表或對話。
+ */
+:host {
+  display: block;
+  height: 100%;
+  min-height: 18rem;
+  container: chat / inline-size;
+}
+
+.chat-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+}
+.chat-list, .chat-thread { min-height: 0; min-width: 0; }
+.chat-list { overflow-y: auto; }
+.chat-thread { display: flex; flex-direction: column; }
+.chat-thread > app-message-thread { flex: 1 1 auto; }
+
+/* 窄版面：選了對話就只顯示對話，回列表再只顯示列表 */
+.chat-shell.has-thread .chat-list { display: none; }
+.chat-shell:not(.has-thread) .chat-thread { display: none; }
+
+@container chat (min-width: 34rem) {
+  .chat-shell { grid-template-columns: 14rem minmax(0, 1fr); }
+  .chat-shell.has-thread .chat-list { display: block; }
+  .chat-shell:not(.has-thread) .chat-thread { display: flex; }
+  .chat-list { border-right: 1px solid var(--color-border); }
+}
+@container chat (min-width: 52rem) {
+  .chat-shell { grid-template-columns: 16rem minmax(0, 1fr); }
+}

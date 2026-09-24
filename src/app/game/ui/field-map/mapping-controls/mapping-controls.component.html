@@ -1,0 +1,63 @@
+<section class="min-w-0">
+  <h4 class="font-semibold mb-3">{{ t.targetHeading }}</h4>
+  <form novalidate (submit)="$event.preventDefault()">
+    <div class="grid gap-3">
+      @for (target of targets(); track target.id) {
+        <div>
+          <label [for]="'map-target-' + target.id" class="block mb-1.5 font-semibold">{{ target.label }}</label>
+          <select
+            #targetSelect
+            class="input"
+            [id]="'map-target-' + target.id"
+            [disabled]="locked()"
+            [attr.aria-invalid]="error() ? 'true' : 'false'"
+            aria-describedby="field-map-error"
+            (change)="onSelect(target.id, $event)"
+          >
+            <option value="" [selected]="!assignments()[target.id]">{{ t.selectPlaceholder }}</option>
+            @for (source of sources(); track source.id) {
+              <option [value]="source.id" [selected]="assignments()[target.id] === source.id">{{ source.label }}</option>
+            }
+          </select>
+        </div>
+      }
+    </div>
+
+    @if (affectedCount() > 0) {
+      <fieldset [disabled]="locked()">
+        <legend>{{ t.blankLegend }}</legend>
+        <label class="radio">
+          <input
+            #policyInput
+            type="radio"
+            name="field-map-policy"
+            value="default_false"
+            [checked]="blankPolicy() === 'default_false'"
+            (change)="policySelect.emit('default_false')"
+          />
+          <span>{{ policyText().policyDefault }}</span>
+        </label>
+        <label class="radio">
+          <input
+            #policyInput
+            type="radio"
+            name="field-map-policy"
+            value="request_review"
+            [checked]="blankPolicy() === 'request_review'"
+            (change)="policySelect.emit('request_review')"
+          />
+          <span>{{ policyText().policyReview }}</span>
+        </label>
+      </fieldset>
+    }
+
+    <p id="field-map-error" class="field-error" role="status">{{ error() }}</p>
+
+    @if (!locked()) {
+      <div class="flex gap-2.5 items-center flex-wrap">
+        <button type="button" [disabled]="busy()" (click)="validate.emit()">{{ t.validate }}</button>
+        <button type="button" class="btn-primary" [disabled]="!previewed() || busy()" (click)="confirm.emit()">{{ t.confirm }}</button>
+      </div>
+    }
+  </form>
+</section>

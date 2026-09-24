@@ -1,0 +1,43 @@
+/* 捲動區與「有新訊息」提示：捲動只在對話區內，header 與回覆區不捲走（版面關鍵規則寫在元件 CSS，不依賴 utility） */
+:host { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.thread-body { position: relative; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.thread-scroller { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.thread-scroller:focus-visible { outline: 3px solid var(--color-primary); outline-offset: -3px; }
+
+.new-below {
+  position: absolute;
+  left: 50%;
+  bottom: .75rem;
+  transform: translateX(-50%);
+  min-height: 2.25rem;
+  border: 1px solid var(--color-primary);
+  background: var(--color-elevated);
+  color: var(--color-text);
+  box-shadow: 4px 4px 0 var(--color-shade);
+  white-space: nowrap;
+}
+.new-below:hover { background: var(--color-surface); }
+
+/* 返回頻道列表只在窄版面（通訊視窗寬度不足兩欄）出現；依容器寬度，不看整個瀏覽器 */
+@container chat (min-width: 34rem) {
+  .thread-back { display: none; }
+}
+
+/* 新回覆列的進場：約 120ms 只動 opacity；容器在動態關閉或 prefers-reduced-motion 時不會標 fresh，
+   全域的 reduced-motion 規則也會停用 animation。 */
+.row-fresh { animation: kb-row-in 120ms ease-out both; }
+@keyframes kb-row-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* 「正在輸入」的三個點：依序淡入淡出。遊戲內關閉動態（body.no-motion）或
+   prefers-reduced-motion（全域規則）時停用 animation，點點靜止顯示，提示文字仍在。 */
+.typing-dots { display: inline-flex; gap: 3px; }
+.typing-dots > span { width: 5px; height: 5px; background: var(--color-muted); animation: kb-typing 1.2s ease-in-out infinite; }
+.typing-dots > span:nth-child(2) { animation-delay: .2s; }
+.typing-dots > span:nth-child(3) { animation-delay: .4s; }
+@keyframes kb-typing { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+:host-context(body.no-motion) .typing-dots > span { animation: none; opacity: .6; }
+:host-context(body.no-motion) .row-fresh { animation: none; }
+
+@media (forced-colors: active) {
+  .new-below { border-color: ButtonText; }
+}

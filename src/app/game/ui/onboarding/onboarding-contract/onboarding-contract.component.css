@@ -1,0 +1,93 @@
+/* 顏色來自父元件由入職包 presentation 綁定的 --onboarding-bg／--onboarding-fg；錯誤色用共用 token */
+:host { display: flex; flex-direction: column; }
+
+/* 高螢幕置中；短螢幕由入職畫面整體捲動（auto margin 歸零，不裁切），條款與簽名鈕都捲得到 */
+.contract {
+  box-sizing: border-box;
+  width: 40rem;
+  max-width: 100%;
+  margin: auto;
+  padding: 3rem 1rem 4rem;
+}
+
+.heading {
+  margin: 0 0 1.5rem;
+  font-size: clamp(1.125rem, 1rem + .6vw, 1.375rem);
+  font-weight: 400;
+  line-height: 1.8;
+  letter-spacing: .04em;
+}
+/* 標題只是換段時的程式焦點落點（不在 Tab 順序、不可操作），不畫焦點框 */
+.heading:focus { outline: none; }
+
+/* 合約正文 16px；條款自帶「一、」編號，不再加清單符號 */
+.clauses {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--onboarding-fg) 40%, transparent);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+.clauses li + li { margin-top: .5rem; }
+.footer {
+  margin: 0 0 2rem;
+  font-size: 1rem;
+  line-height: 1.65;
+  color: color-mix(in srgb, var(--onboarding-fg) 72%, transparent);
+}
+
+.signature {
+  padding-top: 1.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--onboarding-fg) 40%, transparent);
+}
+.signature-label { display: block; margin-bottom: .5rem; font-size: 1rem; line-height: 1.65; }
+
+/* 署名欄：一條簽名線；不限 maxlength，超長以錯誤文字提示 */
+.signature-input {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: .5rem .25rem;
+  border: 0;
+  border-bottom: 1px solid var(--onboarding-fg);
+  border-radius: 0;
+  background: transparent;
+  color: var(--onboarding-fg);
+  font-size: 1.25rem;
+  line-height: 1.5;
+}
+.signature-input::placeholder { color: color-mix(in srgb, var(--onboarding-fg) 50%, transparent); }
+.signature-input:focus-visible { outline: 2px solid var(--onboarding-fg); outline-offset: 4px; }
+.signature-input[aria-invalid="true"] { border-bottom-color: var(--color-error); }
+
+.actions { margin-top: .5rem; }
+.submit,
+.retry {
+  min-height: 44px;
+  padding: .65rem 1.25rem;
+  border: 1px solid var(--onboarding-fg);
+  border-radius: 0;
+  background: transparent;
+  color: var(--onboarding-fg);
+  text-align: center;
+}
+.submit:hover:not([aria-disabled="true"]),
+.retry:hover {
+  border-color: var(--onboarding-fg);
+  background: var(--onboarding-fg);
+  color: var(--onboarding-bg);
+}
+.submit[aria-disabled="true"] { opacity: .6; cursor: progress; }
+.submit:focus-visible,
+.retry:focus-visible { outline: 2px solid var(--onboarding-fg); outline-offset: 4px; }
+
+.status { min-height: 1.6rem; margin: .75rem 0 0; font-size: .875rem; line-height: 1.5; }
+.failed { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin-top: .25rem; }
+.failed p { margin: 0; color: var(--color-error); font-size: .875rem; line-height: 1.5; }
+
+@media (forced-colors: active) {
+  .signature-input { border-bottom-color: CanvasText; }
+  .submit, .retry { border-color: ButtonText; }
+}

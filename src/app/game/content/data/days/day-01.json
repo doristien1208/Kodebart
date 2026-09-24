@@ -1,6 +1,8 @@
 {
   "id": "day.01",
   "day": 1,
+  "nextDayId": "day.02",
+  "chatDateLabel": "9 月 15 日",
   "workbench": {
     "greeting": "早安，歡迎加入柯迪巴特。",
     "workHeading": "今日工作"
@@ -34,6 +36,30 @@
       "code": "0607",
       "refusal": true,
       "refusalApplies": true
+    },
+    {
+      "id": "record.day1-h18",
+      "key": "H18",
+      "name": "陳書宜",
+      "code": "H-18",
+      "refusal": null,
+      "refusalApplies": false
+    },
+    {
+      "id": "record.day1-h19",
+      "key": "H19",
+      "name": "許柏仁",
+      "code": "H-19",
+      "refusal": null,
+      "refusalApplies": false
+    },
+    {
+      "id": "record.day1-h20",
+      "key": "H20",
+      "name": "郭佳穎",
+      "code": "H-20",
+      "refusal": null,
+      "refusalApplies": false
     }
   ],
   "documents": [],
@@ -41,6 +67,7 @@
     {
       "id": "task.day1.archive",
       "kind": "archive",
+      "batchId": "batch.day01.archive",
       "recordIds": [
         "record.h17",
         "record.b102",
@@ -50,33 +77,23 @@
       "text": {
         "eyebrow": "ARCHIVE / BATCH 01",
         "heading": "人員資料歸檔",
-        "instruction": "請依來源資料核對人員編號，完成歸檔。",
-        "progressTemplate": "{count} / {total} 已處理",
-        "doneHeading": "已完成處理",
-        "doneBody": "資料已保存至本日批次。",
-        "doneCode": "人員編號：",
-        "doneMethod": "處理方式：",
-        "methodReview": "送資料覆核",
-        "methodArchive": "正式歸檔",
-        "nameLabel": "姓名",
-        "fieldLabel": "人員編號",
-        "useCode": "使用來源編號",
-        "missingLegend": "缺少拒絕紀錄",
-        "policyDefault": "依缺值規則填入 false",
-        "policyReview": "保留 null，送資料覆核",
-        "validate": "驗證並預覽",
-        "previewOk": "驗證通過",
-        "confirm": "確認歸檔",
-        "footerDone": "本日批次已完成。",
-        "footerPendingTemplate": "完成 {total} 筆資料後即可交接。",
-        "finishDay": "完成今日交接",
-        "statusArchived": "歸檔完成。",
-        "queueEyebrow": "QUEUE",
-        "queueLabel": "本日資料佇列",
-        "queuePending": "待處理",
-        "queueDone": "已完成",
-        "queueDoneMark": "✓",
-        "queueSelectedMark": "▸"
+        "instruction": "請依來源資料核對人員編號，完成歸檔。"
+      }
+    },
+    {
+      "id": "task.day1.archive-followup",
+      "kind": "archive",
+      "batchId": "batch.day01.archive-followup",
+      "recordIds": [
+        "record.day1-h18",
+        "record.day1-h19",
+        "record.day1-h20"
+      ],
+      "documentIds": [],
+      "text": {
+        "eyebrow": "ARCHIVE / BATCH 02",
+        "heading": "補入資料歸檔",
+        "instruction": "請依來源資料核對人員編號，完成第二批歸檔。"
       }
     }
   ],
@@ -86,9 +103,8 @@
       "channelId": "channel.dm.lin-yuan",
       "actorId": "actor.lin-yuan",
       "time": "08:36",
-      "unlock": [
-        "cond.day.1"
-      ],
+      "visibleFrom": "day.01",
+      "unlock": [],
       "lines": [
         "早安！今天先熟悉歸檔就好。左邊是送來的資料，右邊依來源核對人員編號。"
       ]
@@ -97,13 +113,46 @@
       "id": "msg.day1.pace",
       "channelId": "channel.dm.lin-yuan",
       "actorId": "actor.lin-yuan",
-      "time": "08:36",
-      "unlock": [
-        "cond.day.1"
-      ],
+      "time": "08:37",
+      "visibleFrom": "day.01",
+      "unlock": [],
       "lines": [
         "遇到缺的項目可以送覆核，不用急。茶水間的杯子都能用。"
-      ]
+      ],
+      "replyPrompt": {
+        "id": "prompt.day1.welcome",
+        "availableThrough": "day.01",
+        "choices": [
+          {
+            "id": "thanks",
+            "text": "好，謝謝。",
+            "responses": [
+              {
+                "id": "msg.day1.reply.thanks",
+                "actorId": "actor.lin-yuan",
+                "time": "08:38",
+                "lines": [
+                  "不客氣。先照自己的速度來，有卡住再敲我。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "ask-review-time",
+            "text": "送覆核通常要等多久？",
+            "responses": [
+              {
+                "id": "msg.day1.reply.review-time",
+                "actorId": "actor.lin-yuan",
+                "time": "08:38",
+                "lines": [
+                  "看窗口。有時當天，有時會跟下一批一起回來。先把來源留好就行。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "transition": {
@@ -113,8 +162,6 @@
       "eyebrow": "DAY / 01 — COMPLETE",
       "heading": "今天辛苦了。",
       "body": "今日資料已完成交接。謝謝你的協助，明天見。",
-      "countLabel": "　筆資料已處理",
-      "next": "前往第二天",
       "backToCover": "返回開始頁"
     }
   }

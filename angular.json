@@ -5,7 +5,14 @@
   "projects": {
     "kodebart_webGame": {
       "projectType": "application",
-      "schematics": {},
+      "schematics": {
+        "@schematics/angular:component": {
+          "standalone": true,
+          "flat": false,
+          "inlineTemplate": false,
+          "inlineStyle": false
+        }
+      },
       "root": "",
       "sourceRoot": "src",
       "prefix": "app",
@@ -45,7 +52,12 @@
                   "maximumError": "8kB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "optimization": {
+                "scripts": true,
+                "styles": true,
+                "fonts": { "inline": false }
+              }
             },
             "development": {
               "optimization": false,
@@ -92,5 +104,8 @@
         }
       }
     }
+  },
+  "cli": {
+    "analytics": "1745a7f7-92d5-402b-bd39-d2866e4868d5"
   }
 }

@@ -1,0 +1,30 @@
+/*
+ * 入職畫面佔滿整個 viewport，自己負責捲動（不依賴頁面捲動，桌面層鎖住 body 捲動也不受影響）。
+ * --onboarding-bg／--onboarding-fg 由 host 綁定入職包 presentation 的顏色，子元件沿用。
+ */
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--onboarding-bg);
+  color: var(--onboarding-fg);
+}
+.onboarding { box-sizing: border-box; min-height: 100%; display: flex; flex-direction: column; }
+.onboarding > * { flex: 1 0 auto; }
+
+.login {
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 2rem 1rem;
+  font-size: clamp(1.125rem, 1rem + .6vw, 1.375rem);
+  line-height: 1.8;
+  letter-spacing: .04em;
+  text-align: center;
+}
+
+@media (forced-colors: active) {
+  :host { background: Canvas; color: CanvasText; }
+}

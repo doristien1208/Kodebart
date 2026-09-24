@@ -1,0 +1,75 @@
+/*
+ * 工作平台（R12 §5）：填滿應用主視窗；應用列固定，導航與內容區各自捲動。
+ * 以容器寬度（不是 viewport）決定導航在左側或上方：視窗可以被拖小、最大化或在小螢幕單窗顯示。
+ */
+:host { display: flex; flex-direction: column; min-height: 0; container-type: inline-size; }
+
+.wb-bar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem 1rem;
+  padding: .5rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.wb-brand {
+  min-width: 0;
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.wb-brand-suffix { font-size: .875rem; font-weight: 500; color: var(--color-primary); }
+
+.wb-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .5rem 1rem; min-width: 0; }
+.wb-tool { min-height: 2.75rem; padding: .35rem .85rem; font-size: .875rem; line-height: 1.4; white-space: nowrap; }
+
+.wb-identity { display: flex; flex-direction: column; align-items: flex-end; min-width: 0; line-height: 1.4; }
+.wb-identity-name { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-identity-team { font-size: .875rem; color: var(--color-muted); }
+
+.wb-body { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+
+.wb-nav { flex: none; padding: .5rem; border-bottom: 1px solid var(--color-border); background: var(--color-background); }
+.wb-nav-list { display: flex; gap: .25rem; margin: 0; padding: 0; list-style: none; }
+.wb-nav-cell { flex: 1; min-width: 0; }
+.wb-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: .5rem;
+  border-color: transparent;
+  background: transparent;
+  font-family: var(--font-heading);
+}
+.wb-nav-item.active { background: var(--color-elevated); border-left: 3px solid var(--color-primary); }
+
+.wb-content { flex: 1; min-height: 0; min-width: 0; overflow-x: hidden; overflow-y: auto; padding: 1rem; }
+
+.wb-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .5rem 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+@container (min-width: 640px) {
+  .wb-body { display: grid; grid-template-columns: 11rem minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  .wb-nav { padding: 1rem .75rem; border-bottom: 0; border-right: 1px solid var(--color-border); overflow-y: auto; }
+  .wb-nav-list { flex-direction: column; }
+  .wb-nav-cell { flex: none; }
+  .wb-nav-item { justify-content: flex-start; padding: .625rem 1rem; }
+  .wb-content { padding: 1.5rem; }
+}

@@ -1526,6 +1526,14 @@ describe('validateContent ui 的 R7 區塊（§6.1）', () => {
     expect(fields(missing)).toEqual(['sourceCard.refusal']);
   });
 
+  it('sourceCard 缺安排項目標籤或值為空字串（R12）', () => {
+    const issues = issuesAfter((input) => {
+      removeAt(input.ui.data, ['sourceCard', 'arrangement']);
+      setAt(input.ui.data, ['sourceCard', 'arrangementValue'], '');
+    });
+    expect(fields(issues)).toEqual(jasmine.arrayWithExactContents(['sourceCard.arrangement', 'sourceCard.arrangementValue']));
+  });
+
   it('recordStatus 缺欄位、空字串或多餘欄位', () => {
     const issues = issuesAfter((input) => {
       removeAt(input.ui.data, ['recordStatus', 'missing']);

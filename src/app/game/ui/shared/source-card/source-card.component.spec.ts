@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { RECORD_STATUS } from '../../../content/text';
+import { recordsOfTask, tasksOfDay } from '../../../content/bundle';
+import { RECORD_STATUS, SOURCE_CARD } from '../../../content/text';
 import { SourceRecord } from '../../../core/types';
 import { SourceCardComponent } from './source-card.component';
 
@@ -7,6 +8,20 @@ import { SourceCardComponent } from './source-card.component';
 
 function record(refusal: boolean | null, refusalApplies: boolean): SourceRecord {
   return { key: 'K1', name: null, code: '0001', refusal, refusalApplies };
+}
+
+function render(r: SourceRecord): HTMLElement {
+  const fixture = TestBed.createComponent(SourceCardComponent);
+  fixture.componentRef.setInput('record', r);
+  fixture.detectChanges();
+  return fixture.nativeElement as HTMLElement;
+}
+
+/** 來源卡的 dt／dd 依畫面順序配對。 */
+function rows(el: HTMLElement): Array<[string, string]> {
+  const dts = Array.from(el.querySelectorAll('dt'));
+  const dds = Array.from(el.querySelectorAll('dd'));
+  return dts.map((dt, i) => [dt.textContent?.trim() ?? '', dds[i]?.textContent?.trim() ?? '']);
 }
 
 describe('SourceCardComponent', () => {
@@ -18,13 +33,51 @@ describe('SourceCardComponent', () => {
   ];
   for (const [refusal, applies, expected] of cases) {
     it(`refusal=${String(refusal)}、applies=${String(applies)} → ${expected}`, () => {
-      const fixture = TestBed.createComponent(SourceCardComponent);
-      fixture.componentRef.setInput('record', record(refusal, applies));
-      fixture.detectChanges();
-      const el = fixture.nativeElement as HTMLElement;
+      const el = render(record(refusal, applies));
       const dds = el.querySelectorAll('dd');
       expect(dds[dds.length - 1]?.textContent?.trim()).toBe(expected);
       expect(el.textContent).not.toMatch(/\b(true|false|null)\b/);
     });
   }
+
+  /* ---------- R12：拒絕紀錄所指的安排項目 ---------- */
+
+  it('適用拒絕紀錄：拒絕紀錄前顯示「安排項目：後續聯繫安排」，姓名、編號與拒絕紀錄原值不變', () => {
+    const el = render({ key: 'B102', name: null, code: '0102', refusal: null, refusalApplies: true });
+    expect(SOURCE_CARD.arrangement).toBe('安排項目');
+    expect(SOURCE_CARD.arrangementValue).toBe('後續聯繫安排');
+    expect(rows(el)).toEqual([
+      [SOURCE_CARD.name, SOURCE_CARD.nameUnregistered],
+      [SOURCE_CARD.code, '0102'],
+      [SOURCE_CARD.arrangement, SOURCE_CARD.arrangementValue],
+      [SOURCE_CARD.refusal, RECORD_STATUS.missing],
+    ]);
+  });
+
+  it('不適用拒絕紀錄：不顯示安排項目', () => {
+    const el = render({ key: 'H17', name: '林予安', code: 'H-17', refusal: null, refusalApplies: false });
+    expect(rows(el)).toEqual([
+      [SOURCE_CARD.name, '林予安'],
+      [SOURCE_CARD.code, 'H-17'],
+      [SOURCE_CARD.refusal, RECORD_STATUS.notApplicable],
+    ]);
+    expect(el.querySelector('[data-source-arrangement]')).toBeNull();
+    expect(el.textContent).not.toContain(SOURCE_CARD.arrangementValue);
+  });
+
+  it('Day 1 各筆來源：只有適用拒絕紀錄的紀錄顯示安排項目', () => {
+    const records = tasksOfDay('day.01')
+      .filter((t) => t.kind === 'archive')
+      .flatMap((t) => recordsOfTask(t.id));
+    expect(records.some((r) => r.refusalApplies)).toBeTrue();
+    expect(records.some((r) => !r.refusalApplies)).toBeTrue();
+    for (const r of records) {
+      const el = render(r);
+      const arrangement = el.querySelector('[data-source-arrangement]');
+      expect(arrangement?.textContent?.trim() ?? null)
+        .withContext(r.key)
+        .toBe(r.refusalApplies ? SOURCE_CARD.arrangementValue : null);
+      expect(el.textContent?.includes(SOURCE_CARD.arrangement)).withContext(r.key).toBe(r.refusalApplies);
+    }
+  });
 });

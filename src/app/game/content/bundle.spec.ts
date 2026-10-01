@@ -1736,6 +1736,14 @@ describe('入職前情包（R12）', () => {
     expect(bundle.onboardingContractIndex).toBe(5);
   });
 
+  it('“Welcome to KodeBart.” 只在簽名後出現一次；簽名前的 welcome 段是接待人員遞文件', () => {
+    const lines = bundle.ONBOARDING.steps.map((s) => (s.kind === 'line' ? s.text : ''));
+    const welcomes = lines.flatMap((text, i) => (text.includes('Welcome to KodeBart') ? [i] : []));
+    expect(welcomes).toEqual([bundle.onboardingContractIndex + 1]);
+    expect(bundle.ONBOARDING.steps[bundle.onboardingContractIndex + 1]?.id).toBe('signed');
+    expect(lines[bundle.ONBOARDING.steps.findIndex((s) => s.id === 'welcome')]).toBe('接待人員遞來一份入職文件。');
+  });
+
   it('LEGACY_PLAYER_NAME：舊存檔沒有姓名時顯示「員工」（入職包 ui）', () => {
     expect(bundle.LEGACY_PLAYER_NAME).toBe('員工');
     expect(bundle.LEGACY_PLAYER_NAME).toBe(bundle.ONBOARDING.ui.legacyPlayerName);
@@ -1774,7 +1782,7 @@ describe('詢問說明包（R12）', () => {
       id: REQUEST,
       channelId: DM,
       unlockCondition: COND,
-      playerText: '予安，歸檔的「拒絕紀錄」是指什麼？來源沒寫，我不太確定下面兩個選項怎麼分。',
+      playerText: '予安，這裡的「拒絕紀錄」是拒絕什麼？來源只顯示未提供，我不知道該怎麼處理。',
       oncePerSave: true,
     });
     expect(bundle.helpPackOf(REQUEST)?.id).toBe('help.refusal-record');
@@ -1815,16 +1823,28 @@ describe('詢問說明包（R12）', () => {
     expect(ids(unlockedMessages(DM, asked('day.02'))).slice(0, 5)).toEqual(['msg.day1.welcome', 'msg.day1.pace', ...HELP_IDS, 'msg.day2.handoff']);
   });
 
-  it('說明訊息逐字（不給正解、不提世界觀）', () => {
+  it('說明訊息逐字（不給正解、不提世界觀）：安排項目、空白的意思與兩種去向，來源卡就是要看的資料', () => {
     expect(bundle.helpMessages(REQUEST).map((m) => m.lines)).toEqual([
       [
-        '是看當事人有沒有拒絕原表上的那項安排。這裡整理的是之前留下的紀錄，不是要你現在去問本人。',
-        '來源如果有寫拒絕，就照記錄保留。你現在看到的這筆沒寫，所以才會要你選怎麼處理。',
+        '它記的是當事人有沒有拒絕「後續聯繫安排」。你看到的來源資料卡就是這批轉進來的欄位，不用另外找一張原表。',
+        '如果欄位空白，就表示這份來源沒有留下答案，不等於本人同意或拒絕。',
       ],
       [
-        '選「未拒絕」，系統就會把空白補成未拒絕，完成正式歸檔。',
-        '選「未確認」，就先保留缺資料的狀態，送窗口覆核。不是退回叫你重填，也不保證今天就會有回覆。',
+        '選「未拒絕」會依部門的預設值補齊，資料直接歸檔；選「未確認」會保留空白狀態送覆核。',
+        '我們這裡不會重新聯絡本人，後續由窗口處理。',
       ],
+    ]);
+  });
+
+  it('追問與確認選項逐字（選項與回應 ID 不變）；確認選項改看來源卡', () => {
+    const choices = promptOf('prompt.help.refusal')?.prompt.choices ?? [];
+    expect(choices.map((c) => [c.id, c.text, c.responses.map((r) => [r.id, r.lines])])).toEqual([
+      [
+        'ask-blank',
+        '那空白為什麼能補成未拒絕？',
+        [['msg.help.refusal.blank-response', ['系統預設就是這樣；選它只表示這筆會照預設值進檔，不是我們查到了新回覆。']]],
+      ],
+      ['ack', '好，我再看一下來源卡。', [['msg.help.refusal.ack-response', ['嗯，有卡住再問我。']]]],
     ]);
   });
 });

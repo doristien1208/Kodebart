@@ -1,6 +1,6 @@
-# KodeBart 跨 Agent 交接與 GitHub 接線規格 v1
+# KodeBart 跨 Agent 交接與 GitHub 接線規格 v1.1
 
-本文件定義 Agent 之間如何透過 GitHub Issue 交接，以及未來 Claude／Gemini workflow 的最低接線條件。現在只建立規格；本次不新增或啟用 workflow。
+本文件定義 Agent 之間如何透過 GitHub Issue 交接，以及 Claude／Gemini workflow 的接線條件。Claude v1 Issue 入口已啟用；以下 v1.1 checkpoint、獨立驗證與 PR 續做接線仍需實作 PR 核准合併。Gemini 尚未啟用。
 
 ## 1. 交接不是直接呼叫
 
@@ -63,7 +63,7 @@ Human 核准後，Claude Issue 必須引用固定版本，並把視覺規格轉�
 
 Human 決定是否建立新的 Gemini Issue。Gemini 回覆後仍需 Human 核准，再由 Human 建立 Claude revision Issue；不形成 Agent 自動循環。
 
-## 5. Claude 接 GitHub 的待實作規格
+## 5. Claude v1.1 接線規格
 
 建議使用 Anthropic 官方 `anthropics/claude-code-action`，以 GitHub `issues` 的 `labeled` 事件接收 `claude-ready`。
 
@@ -80,11 +80,34 @@ Human 決定是否建立新的 Gemini Issue。Gemini 回覆後仍需 Human 核�
        types: [labeled]
    ```
 
-5. job 必須同時檢查：label 名稱恰為 `claude-ready`、Issue 未關閉、觸發者有 repository write 權限、沒有 active run／既有執行鎖。
+5. job 必須同時檢查：label 名稱恰為 `claude-ready`、Issue 未關閉、觸發者有 repository write 權限、沒有 active run／既有執行鎖。Human 明確授權 ChatGPT 代派發一次時，Issue 必須記錄授權；沒有授權不得代操作。
 6. 使用官方 Action 的 `label_trigger: claude-ready` 或等效明確 prompt，並將 Issue 編號、標題、本文、目前 labels、基準 commit 與本目錄規格提供給 Claude。
 7. 權限採最小化：通常只需要 `contents: write`、`pull-requests: write`、`issues: write`；只有所選認證需要時才開 `id-token: write`，只有讀 CI 結果時才開 `actions: read`。
 8. Claude 只能建立 `claude/issue-<number>-...` 類工作分支，並建立 PR 或提供由 Human 建立 PR 的連結；branch protection 必須禁止直接推送與自動合併預設分支。
-9. workflow 完成後只能轉成 `human-review`；不能設定 `approved`，不能觸發 Gemini。
+9. 工作完成且對交付 head SHA 的必跑驗證通過後才轉成 `human-review`；失敗或未完成保存成果及 `blocked`。不能設定 `approved`，不能觸發 Gemini。
+
+### v1.1 必須新增的行為
+
+1. **獨立驗證**：完整產品檢查交給模型步驟以外的 CI job／workflow。取得實際交付分支的固定 SHA 後執行兩個 tsc、production build 與 `ng test --watch=false --browsers=ChromeHeadless`；每項有結果及 log。workflow 維護只跑 workflow lint／離線流程測試。不要求 Claude 等待或反覆查 CI；不得把 main 的檢查當成 Agent 分支的結果。
+2. **成果回收**：模型步驟失敗仍執行 finalizer。以遠端 branch／SHA／ahead 及原 Issue 關係建立或沿用 draft PR，保留已推送成果；不得把 checkpoint 當作完成。沒有提交則只留下明確阻礙，不建立空 PR。PR 內包含原 Issue、run、完成程度與未通過驗證，Human 決定是否續做／合併。
+3. **可靠觸發 CI**：由 `GITHUB_TOKEN` 建立的 PR／push 不保證觸發其他 workflow；獨立驗證必須在本輪直接排程，或使用明確核准的 dispatch。不得只假設 PR 建立後會有 CI，也不得增加 PAT 或 secret 範圍解決此問題。
+4. **PR 續做入口**：可使用 `pull_request: labeled` 的 `claude-ready`；只接受 Human 授權、同 repo 未合併 PR、指定原 Issue、固定 head SHA、`Execution mode: resume` 與具體 Remaining。官方 Action 在 open PR 上沿用分支，在 Issue 上另開分支；不得以重新觸發原 Issue 假裝續做。PR 上還需防止 approval 狀態、fork、不符原 Issue 的 branch、過期 SHA 及重複執行。
+5. **同一執行鎖**：Issue 新派發及其 PR 續做共用原 Issue concurrency；同一時間僅一個 Claude run。不能因 PR 編號不同而同時修改同一工作分支。
+6. **中止回報**：區分 `max_turns`、timeout、validation、environment／permission、unknown，附固定 SHA、draft PR／diff、run、各檢查與剩餘工作。execution output 缺失時仍要回收遠端提交並回報未確認項目，不捏造錯誤來源。
+7. **成本與邊界**：保留 Opus 5.5、effort max、80 回合與 60 分鐘，不自動重跑或啟動下一 Issue。重試需要 Human 再授權一次。
+8. **離線驗證接線**：模擬無提交、模型成功、回合上限但有提交、CI 失敗、無權限 actor、重複派發、fork／closed PR、過期 SHA 與同分支重用；驗證失敗不寫 approved、不合併、不誤用另一 SHA 的綠燈。
+
+### 接線分成兩個可驗收階段
+
+- **階段 A（本輪工程交辦）**：獨立驗證、失敗成果回收／draft PR、明確原因、同一 SHA 判定，以及 Human 可手動指定 Issue／既有 branch／head 的「只驗證」入口。只驗證不呼叫 Claude、不修改遊戲成果；可用 `workflow_dispatch`，限同 repo Claude 工作分支、有 write 權限的 Human、相同固定 head 及有效原 Issue。它不可把之前失敗的 Claude run 自動改稱完成；檢查結果交由 Human 決定。新增 PR 續做入口尚未啟用。
+- **階段 B（A 經 Human Review 後另案）**：接上同一 PR 的一次 Human 授權續做、同原 Issue 執行鎖與固定 head 保護。不可在 A 的完成後自行開工。
+- A 的 PR 描述與文件須明列 B 仍待實作；不能讓只有文件存在的續做標籤看起來已能使用。
+
+### #2 既有成果的後續處理
+
+- 原 Issue #2 仍是未完成／未驗收；既有成果為 `claude/issue-2-20261001-0501`，head `5d0df27d37bc35ed53829fcaa1940c2cbe3468d5`，base `7734e597bba187fbe0cd105c3a406dbe65379bad`。
+- v1.1 合併後先檢查該 head 是否仍有效，建立 draft PR 並補獨立驗證。只有需要工程修正時，才由 Human 決定在該 PR 續做；不重新寫 17 個已保存檔案。
+- 本輪流程維護不核准、合併、修改或派發 #2；#3／#4 的產品依賴仍須等待 #2 Human Review。
 
 ### Claude 執行契約
 
@@ -145,4 +168,4 @@ Human 決定是否建立新的 Gemini Issue。Gemini 回覆後仍需 Human 核�
 - [ ] Action 版本已固定並完成供應鏈審查。
 - [ ] 先在只讀／文件產出模式驗證，再另外核准產品程式碼寫入能力。
 
-上述檢查完成前，維持「文件規格已建立、workflow 尚未啟用」狀態。
+上述新增接線檢查完成並由 Human 合併前，維持「v1 Issue 派發已啟用、v1.1 新入口待啟用」狀態。

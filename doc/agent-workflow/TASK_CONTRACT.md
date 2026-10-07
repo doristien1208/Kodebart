@@ -1,4 +1,4 @@
-# KodeBart Issue 任務契約 v1
+# KodeBart Issue 任務契約 v1.1
 
 GitHub Issue 是新協作流程的唯一任務契約。聊天、`doc/COLLABORATION.md`、Agent 留言或 PR 描述可以提供背景，但不能取代完整 Issue。
 
@@ -64,9 +64,15 @@ Type: design | asset | implementation | ui | bug | research
 Depends on: #123 (approved)
 Target base: main@<commit SHA>
 Delivery path: <repository-relative path>
+Execution mode: implement | resume | verify
+Validation profile: product | workflow | docs
+Resume PR: #<number> (僅 resume / verify)
+Resume head: <commit SHA> (僅 resume / verify)
 ```
 
 `Depends on` 必須包含狀態或固定版本。只寫「看最新版本」不足以作為跨 Agent handoff。
+
+續做契約留在既有 PR，引用原 Issue 及固定 head SHA，只列剩餘工作與允許修改範圍；不得把原 Issue 全部重新實作，也不得擅自接納新 head。原 Issue 是產品範圍的來源，PR 是同一輪成果的保存及續做入口。
 
 ## 3. Owner 選擇
 
@@ -119,6 +125,14 @@ Delivery path: <repository-relative path>
 - 必跑的測試、lint、build 或手動驗證。
 - 不得破壞的既有行為。
 
+### 驗證分工
+
+- `product`：Claude 補齊相關測試、必要時執行範圍檢查；獨立 CI 對交付的相同 head SHA 執行兩個 tsc、Angular production build、完整非 watch 測試。Human 負責試玩與最終驗收。
+- `workflow`：workflow 語法／actionlint、流程 helper 的離線事件及結果測試、權限與觸發條件檢查。不改遊戲程式碼時不要求 Angular build／整套遊戲測試，記為 `NOT RUN: 本輪只改工作流程`。
+- `docs`：文件一致性、連結與 diff 檢查。不改可執行程式時不要求遊戲 build／測試。
+- 驗證項目由 Issue 明列，不以放寬驗收解決失敗。完整 CI 由 workflow 執行；Claude 不反覆查詢尚未完成的 job 耗盡回合，也不得把以前或不同提交的綠燈當成這次通過。
+- 執行狀態尚未確定時使用 `PENDING`；強制中止且缺證據時使用 `NOT RUN / 未確認`，不能猜測 PASS。
+
 ## 5. 變更與追加範圍
 
 - Agent 開始後，Human 若改變需求，應在 Issue 留下清楚的 `Scope change` 記錄。
@@ -152,4 +166,21 @@ Lead Agent 在轉入 `human-review` 前，留言至少包含：
 - 僅供 Human 決定；不得自動派發
 ```
 
-只有 deliverables 與驗證證據都足以審查時，才能設定 `human-review`。缺少必要輸入或無法形成可審查產物時，使用 `blocked`。
+只有工作已交付、相同 head SHA 的必跑驗證通過、deliverables 足以審查時，才能設定 `human-review`。未完成的 checkpoint／draft PR 及驗證失敗使用 `blocked`，不能因有提交就視為完成。
+
+## 7. 中途交接格式
+
+Claude 完成可辨識的子項後推送提交，並更新同一 checkpoint：
+
+```md
+## Checkpoint — 未完成，不可合併
+- Source Issue: #...
+- Branch / head SHA / draft PR: ...
+- Completed: 已實作的子項
+- Remaining: 尚未完成的子項，不增加原 Issue 範圍
+- Validation: PASS / FAIL / NOT RUN / PENDING，附相同 SHA 的證據
+- Stop reason: max_turns / timeout / validation / environment / unknown
+- Next step: 建議續做的最小工作
+```
+
+checkpoint 是交接資訊，不是核准、派發或完成宣告。workflow 的中止回報以遠端成果補齊必要欄位；讀不到剩餘工作時寫「未確認」，不捏造模型內部狀態。

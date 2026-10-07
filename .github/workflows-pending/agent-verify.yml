@@ -1,0 +1,249 @@
+name: Agent verify (fixed SHA)
+
+# 工作流程 v1.1 階段 A：模型步驟之外的固定 SHA 驗證（可重用 workflow）。合併到預設分支後才生效。
+# - 只由 claude.yml 與 agent-verify-only.yml 以 workflow_call 呼叫；呼叫端不傳任何 secrets。
+# - 每個 job 只有 contents: read；checkout 一律 persist-credentials: false。
+# - plan／summary 只執行呼叫端預設分支提交（github.sha）上的 .github/scripts；
+#   受驗分支的程式只在 product／workflow job 執行，結果以步驟 outcome 回傳。
+# - 必跑檢查由實際 diff 路徑決定；Issue 宣告的 Validation profile 只能收窄允許路徑，不能略過檢查。
+on:
+  workflow_call:
+    inputs:
+      sha:
+        description: 受驗證的固定 head SHA
+        required: true
+        type: string
+      base:
+        description: 受驗分支與預設分支的 merge-base SHA
+        required: true
+        type: string
+      declared_profile:
+        description: Issue 宣告的 Validation profile（product／workflow／docs，可空白）
+        required: false
+        type: string
+        default: ""
+    outputs:
+      sha:
+        description: 檢查結果綁定的 SHA
+        value: ${{ jobs.summary.outputs.sha }}
+      results:
+        description: 各項檢查結果（JSON）
+        value: ${{ jobs.summary.outputs.results }}
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+      product: ${{ steps.plan.outputs.product }}
+      workflow: ${{ steps.plan.outputs.workflow }}
+      diff_check: ${{ steps.diff_check.outcome }}
+      doc_refs: ${{ steps.doc_refs.outcome }}
+    env:
+      SHA: ${{ inputs.sha }}
+      BASE: ${{ inputs.base }}
+      DECLARED_PROFILE: ${{ inputs.declared_profile }}
+    steps:
+      - name: Validate inputs
+        run: |
+          if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ || ! "$BASE" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::sha 與 base 必須是 40 碼 SHA"
+            exit 1
+          fi
+
+      - name: Checkout trusted tooling (default branch)
+        # actions/checkout v4.4.0
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Checkout delivery (read only, not executed)
+        # actions/checkout v4.4.0
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.sha }}
+          path: delivery
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Plan checks from the actual diff
+        id: plan
+        env:
+          DELIVERY_DIR: delivery
+        run: node trusted/.github/scripts/agent-flow-cli.mjs plan
+
+      - name: git diff --check
+        id: diff_check
+        continue-on-error: true
+        working-directory: delivery
+        run: git diff --check "$BASE" "$SHA"
+
+      - name: Document path references
+        id: doc_refs
+        continue-on-error: true
+        env:
+          DELIVERY_DIR: delivery
+          PLAN: ${{ steps.plan.outputs.plan }}
+        run: node trusted/.github/scripts/agent-flow-cli.mjs docs-check
+
+  product:
+    name: product
+    needs: plan
+    if: needs.plan.outputs.product == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      npm_ci: ${{ steps.npm_ci.outcome }}
+      tsc_app: ${{ steps.tsc_app.outcome }}
+      tsc_spec: ${{ steps.tsc_spec.outcome }}
+      ng_build: ${{ steps.ng_build.outcome }}
+      ng_test: ${{ steps.ng_test.outcome }}
+    env:
+      NG_CLI_ANALYTICS: "false"
+    steps:
+      - name: Checkout delivery
+        # actions/checkout v4.4.0
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+
+      - name: Setup Node
+        # actions/setup-node v4.4.0；不使用快取，避免受驗程式寫入共用快取
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+
+      - name: npm ci
+        id: npm_ci
+        continue-on-error: true
+        run: npm ci --no-audit --no-fund
+
+      - name: tsc (app)
+        id: tsc_app
+        if: steps.npm_ci.outcome == 'success'
+        continue-on-error: true
+        run: npx tsc -p tsconfig.app.json --noEmit
+
+      - name: tsc (spec)
+        id: tsc_spec
+        if: steps.npm_ci.outcome == 'success'
+        continue-on-error: true
+        run: npx tsc -p tsconfig.spec.json --noEmit
+
+      - name: ng build (production, zero warnings)
+        id: ng_build
+        if: steps.npm_ci.outcome == 'success'
+        continue-on-error: true
+        run: |
+          npx ng build 2>&1 | tee "$RUNNER_TEMP/ng-build.log"
+          if grep -q '\[WARNING\]' "$RUNNER_TEMP/ng-build.log"; then
+            echo "::error::ng build 有警告（CLAUDE.md 要求零警告）"
+            exit 1
+          fi
+
+      - name: ng test
+        id: ng_test
+        if: steps.npm_ci.outcome == 'success'
+        continue-on-error: true
+        run: npx ng test --watch=false --browsers=ChromeHeadless
+
+  workflow:
+    name: workflow
+    needs: plan
+    if: needs.plan.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      actionlint: ${{ steps.actionlint.outcome }}
+      flow_tests: ${{ steps.flow_tests.outcome }}
+    steps:
+      - name: Checkout delivery
+        # actions/checkout v4.4.0
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+
+      - name: Setup Node
+        # actions/setup-node v4.4.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install actionlint (pinned module version, verified by Go checksum database)
+        id: actionlint_install
+        continue-on-error: true
+        run: GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+
+      - name: actionlint
+        id: actionlint
+        if: steps.actionlint_install.outcome == 'success'
+        continue-on-error: true
+        run: |
+          "$RUNNER_TEMP/bin/actionlint" -color
+
+      - name: Offline flow decision tests
+        id: flow_tests
+        continue-on-error: true
+        run: |
+          shopt -s nullglob
+          tests=(.github/scripts/tests/*.test.mjs)
+          if [ "${#tests[@]}" -eq 0 ]; then
+            echo "::error::找不到 .github/scripts/tests/*.test.mjs"
+            exit 1
+          fi
+          node --test "${tests[@]}"
+
+  summary:
+    name: summary
+    needs: [plan, product, workflow]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.summary.outputs.sha }}
+      results: ${{ steps.summary.outputs.results }}
+    steps:
+      - name: Checkout trusted tooling (default branch)
+        # actions/checkout v4.4.0
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Summarize results bound to the SHA
+        id: summary
+        env:
+          SHA: ${{ inputs.sha }}
+          PLAN: ${{ needs.plan.outputs.plan }}
+          OUTCOME_NPM_CI: ${{ needs.product.outputs.npm_ci }}
+          OUTCOME_TSC_APP: ${{ needs.product.outputs.tsc_app }}
+          OUTCOME_TSC_SPEC: ${{ needs.product.outputs.tsc_spec }}
+          OUTCOME_NG_BUILD: ${{ needs.product.outputs.ng_build }}
+          OUTCOME_NG_TEST: ${{ needs.product.outputs.ng_test }}
+          OUTCOME_ACTIONLINT: ${{ needs.workflow.outputs.actionlint }}
+          OUTCOME_FLOW_TESTS: ${{ needs.workflow.outputs.flow_tests }}
+          OUTCOME_DIFF_CHECK: ${{ needs.plan.outputs.diff_check }}
+          OUTCOME_DOC_REFS: ${{ needs.plan.outputs.doc_refs }}
+        run: node .github/scripts/agent-flow-cli.mjs summarize

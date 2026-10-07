@@ -1,0 +1,49 @@
+name: Claude finalizer (workflow_run)
+
+# 工作流程 v1.1 階段 A：Claude run 整體逾時、取消或 run 內 finalize 失敗時的受限收尾。合併到預設分支後才生效。
+# - 只在「Claude (claude-ready)」run 結束時觸發；只接受同 repo、issues 事件、.github/workflows/claude.yml 的 run。
+# - Issue 編號取自 run-name（claude-issue-<編號>）；分支只認 claude/issue-<編號>-run<run id>，不搜尋、不猜測其他分支。
+# - 只在「該 run 取得過執行鎖、finalize 沒有成功、Issue 仍有 agent-working、沒有其他同 Issue run」時介入：
+#   有提交 → 建立或沿用 draft PR；一律改為 blocked 並留言。不跑模型、不推送、不讀取或執行 artifact。
+on:
+  workflow_run:
+    workflows: ["Claude (claude-ready)"]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: claude-finalizer-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  backstop:
+    name: backstop
+    if: github.event.workflow_run.event == 'issues' && github.event.workflow_run.repository.full_name == github.repository && startsWith(github.event.workflow_run.display_title, 'claude-issue-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      actions: read
+    steps:
+      - name: Checkout workflow scripts (default branch)
+        # actions/checkout v4.4.0
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Recover an unfinished run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          TARGET_RUN_ID: ${{ github.event.workflow_run.id }}
+          TARGET_TITLE: ${{ github.event.workflow_run.display_title }}
+        run: node .github/scripts/agent-flow-cli.mjs backstop

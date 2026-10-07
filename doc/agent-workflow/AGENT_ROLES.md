@@ -1,6 +1,6 @@
-# KodeBart Agent 角色與權限 v1
+# KodeBart Agent 角色與權限 v1.1
 
-本文件定義 Human、ChatGPT、Claude、Gemini 的責任與界線。角色名稱表示責任，不表示某個工具天然擁有 repository 權限。
+本文件定義 Human、ChatGPT（含 Codex）、Claude、Gemini 的責任與界線。角色名稱表示責任，不表示某個工具天然擁有 repository 權限。v1.1 階段 A 的規則隨 Issue #5 送審，合併後生效；階段 B（PR 續做入口）尚未實作。
 
 ## 1. Human：Product Owner / Creative Director
 
@@ -10,8 +10,9 @@ Human 是最終決策者與唯一核准者。
 
 - 決定產品方向、故事正史、視覺取向、優先順序與可接受的取捨。
 - 決定任務交給 Claude 或 Gemini。
-- 加上 `claude-ready`、`gemini-ready`、`approved`、`revision-requested`。
+- 加上 `claude-ready`、`gemini-ready`、`approved`、`revision-requested`；或在 Work 明確授權 Codex 代為派發指定 Issue 一次。
 - 審查設計、資產、程式碼、測試結果與實際遊玩體驗。
+- 審查 `blocked` 的 checkpoint／draft PR，決定修正、用 verify-only 入口驗證、另開續做 Issue 或放棄。
 - 決定是否合併 PR、發布、部署或啟用自動化。
 - 提供需要人工持有的 credentials 與 repository 設定；secret 不寫進 Issue、留言或版本庫。
 
@@ -36,7 +37,7 @@ ChatGPT 把討論整理成可執行、可驗收的任務，並協助跨領域拆
 
 ### 邊界
 
-- 不因為完成規劃就自動派發 Agent；ready label 由 Human 決定。
+- 不因為完成規劃就自動派發 Agent；ready label 由 Human 決定。唯一例外：Human 在 Work 明確授權 Codex 代派發指定 Issue 一次，Codex 須在 Issue 記錄授權來源與日期；授權不延伸到其他 Issue、重跑、`approved` 或合併。
 - 不把推測寫成已核准產品決定。
 - 未被明確要求實作時，不修改產品程式碼。
 - 不代替 Human 將產物標記為 `approved`。
@@ -58,7 +59,8 @@ Claude 負責工程實作、技術整合、修復、測試與程式碼層面的�
 - 設計或資產依賴必須指向 Human 已 `approved` 的來源。
 - 建立分支與 PR，不直接推送預設分支；不合併 PR。
 - 保留現有使用者變更，不以重置或大範圍重寫取代整合。
-- 完成後交付驗證證據並轉入 `human-review`，隨即停止。
+- 每完成可辨認子項就 commit／push checkpoint（格式見 `TASK_CONTRACT.md` §6）；只有全部完成時才標 `KodeBart-Delivery: complete`。
+- 只做必要的局部檢查，不輪詢完整 CI；完成與否由模型步驟之外的 CI 在同一 SHA 判定，workflow 決定 `human-review` 或 `blocked`，隨即停止。
 
 ### 不負責
 
@@ -130,11 +132,13 @@ Lead Agent 對 sub-agent 的錯誤、衝突、遺漏、授權與輸出品質負�
 | --- | --- | --- | --- | --- |
 | 定義產品／故事方向 | 決定 | 協助整理 | 提供工程意見 | 提供設計意見 |
 | 建立／整理 Issue | 是 | 是，需 Human 派發 | 僅回報本 Issue | 僅回報本 Issue |
-| 加 ready label | 是 | 否 | 否 | 否 |
+| 加 ready label | 是 | 僅 Human 在 Work 明確授權的單次代派發 | 否 | 否 |
+| checkpoint commit／push | 不適用 | 否 | 本 Issue 分支內 | 本 Issue 分支內 |
+| 啟動 verify-only 入口 | 是 | 否 | 否 | 否 |
 | 修改產品程式碼 | 可授權 | 明確要求時 | `claude-ready` 範圍內 | 否 |
 | 產出設計／資產 | 可授權 | 草擬規格 | 僅必要工程占位 | `gemini-ready` 範圍內 |
 | 使用 sub-agent | 不適用 | 規劃時可用 | 本 Issue 內 | 本 Issue 內 |
-| 設定 `human-review` | 可 | 否 | 完成交付時 | 完成交付時 |
+| 設定 `human-review` | 可 | 否 | 否（由 workflow 依同 SHA 檢查設定） | 完成交付時 |
 | 設定 `approved` | 唯一可做 | 否 | 否 | 否 |
 | 觸發下一位 Agent | 唯一可做 | 否 | 否 | 否 |
 | 合併／發布／部署 | 唯一決定 | 否 | 否 | 否 |

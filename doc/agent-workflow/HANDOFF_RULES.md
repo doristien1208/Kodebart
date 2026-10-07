@@ -1,6 +1,6 @@
-# KodeBart 跨 Agent 交接與 GitHub 接線規格 v1
+# KodeBart 跨 Agent 交接與 GitHub 接線規格 v1.1
 
-本文件定義 Agent 之間如何透過 GitHub Issue 交接，以及未來 Claude／Gemini workflow 的最低接線條件。現在只建立規格；本次不新增或啟用 workflow。
+本文件定義 Agent 之間如何透過 GitHub Issue 交接，以及 Claude／Gemini workflow 的接線條件。Claude 的 v1 Issue 入口已啟用；v1.1 階段 A 的接線（§5.1）隨 Issue #5 送審，合併到預設分支後才生效；階段 B（PR 續做入口）尚未實作；Gemini workflow 尚未建立。
 
 ## 1. 交接不是直接呼叫
 
@@ -99,6 +99,28 @@ Human 決定是否建立新的 Gemini Issue。Gemini 回覆後仍需 Human 核�
 - <https://github.com/anthropics/claude-code-action>
 - <https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md>
 - <https://github.com/anthropics/claude-code-action/blob/main/docs/security.md>
+- <https://github.com/anthropics/claude-code-action/blob/main/docs/capabilities-and-limitations.md>
+
+### 5.1 v1.1 階段 A 接線（Issue #5 送審，合併後生效）
+
+| 檔案 | 觸發 | 權限 | 責任 |
+| --- | --- | --- | --- |
+| `.github/workflows/claude.yml` | `issues: labeled`（`claude-ready`） | 各 job 分開；只有模型 job 有寫入與 `id-token` | guard／鎖 → 模型步驟 → collect → verify → finalize |
+| `.github/workflows/agent-verify.yml` | `workflow_call` | 只有 `contents: read`，不收 secrets | 對固定 SHA 跑 product／workflow／docs 檢查 |
+| `.github/workflows/agent-finalizer.yml` | `workflow_run`（claude.yml 結束） | `contents: read`、`issues`／`pull-requests: write`、`actions: read` | run 內 finalize 沒完成時的受限補收尾 |
+| `.github/workflows/agent-verify-only.yml` | `workflow_dispatch`（Human） | guard 只讀；report 只寫留言與 PR | 既有成果只驗證、回收 draft PR，不呼叫模型 |
+
+判定邏輯集中在 `.github/scripts/agent-flow.mjs`（純函式），GitHub I/O 在 `.github/scripts/agent-flow-cli.mjs`，離線 fixtures 與測試在 `.github/scripts/tests/`。
+
+- **分支**：`branch_name_template` 固定本輪分支為 `claude/issue-<編號>-run<run id>`。Action 的 `branch_name` 輸出若存在必須相同；輸出缺失（逾時）時以固定名稱為準。不搜尋、不猜測其他分支，不回收舊 run、其他 Issue 或預設分支。
+- **完成證據**：head commit 的 `KodeBart-Issue`／`KodeBart-Delivery` trailer（`TASK_CONTRACT.md` §6），綁定 SHA；模型 success＋ahead > 0 不代表完成。
+- **停止原因**：execution output 的 `error_max_turns` → max_turns；job `timed_out` 或達 60 分鐘後中止 → timeout；必跑檢查失敗或 pending → validation；Action 在模型輸出前失敗 → environment/permission；其餘 → unknown。
+- **驗證**：collect 讀遠端 head 固定 SHA 與 merge-base；verify 在同一 run 內以 `workflow_call` 執行（`GITHUB_TOKEN` 建立的 PR／推送不會可靠觸發其他 workflow）。plan／summary 只執行預設分支上的腳本，受驗分支的程式只在無 secrets、`contents: read`、不保留憑證的 job 執行。
+- **收尾**：finalize（`if: always()`）先建立或沿用 draft PR，最後重讀 head，再決定 `human-review`（標記 PR ready）或 `blocked`，並留言回報。
+- **補收尾**：只接受同 repo、`issues` 事件、`.github/workflows/claude.yml` 的 run；Issue 編號取自 run-name（`claude-issue-<編號>`）；只在該 run 取得過鎖、finalize 沒成功、Issue 仍有 `agent-working`、沒有其他同 Issue run 時介入，一律 `blocked`。不讀取或執行 artifact。
+- **verify-only**：輸入原 Issue、既有分支、固定 head SHA；檢查啟動者 write 權限、從預設分支啟動、Issue 開啟且未 `approved`、沒有 `agent-working` 或其他 active run、分支屬於該 Issue、SHA 仍是 head、分支有提交；共用 `claude-issue-<編號>` concurrency。不變更流程標籤，全綠也不把先前失敗的模型 run 改成完成。
+- **不變**：模型 Opus 5.5、effort max、80 回合、60 分鐘；不新增 PAT、不擴大 secrets、不自動重試、不派發下一案。新增的第三方 Action 必須固定 commit SHA；actionlint 以 `go install` 固定模組版本（Go checksum database 驗證）。
+- **B（未實作）**：open PR 觸發才會沿用 PR 分支；重新標記舊 Issue 只會開新分支，不是續做。B 需另開 Issue 設計 PR labeled 入口。
 
 ## 6. Gemini 接 GitHub 的待實作規格
 
@@ -146,3 +168,11 @@ Human 決定是否建立新的 Gemini Issue。Gemini 回覆後仍需 Human 核�
 - [ ] 先在只讀／文件產出模式驗證，再另外核准產品程式碼寫入能力。
 
 上述檢查完成前，維持「文件規格已建立、workflow 尚未啟用」狀態。
+
+### v1.1 階段 A 啟用步驟（Human）
+
+- [ ] 審查 Issue #5 的 PR：workflow、`.github/scripts/`、五份規則文件一致。
+- [ ] 確認 PR 上的檢查或手動執行結果：actionlint 與 `node --test .github/scripts/tests/*.test.mjs` 通過。
+- [ ] 合併到預設分支；合併前 v1.1 不生效。
+- [ ] 第一次使用先以 verify-only 入口驗證既有成果（例如 Issue #2 的分支與固定 SHA），確認留言、draft PR 與「不變更標籤」行為。
+- [ ] 確認之後再以新的測試或正式 Issue 驗證 claude-ready → checkpoint → verify → `human-review`／`blocked`。

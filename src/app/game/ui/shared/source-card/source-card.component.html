@@ -10,6 +10,9 @@
       <dd data-source-arrangement>{{ t.arrangementValue }}</dd>
     }
     <dt>{{ t.refusal }}</dt>
-    <dd>{{ refusalText() }}</dd>
+    <dd [attr.aria-describedby]="refusalMissing() ? missingNoteId : null">{{ refusalText() }}</dd>
   </dl>
+  @if (refusalMissing()) {
+    <p [id]="missingNoteId" class="mt-1 mb-0 text-sm text-muted" data-source-missing-note>{{ t.missingNote }}</p>
+  }
 </div>

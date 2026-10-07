@@ -311,6 +311,7 @@ export type RecordStatusText = FromShape<typeof RECORD_STATUS_SHAPE>;
 /**
  * 來源卡的標籤（ui.zh-Hant.json 的 `sourceCard`）；拒絕紀錄的值改由 recordStatus 顯示（R7）。
  * `arrangement`／`arrangementValue`：拒絕紀錄所指的安排項目（R12），只在適用拒絕紀錄的紀錄顯示。
+ * `missingNote`：適用拒絕紀錄但來源未附（顯示「未提供」）時，接在拒絕紀錄值後的說明（R12）；不改 recordStatus.missing。
  */
 export const SOURCE_CARD_UI_SHAPE = {
   eyebrowTemplate: 'string',
@@ -319,6 +320,7 @@ export const SOURCE_CARD_UI_SHAPE = {
   arrangement: 'string',
   arrangementValue: 'string',
   refusal: 'string',
+  missingNote: 'string',
 } as const satisfies Shape;
 export type SourceCardUi = FromShape<typeof SOURCE_CARD_UI_SHAPE>;
 

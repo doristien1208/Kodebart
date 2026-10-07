@@ -1782,7 +1782,7 @@ describe('詢問說明包（R12）', () => {
       id: REQUEST,
       channelId: DM,
       unlockCondition: COND,
-      playerText: '予安，這裡的「拒絕紀錄」是拒絕什麼？來源只顯示未提供，我不知道該怎麼處理。',
+      playerText: '予安，來源沒有附回覆紀錄，這兩種處理方式差在哪裡？',
       oncePerSave: true,
     });
     expect(bundle.helpPackOf(REQUEST)?.id).toBe('help.refusal-record');
@@ -1823,29 +1823,37 @@ describe('詢問說明包（R12）', () => {
     expect(ids(unlockedMessages(DM, asked('day.02'))).slice(0, 5)).toEqual(['msg.day1.welcome', 'msg.day1.pace', ...HELP_IDS, 'msg.day2.handoff']);
   });
 
-  it('說明訊息逐字（不給正解、不提世界觀）：安排項目、空白的意思與兩種去向，來源卡就是要看的資料', () => {
+  it('說明訊息逐字（不給正解、不提世界觀）：安排項目、來源沒附回覆紀錄，以及兩種處理動作的去向', () => {
     expect(bundle.helpMessages(REQUEST).map((m) => m.lines)).toEqual([
-      [
-        '它記的是當事人有沒有拒絕「後續聯繫安排」。你看到的來源資料卡就是這批轉進來的欄位，不用另外找一張原表。',
-        '如果欄位空白，就表示這份來源沒有留下答案，不等於本人同意或拒絕。',
-      ],
-      [
-        '選「未拒絕」會依部門的預設值補齊，資料直接歸檔；選「未確認」會保留空白狀態送覆核。',
-        '我們這裡不會重新聯絡本人，後續由窗口處理。',
-      ],
+      ['「拒絕紀錄」記的是有沒有拒絕後續聯繫安排。這張卡沒有附回覆紀錄，不用再找另一張表。'],
+      ['你可以照部門預設補登後歸檔，或先留空送窗口查核。', '補登只是照規則處理，不代表本人真的回答過。'],
     ]);
   });
 
-  it('追問與確認選項逐字（選項與回應 ID 不變）；確認選項改看來源卡', () => {
+  it('追問與確認選項逐字（選項與回應 ID 不變）；確認選項是決定處理動作', () => {
     const choices = promptOf('prompt.help.refusal')?.prompt.choices ?? [];
     expect(choices.map((c) => [c.id, c.text, c.responses.map((r) => [r.id, r.lines])])).toEqual([
       [
         'ask-blank',
-        '那空白為什麼能補成未拒絕？',
-        [['msg.help.refusal.blank-response', ['系統預設就是這樣；選它只表示這筆會照預設值進檔，不是我們查到了新回覆。']]],
+        '那補登的「未拒絕」，不是本人回覆？',
+        [['msg.help.refusal.blank-response', ['對，是歸檔時套用的預設值。選「保留缺漏並送覆核」就不會補上這個答案。']]],
       ],
-      ['ack', '好，我再看一下來源卡。', [['msg.help.refusal.ack-response', ['嗯，有卡住再問我。']]]],
+      ['ack', '懂了，我選怎麼處理這筆缺漏。', [['msg.help.refusal.ack-response', ['嗯，有卡住再問我。']]]],
     ]);
+  });
+
+  it('說明不以「未拒絕」「未確認」指代選項，也不要求另找原表', () => {
+    const choices = promptOf('prompt.help.refusal')?.prompt.choices ?? [];
+    const texts = [
+      bundle.helpRequestOf(REQUEST)?.playerText ?? '',
+      ...bundle.helpMessages(REQUEST).flatMap((m) => m.lines),
+      ...choices.flatMap((c) => [c.text, ...c.responses.flatMap((r) => r.lines)]),
+    ];
+    expect(texts.length).toBe(8);
+    for (const line of texts) {
+      expect(line).withContext(line).not.toMatch(/選「(未拒絕|未確認)」/);
+      expect(line).withContext(line).not.toContain('原表');
+    }
   });
 });
 

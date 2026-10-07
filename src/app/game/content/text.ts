@@ -129,7 +129,7 @@ export const ASIDE = {
 
 /**
  * 來源卡的標籤；拒絕紀錄的值用 RECORD_STATUS 顯示（R7），不再有 refusalNA／Null／True。
- * 適用拒絕紀錄的紀錄另顯示安排項目（arrangement：arrangementValue，R12）。
+ * 適用拒絕紀錄的紀錄另顯示安排項目（arrangement：arrangementValue，R12）；來源未附拒絕紀錄時，值後接 missingNote 說明（R12）。
  */
 export const SOURCE_CARD = {
   eyebrow: (key: string) => format(ui.sourceCard.eyebrowTemplate, { key }),
@@ -139,6 +139,7 @@ export const SOURCE_CARD = {
   arrangement: ui.sourceCard.arrangement,
   arrangementValue: ui.sourceCard.arrangementValue,
   refusal: ui.sourceCard.refusal,
+  missingNote: ui.sourceCard.missingNote,
 } as const;
 
 /**

@@ -5,7 +5,7 @@
     "id": "request.refusal-record",
     "channelId": "channel.dm.lin-yuan",
     "unlockCondition": "cond.help.refusal-record.requested",
-    "playerText": "予安，這裡的「拒絕紀錄」是拒絕什麼？來源只顯示未提供，我不知道該怎麼處理。",
+    "playerText": "予安，來源沒有附回覆紀錄，這兩種處理方式差在哪裡？",
     "oncePerSave": true
   },
   "ui": {
@@ -23,8 +23,7 @@
         "cond.help.refusal-record.requested"
       ],
       "lines": [
-        "它記的是當事人有沒有拒絕「後續聯繫安排」。你看到的來源資料卡就是這批轉進來的欄位，不用另外找一張原表。",
-        "如果欄位空白，就表示這份來源沒有留下答案，不等於本人同意或拒絕。"
+        "「拒絕紀錄」記的是有沒有拒絕後續聯繫安排。這張卡沒有附回覆紀錄，不用再找另一張表。"
       ]
     },
     {
@@ -37,8 +36,8 @@
         "cond.help.refusal-record.requested"
       ],
       "lines": [
-        "選「未拒絕」會依部門的預設值補齊，資料直接歸檔；選「未確認」會保留空白狀態送覆核。",
-        "我們這裡不會重新聯絡本人，後續由窗口處理。"
+        "你可以照部門預設補登後歸檔，或先留空送窗口查核。",
+        "補登只是照規則處理，不代表本人真的回答過。"
       ],
       "replyPrompt": {
         "id": "prompt.help.refusal",
@@ -46,21 +45,21 @@
         "choices": [
           {
             "id": "ask-blank",
-            "text": "那空白為什麼能補成未拒絕？",
+            "text": "那補登的「未拒絕」，不是本人回覆？",
             "responses": [
               {
                 "id": "msg.help.refusal.blank-response",
                 "actorId": "actor.lin-yuan",
                 "time": "09:02",
                 "lines": [
-                  "系統預設就是這樣；選它只表示這筆會照預設值進檔，不是我們查到了新回覆。"
+                  "對，是歸檔時套用的預設值。選「保留缺漏並送覆核」就不會補上這個答案。"
                 ]
               }
             ]
           },
           {
             "id": "ack",
-            "text": "好，我再看一下來源卡。",
+            "text": "懂了，我選怎麼處理這筆缺漏。",
             "responses": [
               {
                 "id": "msg.help.refusal.ack-response",

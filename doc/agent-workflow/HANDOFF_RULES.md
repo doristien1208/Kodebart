@@ -63,7 +63,7 @@ Human 核准後，Claude Issue 必須引用固定版本，並把視覺規格轉�
 
 Human 決定是否建立新的 Gemini Issue。Gemini 回覆後仍需 Human 核准，再由 Human 建立 Claude revision Issue；不形成 Agent 自動循環。
 
-## 5. Claude 接 GitHub 的待實作規格
+## 5. Claude v1 已啟用與 v1.1 待合併接線規格
 
 建議使用 Anthropic 官方 `anthropics/claude-code-action`，以 GitHub `issues` 的 `labeled` 事件接收 `claude-ready`。
 
@@ -84,7 +84,7 @@ Human 決定是否建立新的 Gemini Issue。Gemini 回覆後仍需 Human 核�
 6. 使用官方 Action 的 `label_trigger: claude-ready` 或等效明確 prompt，並將 Issue 編號、標題、本文、目前 labels、基準 commit 與本目錄規格提供給 Claude。
 7. 權限採最小化：通常只需要 `contents: write`、`pull-requests: write`、`issues: write`；只有所選認證需要時才開 `id-token: write`，只有讀 CI 結果時才開 `actions: read`。
 8. Claude 只能建立 `claude/issue-<number>-...` 類工作分支，並建立 PR 或提供由 Human 建立 PR 的連結；branch protection 必須禁止直接推送與自動合併預設分支。
-9. workflow 完成後只能轉成 `human-review`；不能設定 `approved`，不能觸發 Gemini。
+9. 完整交付且同 SHA 必跑檢查通過、head 未變、PR 可審查才 human-review；未完成／失敗／PR 建立或 ready 失敗保留成果並 blocked。禁止 approved、merge 或自行派發 Gemini。PR 失敗狀態尚須在 #5 合併前補齊實作與測試。
 
 ### Claude 執行契約
 
@@ -121,6 +121,17 @@ Human 決定是否建立新的 Gemini Issue。Gemini 回覆後仍需 Human 核�
 - **verify-only**：輸入原 Issue、既有分支、固定 head SHA；檢查啟動者 write 權限、從預設分支啟動、Issue 開啟且未 `approved`、沒有 `agent-working` 或其他 active run、分支屬於該 Issue、SHA 仍是 head、分支有提交；共用 `claude-issue-<編號>` concurrency。不變更流程標籤，全綠也不把先前失敗的模型 run 改成完成。
 - **不變**：模型 Opus 5.5、effort max、80 回合、60 分鐘；不新增 PAT、不擴大 secrets、不自動重試、不派發下一案。新增的第三方 Action 必須固定 commit SHA；actionlint 以 `go install` 固定模組版本（Go checksum database 驗證）。
 - **B（未實作）**：open PR 觸發才會沿用 PR 分支；重新標記舊 Issue 只會開新分支，不是續做。B 需另開 Issue 設計 PR labeled 入口。
+
+### B 預留續做契約（尚未啟用）
+
+只接受 Human 或其明確委任者的一次派發：同 repo 未合併 PR、原 Issue、固定 head、具體 Remaining 與允許路徑。拒絕 approved、closed／merged、fork、不符原 Issue 分支、過期 SHA、無 write 權限 actor；Issue／PR 共用原 Issue 鎖。不得 force push、reset 或重写既有成果。不能把另開 Issue 說成會自動沿用 PR；本輪不新增或啟用 B。
+
+### #2 既有成果與後續處理
+
+- #2 尚未驗收；固定來源 branch `claude/issue-2-20261001-0501`、head `5d0df27d37bc35ed53829fcaa1940c2cbe3468d5`、base `7734e597bba187fbe0cd105c3a406dbe65379bad`，保留 17 個已完成檔案。
+- Human 於本 Work 2026-10-07 委任 Codex 先整理遊戲試玩候選版；可將固定 checkpoint 作同任務補驗證／必要修正的來源，提供完整 patch，保留原分支、不從頭重寫。這不是 approved，也不讓 #3／#4 的前置驗收自動成立。
+- A 啟用後可用 verify-only 驗證固定成果；啟用前不假稱入口可用。候選版由 Codex 覆核回報／diff 後通知 Human 本機試玩；合併、產品驗收、新劇情仍由 Human 決定。
+- Agent 缺來源或需要偏離時在原 Issue 回報 Codex，包含指定版本、逐項差異、影響與 Remaining，先停止受影響的規格修改；不以未核准改寫文件取代指定來源。
 
 ## 6. Gemini 接 GitHub 的待實作規格
 
@@ -167,7 +178,7 @@ Human 決定是否建立新的 Gemini Issue。Gemini 回覆後仍需 Human 核�
 - [ ] Action 版本已固定並完成供應鏈審查。
 - [ ] 先在只讀／文件產出模式驗證，再另外核准產品程式碼寫入能力。
 
-上述檢查完成前，維持「文件規格已建立、workflow 尚未啟用」狀態。
+v1 Issue 入口已啟用。v1.1 階段 A 在 #5 合併到預設分支後才啟用，首次端到端驗證結果另記錄；階段 B 與 Gemini 尚未啟用。不要把文件存在、檔案移入工作分支、Action 綠燈或合併本身寫成所有驗收均已通過。
 
 ### v1.1 階段 A 啟用步驟（Human）
 

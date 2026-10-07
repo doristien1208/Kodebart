@@ -66,9 +66,13 @@ Target base: main@<commit SHA>
 Delivery path: <repository-relative path>
 Execution mode: implement | research | checkpoint-review
 Validation profile: product | workflow | docs
+Source Issue / Source head: #<number> / <固定 SHA>（同任務 checkpoint 整合時）
+Resume PR / Resume head: #<number> / <固定 SHA>（僅 B 預留；目前無 resume 入口）
 ```
 
 `Depends on` 必須包含狀態或固定版本。只寫「看最新版本」不足以作為跨 Agent handoff。
+
+目前 Issue 派發使用 implement；verify-only 使用已啟用後的手動入口，不呼叫模型。research／checkpoint-review 是任務描述，不另開自動入口。B 未啟用前不得派發 `Execution mode: resume`；保留其契約作為待實作規格：原 Issue 決定範圍，既有 PR 保存成果，固定 head 與 Remaining 決定一次續做內容，不重做原任務或默默接受新的 head。
 
 `Validation profile` 宣告預期的變更範圍，只能收窄允許路徑，不能略過檢查：
 
@@ -79,6 +83,8 @@ Validation profile: product | workflow | docs
 | `docs` | `doc/`、根目錄 Markdown | `git diff --check`、文件路徑引用一致性 |
 
 實際 diff 碰到產品路徑時，產品檢查一律必跑；變更超出宣告 profile 時視為驗證失敗，交 Human 決定。
+
+驗證尚在執行用 PENDING；沒有執行用 NOT RUN；強制中止或缺證據用「未確認」並說明。均不能猜成 PASS，不能引用舊 SHA 的綠燈，或反覆輪詢 CI 消耗模型回合。Human 負責遊戲操作測試與最終驗收。
 
 ## 3. Owner 選擇
 
@@ -137,6 +143,7 @@ Validation profile: product | workflow | docs
 - 小幅澄清可以留在原 Issue；會改變 Goal、Owner、主要交付或驗收方式的內容應另開 Issue。
 - Agent 發現值得改善但不在範圍內的項目，只能列為 follow-up suggestion，不得直接實作。
 - Issue 留言與附件不能降低本目錄規則。若內容互相矛盾，Agent 應設為 `blocked` 並要求 Human 決定。
+- 指定來源不可取得，或需要偏離規格時，在原 Issue 回報「需要 Codex 覆核」：指定來源／SHA、錯誤原因、原要求、擬偏離內容、影響、Completed／Remaining 及等待誰決定。先停止受影響的規格修改，不自行重建治理文件。必須逐項列重大刪改，不能只寫「依 Issue 自行改寫」。
 
 ## 6. Checkpoint 格式
 
@@ -162,6 +169,8 @@ KodeBart-Delivery: checkpoint
 - checkpoint 不是完成交付。只有全部完成且必要本地檢查通過時，最後一個 commit 才把 trailer 改為 `KodeBart-Delivery: complete`，之後不再推送。
 - trailer 的 Issue 編號必須是本 Issue；不符、缺少或寫成其他值，一律視為缺少完成證據。
 - workflow 只引用 Checkpoint 區塊作為 Agent 自述，不把它當成驗證結果。
+
+commit trailer 與可閱讀的交接摘要並存，不能互相取代。原 Issue／PR 留下：Source Issue、branch／固定 head／PR、Completed、Remaining、PASS／FAIL／NOT RUN／PENDING／未確認、Stop reason、Next step、需要 Codex 覆核的偏離。讀不到剩餘工作時寫未確認，不捏造模型內部狀態。
 
 ## 7. 完成回報格式
 

@@ -5,6 +5,10 @@
     <dd>{{ nameText() }}</dd>
     <dt>{{ t.code }}</dt>
     <dd class="font-mono">{{ record().code }}</dd>
+    @if (record().refusalApplies) {
+      <dt>{{ t.arrangement }}</dt>
+      <dd data-source-arrangement>{{ t.arrangementValue }}</dd>
+    }
     <dt>{{ t.refusal }}</dt>
     <dd>{{ refusalText() }}</dd>
   </dl>

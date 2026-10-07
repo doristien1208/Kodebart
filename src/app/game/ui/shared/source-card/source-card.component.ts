@@ -5,6 +5,7 @@ import { sourceRefusalStatus } from '../presenters/record-status';
 
 /**
  * 來源資料卡（原型 sourceInfo()）：只呈現送來的資料，不做任何判斷。
+ * 適用拒絕紀錄的紀錄在拒絕紀錄前多一列安排項目（R12），說明這個欄位記的是哪一項安排；不適用者不顯示。
  * 樣式全部來自 styles.css 的 .source／.eyebrow 與 Tailwind utility。
  */
 @Component({

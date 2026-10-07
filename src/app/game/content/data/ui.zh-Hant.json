@@ -80,6 +80,8 @@
     "eyebrowTemplate": "SOURCE / {key}",
     "name": "姓名",
     "code": "人員編號",
+    "arrangement": "安排項目",
+    "arrangementValue": "後續聯繫安排",
     "refusal": "拒絕紀錄"
   },
   "recordStatus": {

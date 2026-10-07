@@ -184,10 +184,19 @@ describe('RECORD_STATUS 與 SOURCE_CARD（R7 §6.1）', () => {
     });
   });
 
-  it('SOURCE_CARD 只剩標籤；refusalNA／Null／True 已移除', () => {
-    expect(Object.keys(SOURCE_CARD).sort()).toEqual(['code', 'eyebrow', 'name', 'nameUnregistered', 'refusal']);
+  it('SOURCE_CARD 只剩標籤與安排項目（R12）；refusalNA／Null／True 已移除', () => {
+    expect(Object.keys(SOURCE_CARD).sort()).toEqual([
+      'arrangement',
+      'arrangementValue',
+      'code',
+      'eyebrow',
+      'name',
+      'nameUnregistered',
+      'refusal',
+    ]);
     expect(SOURCE_CARD.eyebrow('B102')).toBe('SOURCE / B102');
     expect([SOURCE_CARD.name, SOURCE_CARD.code, SOURCE_CARD.refusal]).toEqual(['姓名', '人員編號', '拒絕紀錄']);
+    expect([SOURCE_CARD.arrangement, SOURCE_CARD.arrangementValue]).toEqual(['安排項目', '後續聯繫安排']);
   });
 
   it('資料檔中玩家可見的字串沒有獨立的 true／false／null（note 除外）', () => {

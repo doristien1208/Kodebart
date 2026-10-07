@@ -171,6 +171,25 @@ function parseVerification(text) {
   }
 }
 
+/** @param {unknown} error */
+const errorText = (error) => (error instanceof Error ? error.message : String(error));
+
+/**
+ * 建立 draft PR；失敗（例如 repo 沒有允許 GitHub Actions 建立 PR）時不中斷收尾，回傳 null 並附註原因。
+ * 已推送的提交仍在分支上，標籤與留言照常處理。
+ * @param {GitHub} gh @param {{ head: string, base: string, title: string, body: string, draft: boolean }} input @param {string[]} notes
+ */
+async function createPullOrNote(gh, input, notes) {
+  try {
+    return await gh.createPull(input);
+  } catch (error) {
+    notes.push(
+      `draft PR 建立失敗，成果仍保留在分支 \`${input.head}\`：${errorText(error)}。若訊息是 GitHub Actions 不能建立 PR，請在 repo 的 Settings → Actions → General 開啟「Allow GitHub Actions to create and approve pull requests」，或由 Human 從分支自行建立 PR。`,
+    );
+    return null;
+  }
+}
+
 /** @param {{ started_at?: string, completed_at?: string } | undefined} job */
 function jobMinutes(job) {
   if (!job?.started_at || !job?.completed_at) return null;
@@ -195,7 +214,7 @@ export async function issueGuard({ env, gh, out }) {
     issueState: info && !info.isPullRequest ? info.state : 'missing',
     labels,
     triggerLabelPresent: labels.includes('claude-ready'),
-    openClaudePrs: heads.filter((head) => flow.isIssueBranch(head, issue)).length,
+    openClaudePrs: heads.filter((/** @type {string} */ head) => flow.isIssueBranch(head, issue)).length,
     runAttempt: Number(env.GITHUB_RUN_ATTEMPT ?? '1'),
   });
   if (!verdict.proceed) {
@@ -205,6 +224,8 @@ export async function issueGuard({ env, gh, out }) {
     return verdict;
   }
   await gh.removeLabel(issue, 'claude-ready');
+  // 重新派發時清掉上一輪留下的 blocked，執行中只保留 agent-working 一個流程狀態
+  if (labels.includes('blocked')) await gh.removeLabel(issue, 'blocked');
   await gh.addLabels(issue, ['agent-working']);
   out.setOutput('proceed', 'true');
   return verdict;
@@ -253,6 +274,8 @@ async function recover({ env, gh, out }, input) {
   const snapshotSha = flow.isSha(input.snapshotSha) ? input.snapshotSha : head ?? '';
   const { delivery, checkpoint } = flow.parseDelivery(message, issue);
   const info = await gh.issue(issue);
+  /** @type {string[]} */
+  const notes = [];
   /** @type {{ number: number, draft: boolean, url: string, nodeId: string } | null} */
   let pr = null;
   if (hasCommits) {
@@ -260,7 +283,7 @@ async function recover({ env, gh, out }, input) {
     if (!pr) {
       const title = `[#${issue}] ${info?.title ?? ''}`.slice(0, 250);
       const body = flow.renderPrBody({ issue, branch: branch.branch, sha: snapshotSha, runUrl: runUrlOf(env), mode });
-      pr = await gh.createPull({ head: branch.branch, base: defaultBranch, title, body, draft: true });
+      pr = await createPullOrNote(gh, { head: branch.branch, base: defaultBranch, title, body, draft: true }, notes);
     }
   }
   // 最後重讀 head：與驗證的 SHA 不同就不能 human-review。
@@ -277,13 +300,12 @@ async function recover({ env, gh, out }, input) {
     verification,
     existingPr: pr,
   });
-  const notes = [];
   if (pr && decision.pr.markReady) {
     try {
       await gh.markReady(pr.nodeId);
       pr = { ...pr, draft: false };
     } catch (error) {
-      notes.push(`PR 標記 ready 失敗，仍為 draft：${error instanceof Error ? error.message : String(error)}`);
+      notes.push(`PR 標記 ready 失敗，仍為 draft：${errorText(error)}`);
     }
   }
   if (decision.label) {
@@ -420,10 +442,13 @@ export async function verifyOnlyReport({ env, gh, out }) {
   const sha = String(env.INPUT_SHA ?? '').trim();
   if (!flow.isIssueBranch(branch, issue) || !flow.isSha(sha)) throw new Error('branch 或 SHA 不符合 verify-only 規則');
   const info = await gh.issue(issue);
+  /** @type {string[]} */
+  const notes = [];
   let pr = await gh.findOpenPull(branch);
   if (!pr) {
     const title = `[#${issue}] ${info?.title ?? ''}`.slice(0, 250);
-    pr = await gh.createPull({ head: branch, base: env.DEFAULT_BRANCH ?? 'main', title, body: flow.renderPrBody({ issue, branch, sha, runUrl: runUrlOf(env), mode: 'verify-only' }), draft: true });
+    const body = flow.renderPrBody({ issue, branch, sha, runUrl: runUrlOf(env), mode: 'verify-only' });
+    pr = await createPullOrNote(gh, { head: branch, base: env.DEFAULT_BRANCH ?? 'main', title, body, draft: true }, notes);
   }
   const finalSha = await gh.branchHead(branch);
   const { delivery, checkpoint } = flow.parseDelivery(await gh.commitMessage(sha), issue);
@@ -437,7 +462,7 @@ export async function verifyOnlyReport({ env, gh, out }) {
     verification: parseVerification(env.VERIFY_RESULTS),
     existingPr: pr,
   });
-  const report = flow.renderReport({ mode: 'verify-only', issue, branch, sha, finalSha, runUrl: runUrlOf(env), decision, delivery, checkpoint, pr });
+  const report = flow.renderReport({ mode: 'verify-only', issue, branch, sha, finalSha, runUrl: runUrlOf(env), decision, delivery, checkpoint, pr, notes });
   await gh.comment(issue, report);
   out.summary(report);
   return { decision, pr, report };

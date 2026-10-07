@@ -149,6 +149,7 @@ function fakeGitHub(state) {
     commitMessage: async (/** @type {string} */ sha) => state.messages?.[sha] ?? '',
     createPull: async (/** @type {any} */ input) => {
       calls.push(['createPull', input]);
+      if (state.createPullError) throw new Error(state.createPullError);
       return { number: 42, draft: input.draft, url: 'https://example.invalid/pull/42', nodeId: 'PR_42' };
     },
     markReady: async (/** @type {string} */ id) => calls.push(['markReady', id]),
@@ -214,6 +215,39 @@ test('finalize：Action 回報其他分支 → 不回收、不建 PR', async () 
   const result = await finalize({ env, gh: /** @type {any} */ (gh), out: silent });
   assert.equal(result.decision.status, 'uncertain-branch');
   assert.equal(callsOf(gh, 'createPull').length, 0);
+});
+
+test('Issue 入口：取得執行鎖時移除 claude-ready 與上一輪的 blocked，只留 agent-working', async () => {
+  const gh = fakeGitHub({ issue: { labels: ['claude-ready', 'blocked', 'bug'] } });
+  const verdict = await issueGuard({ env: { ...baseEnv, ACTOR: 'human', GITHUB_RUN_ATTEMPT: '1' }, gh: /** @type {any} */ (gh), out: silent });
+  assert.equal(verdict.proceed, true);
+  assert.deepEqual(callsOf(gh, 'removeLabel').map((/** @type {any[]} */ call) => call[2]).sort(), ['blocked', 'claude-ready']);
+  assert.deepEqual(callsOf(gh, 'addLabels'), [['addLabels', 5, ['agent-working']]]);
+  assert.equal(callsOf(gh, 'comment').length, 0);
+});
+
+test('finalize：draft PR 建立失敗仍照常收尾（blocked＋留言附註），不中斷', async () => {
+  const gh = fakeGitHub({ heads: { [BRANCH]: SHA }, createPullError: 'GitHub API POST /repos/owner/repo/pulls → 403 GitHub Actions is not permitted to create or approve pull requests.' });
+  const env = { ...baseEnv, CLAUDE_OUTCOME: 'failure', EXEC_PRESENT: 'true', EXEC_SUBTYPE: 'error_max_turns', EXEC_TURNS: '81', SNAPSHOT_SHA: SHA };
+  const result = await finalize({ env, gh: /** @type {any} */ (gh), out: silent });
+  assert.equal(result.pr, null);
+  assert.equal(result.decision.label, 'blocked');
+  assert.deepEqual(callsOf(gh, 'addLabels')[0], ['addLabels', 5, ['blocked']]);
+  const body = callsOf(gh, 'comment')[0][2];
+  assert.match(body, /PR：沒有建立/);
+  assert.match(body, /draft PR 建立失敗/);
+  assert.match(body, /Allow GitHub Actions to create and approve pull requests/);
+});
+
+test('verify-only：draft PR 建立失敗仍留言附註，不變更標籤', async () => {
+  const branch = 'claude/issue-2-20261001-0501';
+  const gh = fakeGitHub({ issue: { labels: ['blocked'] }, heads: { [branch]: SHA }, messages: { [SHA]: '' }, createPullError: '403 forbidden' });
+  const env = { ...baseEnv, INPUT_ISSUE: '2', INPUT_BRANCH: branch, INPUT_SHA: SHA, VERIFY_RESULTS: JSON.stringify(VERIFICATIONS.$workflowPass) };
+  const result = await verifyOnlyReport({ env, gh: /** @type {any} */ (gh), out: silent });
+  assert.equal(result.pr, null);
+  assert.equal(result.decision.label, null);
+  assert.equal(callsOf(gh, 'addLabels').length + callsOf(gh, 'removeLabel').length, 0);
+  assert.match(callsOf(gh, 'comment')[0][2], /draft PR 建立失敗/);
 });
 
 test('Issue 入口：重複派發只留言，不加 agent-working', async () => {

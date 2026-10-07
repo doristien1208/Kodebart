@@ -2,7 +2,7 @@
 // 執行：node --test .github/scripts/tests/*.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as flow from '../agent-flow.mjs';
@@ -260,11 +260,8 @@ test('GitHub client 沒有推送、改寫 ref、合併、關閉 Issue 或 dispat
   for (const name of Object.keys(client)) assert.doesNotMatch(name, /push|merge|ref|dispatch|close|delete|update/i, name);
 });
 
-/** 待 Human 移入的 .github/workflows-pending/ 優先（GitHub App 不能推送 .github/workflows/）。 @param {string} name */
-const workflow = (name) => {
-  const pending = join(ROOT, '.github', 'workflows-pending', name);
-  return readFileSync(existsSync(pending) ? pending : join(ROOT, '.github', 'workflows', name), 'utf8');
-};
+/** 已移入 .github/workflows/ 的 workflow 檔。 @param {string} name */
+const workflow = (name) => readFileSync(join(ROOT, '.github', 'workflows', name), 'utf8');
 
 /** 每個 checkout 步驟都必須 persist-credentials: false。 @param {string} text */
 function checkoutsWithoutCredentials(text) {

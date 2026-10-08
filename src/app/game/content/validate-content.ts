@@ -1977,8 +1977,11 @@ export function validateContent(input: ContentInput): ContentIssue[] {
       /** 當日第一個 return-review 任務的位置；錯誤文件處理每天只有一個位置（R11）。 */
       let issueTaskIndex: number | null = null;
       const reconcileSources: { index: number; id: string | null; batchId: string }[] = [];
-      /** 當日已出現的任務 ID（依陣列順序）；dependsOn 只能指向排在前面的任務（M1）。 */
-      const earlierTasks = new Set<string>();
+      /** 當日的任務 ID；dependsOn 只能指向同一天的任務，且不得形成循環（M1）。 */
+      const dayTaskIds = new Set(
+        tasks.map((t) => (isObj(t) && typeof t['id'] === 'string' ? t['id'] : null)).filter((x): x is string => x !== null),
+      );
+      const dayDeps: { id: string | null; field: string; deps: ReadonlySet<string> }[] = [];
       tasks.forEach((raw, i) => {
         const field = `tasks[${i}]`;
         if (!isObj(raw)) {
@@ -1998,12 +2001,13 @@ export function validateContent(input: ContentInput): ContentIssue[] {
               const path = `${field}.dependsOn[${d}]`;
               if (typeof dep !== 'string' || dep === '') add(source.file, id, path, `需要任務 ID，得到 ${typeName(dep)}`);
               else if (dependsOn.has(dep)) add(source.file, id, path, `重複的依賴 ${dep}`);
-              else if (!earlierTasks.has(dep)) add(source.file, id, path, `依賴 ${dep} 必須是同一天、排在這項之前的任務`);
+              else if (dep === id) add(source.file, id, path, '不能依賴自己');
+              else if (!dayTaskIds.has(dep)) add(source.file, id, path, `依賴 ${dep} 必須是同一天的任務`);
               else dependsOn.add(dep);
             });
           }
         }
-        if (id !== null) earlierTasks.add(id);
+        dayDeps.push({ id, field, deps: dependsOn });
         checkActions(source, id, `${field}.actions`, raw['actions'], add);
         if (kind !== 'archive' && raw['caseReview'] !== undefined) {
           add(source.file, id, `${field}.caseReview`, `只有 archive 任務可以有 caseReview（此任務是 ${String(kind)}）`);
@@ -2163,6 +2167,23 @@ export function validateContent(input: ContentInput): ContentIssue[] {
             add(source.file, id, `${field}.kind`, `kind 必須是 ${TASK_KINDS.join('／')}，得到 ${String(kind)}`);
         }
       });
+      /* dependsOn 不得形成循環（否則當天有工作永遠無法開始） */
+      const depsOf = new Map(dayDeps.filter((d) => d.id !== null).map((d) => [d.id as string, d.deps] as const));
+      for (const d of dayDeps) {
+        if (d.id === null) continue;
+        const seen = new Set<string>();
+        const stack = [...d.deps];
+        while (stack.length > 0) {
+          const next = stack.pop() as string;
+          if (next === d.id) {
+            add(source.file, d.id, `${d.field}.dependsOn`, '工作依賴形成循環，當天會有工作永遠無法開始');
+            break;
+          }
+          if (seen.has(next)) continue;
+          seen.add(next);
+          for (const x of depsOf.get(next) ?? []) stack.push(x);
+        }
+      }
       for (const r of reconcileSources) {
         const owner = archiveIndex.get(r.batchId);
         if (owner !== undefined && owner > r.index) {

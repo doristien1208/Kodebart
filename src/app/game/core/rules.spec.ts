@@ -1146,7 +1146,7 @@ describe('createSave', () => {
       events: [],
       readMessages: [],
     });
-    expect(SAVE_VERSION).toBe(11);
+    expect(SAVE_VERSION).toBe(12);
     const raw = createSave(42, DIR) as unknown as Record<string, unknown>;
     for (const key of ['night', 'evidence', 'reply', 'phase', 'readIssueReceipts']) expect(key in raw).withContext(key).toBeFalse();
   });

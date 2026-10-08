@@ -86,7 +86,13 @@ const CORRECT_MAPPING: Record<string, string> = {
   'contact-status': 'contact-result',
   'effective-date': 'record-date',
 };
-const BLANK_ROWS = ['row.0102', 'row.0521', 'row.0905', 'row.1219'];
+/**
+ * M1：Day 6 欄位映射的資料列讀保存資料（playToDay6 一路保留缺漏）：只有 0521 隨資料附上本人回覆（無），
+ * 其餘的回覆欄都是空白，交給空白值處理方式。
+ */
+const TASK_DAY6_REPORT = 'task.day6.m1-report';
+const BLANK_ROWS = ['row.0102', 'row.0314', 'row.0716', 'row.0905', 'row.1013', 'row.1108', 'row.1219'];
+const BLANK_COUNT = BLANK_ROWS.length;
 
 /** service 在建構時讀 localStorage，所以每次都要重建 injector 才能拿到乾淨的實例。 */
 function freshService(): GameStateService {
@@ -209,6 +215,7 @@ function playToDay2(game: GameStateService, b102Policy: MissingPolicy): void {
   expect(game.taskId()).toBe(TASK_DAY1_FOLLOWUP);
   archiveCurrent(game, 'default_false');
   expect(game.completeWork()).toBeTrue();
+  finishWorkdayTasks(game); // M1：當日其餘的附件關聯／批次轉換／交付報告
   expect(game.stage()).toBe('wrap');
   nextDay(game);
   expect(game.dayId()).toBe(DAY_02);
@@ -233,9 +240,10 @@ function playArchiveDaysUntil(game: GameStateService, dayId: string, policy: Mis
   expect(game.stage()).toBe('work');
 }
 
+/** 一路保留缺漏（歸檔送覆核、批次保留缺漏）到 Day 6：欄位映射的回覆欄依保存資料多為空白。 */
 function playToDay6(game: GameStateService): void {
-  playToDay3(game);
-  playArchiveDaysUntil(game, DAY_06);
+  playToDay3(game, 'request_review');
+  playArchiveDaysUntil(game, DAY_06, 'request_review');
 }
 
 function mapCorrectly(game: GameStateService): void {
@@ -297,6 +305,27 @@ function row(taskId: string, status: DayTaskItem['status'], total: number, proce
   return { taskId, status, total, processed };
 }
 
+const TASK_DAY4_ATTACH = 'task.day4.m1-attachment';
+const TASK_DAY4_TRANSFORM = 'task.day4.m1-transform';
+const TASK_DAY5_ATTACH = 'task.day5.m1-attachment';
+const TASK_DAY5_TRANSFORM = 'task.day5.m1-transform';
+/** M1：Day 4／5 新增的附件關聯與批次轉換、Day 6 的交付報告（尚未處理時）。 */
+const DAY4_M1_PENDING = [row(TASK_DAY4_ATTACH, 'pending', 1, 0), row(TASK_DAY4_TRANSFORM, 'pending', 3, 0)];
+const DAY4_M1_DONE = [row(TASK_DAY4_ATTACH, 'done', 1, 1), row(TASK_DAY4_TRANSFORM, 'done', 3, 3)];
+const DAY5_M1_PENDING = [row(TASK_DAY5_ATTACH, 'pending', 1, 0), row(TASK_DAY5_TRANSFORM, 'pending', 3, 0)];
+const DAY6_M1_PENDING = [row('task.day6.m1-report', 'pending', 0, 0)];
+/** M1 新增工作完成並交付時寫入的事件（附件送件、批次交付各一次交付）。 */
+const DAY4_M1_EVENTS = ['attachment.submit', 'task.complete', 'transform.submit', 'task.complete'];
+
+/** 把目前日剩下的 M1 工作（附件關聯、批次轉換、交付報告）依序完成並交付。 */
+function finishWorkdayTasks(game: GameStateService): void {
+  let guard = 0;
+  while (game.stage() === 'work' && ['attachment', 'transform', 'report'].includes(game.task()?.kind ?? '')) {
+    expect(completeWorkdayTask(game)).toBeTrue();
+    if (++guard > 5) throw new Error('finishWorkdayTasks：工作數異常');
+  }
+}
+
 function kindsOf(events: readonly GameEvent[]): string[] {
   return events.map((e) => e.kind);
 }
@@ -340,6 +369,7 @@ function playToDay2With(game: GameStateService, codes: Partial<Record<Day1Key, s
   expect(game.completeWork()).toBeTrue();
   archiveCurrent(game, 'default_false');
   expect(game.completeWork()).toBeTrue();
+  finishWorkdayTasks(game); // M1：當日其餘的附件關聯／批次轉換／交付報告
   nextDay(game);
   expect(game.taskId()).toBe(TASK_DAY2);
 }
@@ -352,6 +382,7 @@ function finishDay2(game: GameStateService, dispositions: Partial<Record<'B102' 
   expect(game.submitReply('ack')).toBeTrue();
   archiveCurrent(game, 'default_false');
   expect(game.completeWork()).toBeTrue();
+  finishWorkdayTasks(game); // M1：當日其餘的附件關聯／批次轉換／交付報告
   expect(game.stage()).toBe('wrap');
   expect(game.dayId()).toBe(DAY_02);
 }
@@ -398,6 +429,7 @@ function playToDay4WithCase(game: GameStateService, decision: string, policy: Mi
   playToDay3(game);
   archiveCurrent(game, policy, Infinity, decision);
   expect(game.completeWork()).toBeTrue();
+  finishWorkdayTasks(game); // M1：當日其餘的附件關聯／批次轉換／交付報告
   nextDay(game);
   expect(game.dayId()).toBe(DAY_04);
 }
@@ -448,6 +480,68 @@ const PROMPT_CASES: readonly PromptCase[] = [
     },
   },
   { promptId: 'prompt.day6.closed-box', dayId: DAY_06, reach: (g) => playToDay6(g) },
+  /* M1：依工作進度送達的訊息（案件開啟、任務開啟、建立預覽／報告、歸檔筆數） */
+  {
+    promptId: 'prompt.day3.m1-find-version',
+    dayId: DAY_03,
+    reach: (g) => {
+      playToDay3(g);
+      g.openCase('case.day3.h204');
+    },
+  },
+  {
+    promptId: 'prompt.day4.m1-window-receipt',
+    dayId: DAY_04,
+    reach: (g) => {
+      playToDay4(g, 'default_false');
+      expect(g.selectTask(TASK_DAY4_ATTACH)).toBeTrue();
+      g.markTaskOpened();
+    },
+  },
+  {
+    promptId: 'prompt.day4.m1-desk-fan',
+    dayId: DAY_04,
+    reach: (g) => {
+      playToDay4(g, 'default_false');
+      archiveCurrent(g, 'default_false', 2);
+    },
+  },
+  {
+    promptId: 'prompt.day5.m1-coffee',
+    dayId: DAY_05,
+    reach: (g) => {
+      playToDay3(g);
+      playArchiveDaysUntil(g, DAY_05);
+      archiveCurrent(g, 'default_false', 2);
+    },
+  },
+  {
+    promptId: 'prompt.day5.m1-default-question',
+    dayId: DAY_05,
+    reach: (g) => {
+      playToDay3(g);
+      playArchiveDaysUntil(g, DAY_05);
+      archiveCurrent(g, 'default_false');
+      expect(g.completeWork()).toBeTrue();
+      expect(g.selectTask(TASK_DAY5_TRANSFORM)).toBeTrue();
+      g.setTransformPolicy('review');
+      expect(g.previewTransform()).toBeTrue();
+    },
+  },
+  { promptId: 'prompt.day6.m1-week-start', dayId: DAY_06, reach: (g) => playToDay6(g) },
+  {
+    promptId: 'prompt.day6.m1-handoff-meaning',
+    dayId: DAY_06,
+    reach: (g) => {
+      playToDay6(g);
+      mapCorrectly(g);
+      g.setFieldBlankPolicy('request_review');
+      g.previewFieldMap();
+      expect(g.submitFieldMap()).toBeTrue();
+      expect(g.completeWork()).toBeTrue();
+      expect(g.generateReport()).toBeTrue();
+    },
+  },
 ];
 
 /** 存檔中與回覆無關、回答前後必須完全相同的欄位。 */
@@ -959,6 +1053,7 @@ describe('GameStateService', () => {
       // ---- Day 1 第 2 件 ----
       archiveCurrent(game, 'default_false');
       expect(game.completeWork()).toBeTrue();
+      finishWorkdayTasks(game); // M1：當日其餘的附件關聯／批次轉換／交付報告
       expect(game.stage()).toBe('wrap');
       expect(routeForStage(game.stage()!)).toBe('/overnight');
       expect(game.progressText()).toBe('第一日交接完成');
@@ -1056,6 +1151,7 @@ describe('GameStateService', () => {
       archiveCurrent(game, 'default_false');
       expect(game.arranged()).toBe(arranged);
       expect(game.completeWork()).toBeTrue();
+      finishWorkdayTasks(game); // M1：當日其餘的附件關聯／批次轉換／交付報告
       expect(game.stage()).toBe('wrap');
       expect(game.dayId()).toBe(DAY_02);
       expect(game.nextDayId()).toBe(DAY_03);
@@ -1079,18 +1175,21 @@ describe('GameStateService', () => {
       game.advanceDay();
 
       // ---- Day 3–5：各一件歸檔 5／6／8 筆 ----
+      // M1：Day 4／5 另有附件關聯與批次轉換（歸檔交付後依序完成）
+      const DAY5_M1_DONE = [row(TASK_DAY5_ATTACH, 'done', 1, 1), row(TASK_DAY5_TRANSFORM, 'done', 3, 3)];
       const archiveDays = [
-        { dayId: DAY_03, taskId: TASK_DAY3, batchId: BATCH_DAY03, count: 5, name: '三' },
-        { dayId: DAY_04, taskId: TASK_DAY4, batchId: BATCH_DAY04, count: 6, name: '四' },
-        { dayId: DAY_05, taskId: TASK_DAY5, batchId: BATCH_DAY05, count: 8, name: '五' },
+        { dayId: DAY_03, taskId: TASK_DAY3, batchId: BATCH_DAY03, count: 5, name: '三', m1Pending: [], m1Done: [], m1Events: [] as string[], morning: [] as string[] },
+        { dayId: DAY_04, taskId: TASK_DAY4, batchId: BATCH_DAY04, count: 6, name: '四', m1Pending: DAY4_M1_PENDING, m1Done: DAY4_M1_DONE, m1Events: DAY4_M1_EVENTS, morning: [] },
+        // Day 5 進入時核對 Day 4 引用的附件（對象相符）
+        { dayId: DAY_05, taskId: TASK_DAY5, batchId: BATCH_DAY05, count: 8, name: '五', m1Pending: DAY5_M1_PENDING, m1Done: DAY5_M1_DONE, m1Events: DAY4_M1_EVENTS, morning: ['attachment.checked'] },
       ];
       for (const d of archiveDays) {
         expect(game.dayId()).toBe(d.dayId);
         expect(game.stage()).toBe('morning');
         expect(game.taskId()).toBe(d.taskId);
         expect(game.progressText()).toBe(`第${d.name}日收件`);
-        expect(taskRows(game)).toEqual([row(d.taskId, 'pending', d.count, 0)]);
-        expect(game.dayEvents()).toEqual([]);
+        expect(taskRows(game)).toEqual([row(d.taskId, 'pending', d.count, 0), ...d.m1Pending]);
+        expect(kindsOf(game.dayEvents())).toEqual(d.morning);
         game.startDay();
         expect(game.stage()).toBe('work');
         expect(game.task()!.kind).toBe('archive');
@@ -1100,8 +1199,8 @@ describe('GameStateService', () => {
         expect(game.archivedCount()).toBe(0);
         expect(game.progressText()).toBe(`第${d.name}日`);
         expect(game.progressText()).not.toContain('第二日');
-        expect(game.isLastTask()).toBeTrue();
-        expect(taskRows(game)).toEqual([row(d.taskId, 'active', d.count, 0)]);
+        expect(game.isLastTask()).toBe(d.m1Pending.length === 0);
+        expect(taskRows(game)).toEqual([row(d.taskId, 'active', d.count, 0), ...d.m1Pending]);
         expect(game.reconcile()).toBeNull();
         expect(game.reply()).toBeNull();
         expect(game.canReply('ack')).toBeFalse();
@@ -1110,11 +1209,12 @@ describe('GameStateService', () => {
         expect(game.completeWork()).toBeFalse();
         archiveCurrent(game, 'default_false');
         expect(game.archivedCount()).toBe(d.count);
-        expect(taskRows(game)).toEqual([row(d.taskId, 'active', d.count, d.count)]);
+        expect(taskRows(game)).toEqual([row(d.taskId, 'active', d.count, d.count), ...d.m1Pending]);
         expect(game.completeWork()).toBeTrue();
+        finishWorkdayTasks(game); // M1：當日其餘的附件關聯／批次轉換
         expect(game.stage()).toBe('wrap');
-        expect(taskRows(game)).toEqual([row(d.taskId, 'done', d.count, d.count)]);
-        expect(kindsOf(game.dayEvents())).toEqual([...Array<string>(d.count).fill('archive'), 'task.complete', 'day.complete']);
+        expect(taskRows(game)).toEqual([row(d.taskId, 'done', d.count, d.count), ...d.m1Done]);
+        expect(kindsOf(game.dayEvents())).toEqual([...d.morning, ...Array<string>(d.count).fill('archive'), 'task.complete', ...d.m1Events, 'day.complete']);
         expect(game.progressText()).toBe(`第${d.name}日交接完成`);
         expect(storedIsValid()).toBeTrue();
         game.advanceDay();
@@ -1124,7 +1224,7 @@ describe('GameStateService', () => {
       expect(game.dayId()).toBe(DAY_06);
       expect(game.stage()).toBe('morning');
       expect(game.progressText()).toBe('第六日收件');
-      expect(taskRows(game)).toEqual([row(TASK_DAY6, 'pending', 8, 0)]);
+      expect(taskRows(game)).toEqual([row(TASK_DAY6, 'pending', 8, 0), ...DAY6_M1_PENDING]);
       game.startDay();
       expect(game.stage()).toBe('work');
       expect(game.taskId()).toBe(TASK_DAY6);
@@ -1136,7 +1236,7 @@ describe('GameStateService', () => {
       expect(game.records()).toEqual([]);
       expect(game.totalRecords()).toBe(0);
       expect(game.archivedCount()).toBe(0);
-      expect(game.isLastTask()).toBeTrue();
+      expect(game.isLastTask()).toBeFalse(); // M1：之後還有交付報告
       expect(game.fieldMapPlan()!.id).toBe(TASK_DAY6);
       expect(game.fieldMap()).toEqual({ kind: 'field-map', assignments: {}, previewed: false });
       expect(game.completeWork()).toBeFalse();
@@ -1151,16 +1251,25 @@ describe('GameStateService', () => {
       expect(game.status()).toBe(STORAGE.saved);
       expect(game.taskDone()).toBeTrue();
       expect(game.stage()).toBe('work');
-      expect(taskRows(game)).toEqual([row(TASK_DAY6, 'active', 8, 8)]);
+      expect(taskRows(game)).toEqual([row(TASK_DAY6, 'active', 8, 8), ...DAY6_M1_PENDING]);
 
       expect(game.completeWork()).toBeTrue();
+      finishWorkdayTasks(game); // M1：交付報告
       expect(game.stage()).toBe('end');
       expect(routeForStage(game.stage()!)).toBe('/end');
       expect(game.dayId()).toBe(DAY_06);
       expect(game.progressText()).toBe('六日試玩完成');
       expect(game.isLastTask()).toBeFalse();
-      expect(taskRows(game)).toEqual([row(TASK_DAY6, 'done', 8, 8)]);
-      expect(kindsOf(game.dayEvents())).toEqual(['field-map.submit', 'task.complete', 'day.complete']);
+      expect(taskRows(game)).toEqual([row(TASK_DAY6, 'done', 8, 8), row(TASK_DAY6_REPORT, 'done', 8, 8)]);
+      // Day 6 進入時核對 Day 5 引用的紙本交接附件（對象相符）
+      expect(kindsOf(game.dayEvents())).toEqual([
+        'attachment.checked',
+        'field-map.submit',
+        'task.complete',
+        'report.submit',
+        'task.complete',
+        'day.complete',
+      ]);
       expect(storedIsValid()).toBeTrue();
 
       // 結束後不再前進
@@ -1172,7 +1281,8 @@ describe('GameStateService', () => {
 
       const kinds = kindsOf(stored()!.events);
       expect(kinds.filter((k) => k === 'archive').length).toBe(3 + 3 + 4 + 5 + 6 + 8);
-      expect(kinds.filter((k) => k === 'task.complete').length).toBe(8);
+      // 8 件原有工作＋M1 的 Day 4／5 附件關聯與批次轉換（4 件）＋Day 6 交付報告
+      expect(kinds.filter((k) => k === 'task.complete').length).toBe(13);
       expect(kinds.filter((k) => k === 'day.complete').length).toBe(6);
       expect(kinds.filter((k) => k === 'night.resolved').length).toBe(1);
       expect(kinds.filter((k) => k === 'reply.submit').length).toBe(1);
@@ -1187,8 +1297,13 @@ describe('GameStateService', () => {
         TASK_DAY2_ARCHIVE,
         TASK_DAY3,
         TASK_DAY4,
+        TASK_DAY4_ATTACH,
+        TASK_DAY4_TRANSFORM,
         TASK_DAY5,
+        TASK_DAY5_ATTACH,
+        TASK_DAY5_TRANSFORM,
         TASK_DAY6,
+        TASK_DAY6_REPORT,
       ]);
       const completedDays = stored()!.events.filter((e) => e.kind === 'day.complete').map((e) => (e.payload as { dayId: string }).dayId);
       expect(completedDays).toEqual([DAY_01, DAY_02, DAY_03, DAY_04, DAY_05, DAY_06]);
@@ -1207,7 +1322,10 @@ describe('GameStateService', () => {
       expect(s.taskProgress[TASK_DAY6]?.kind).toBe('field-map');
       // 全部以來源編號提交並放行 → 沒有文件問題案件、錯誤文件處理位置都不出現也不交付
       expect(s.issueSchedule).toEqual({});
-      expect(s.mailbox).toEqual([]);
+      // 沒有退件回條；M1 延後回條依保存資料寄出：黃品蓉版本、窗口收件（引用 0314 的窗口回條、批次全交付）、
+      // 紙本交接進度、補充批次結果（沒有保留缺漏，所以沒有待補清單；附件對象相符，所以沒有關聯修正）
+      expect(s.mailbox.map((m) => m.id)).toEqual(['mail.day4.m1-version', 'mail.day5.m1-window-only', 'mail.day6.m1-paper', 'mail.day6.m1-batch']);
+      expect(s.mailbox.every((m) => m.packId === 'mail.m1-workday')).toBeTrue();
       expect(s.readMail).toEqual([]);
       expect(s.returns).toEqual([]);
       expect(kinds.filter((k) => k === 'record.review').length).toBe(2);
@@ -1341,6 +1459,7 @@ describe('GameStateService', () => {
       expect(game.stage()).toBe('work');
       archiveCurrent(game, 'default_false');
       expect(game.completeWork()).toBeTrue();
+      finishWorkdayTasks(game); // M1：當日其餘的附件關聯／批次轉換／交付報告
       expect(stored()!.stage).toBe('wrap');
 
       const restored = freshService();
@@ -1473,9 +1592,9 @@ describe('GameStateService', () => {
       expect(restored.conditionContext()!.archivedCount(BATCH_DAY02)).toBe(4);
       expect(restored.conditionContext()!.archivedCount('batch.nonexistent')).toBe(0);
 
-      // 之後各日仍留在頻道歷史
+      // 之後各日仍留在頻道歷史（M1：提交第 3 筆起另有印表機兩則）
       finishToday(restored);
-      expect(unlockedIds(restored, LUNCH_CHAT)).toEqual(LUNCH_MSGS);
+      expect(unlockedIds(restored, LUNCH_CHAT)).toEqual([...LUNCH_MSGS, 'msg.day3.m1-printer', 'msg.day3.m1-printer-wu']);
       nextDay(restored);
       for (const id of LUNCH_MSGS) expect(unlockedIds(restored, LUNCH_CHAT)).toContain(id);
     });
@@ -1690,6 +1809,7 @@ describe('GameStateService', () => {
         expect(restored.archived('B314')!.archiveCode).toBe('0314');
         expect(restored.archived('H204')).toEqual(entry);
         expect(restored.completeWork()).toBeTrue();
+        finishWorkdayTasks(restored); // M1：當日其餘的附件關聯／批次轉換／交付報告
         expect(restored.stage()).toBe('wrap');
         expect(taskRows(restored)).toEqual([row(TASK_DAY3, 'done', 5, 5)]);
         expect(storedIsValid()).toBeTrue();
@@ -1734,12 +1854,14 @@ describe('GameStateService', () => {
           expect(g.completeWork()).toBeTrue();
           archiveCurrent(g, 'default_false');
           expect(g.completeWork()).toBeTrue();
+          finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
           nextDay(g);
           finishToday(g);
           nextDay(g);
           expect(g.dayId()).toBe(DAY_03);
           archiveCurrent(g, 'default_false', Infinity, decisionId);
           expect(g.completeWork()).toBeTrue();
+          finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
           nextDay(g);
           expect(g.dayId()).toBe(DAY_04);
           expect(h204Dms(g)).toEqual([H204_DM[decisionId]]);
@@ -1783,6 +1905,7 @@ describe('GameStateService', () => {
         expect(h204Dms(g)).toEqual([]);
         archiveCurrent(g, 'default_false');
         expect(g.completeWork()).toBeTrue();
+        finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
         g.advanceDay();
         expect(g.dayId()).toBe(DAY_05);
         expect(h204Dms(g)).toEqual([]);
@@ -1814,7 +1937,7 @@ describe('GameStateService', () => {
         expect(stored()!.issueSchedule).toEqual({});
         expect(stored()!.mailbox).toEqual([]);
         expect(stored()!.readMail).toEqual([]);
-        expect(new SaveRepository().load().migratedFrom).toBe(11);
+        expect(new SaveRepository().load().migratedFrom).toBe(12);
         expect(g.stage()).toBe('wrap');
         expect(g.caseDecision(CASE_H204)).toBeNull();
         g.advanceDay();
@@ -1831,6 +1954,7 @@ describe('GameStateService', () => {
       expect(g.completeWork()).toBeTrue();
       archiveCurrent(g, 'default_false');
       expect(g.completeWork()).toBeTrue();
+      finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
       nextDay(g);
       expect(taskRows(g)).toEqual([row(TASK_DAY2, 'active', 2, 0), row(TASK_DAY2_ARCHIVE, 'pending', 4, 0)]);
       expect(g.arranged()).toBeFalse();
@@ -1976,14 +2100,14 @@ describe('GameStateService', () => {
       expect(game.submitFieldMap()).toBeFalse();
     });
 
-    it('預覽：8 列、受空值影響 4 列、0102 保留前導零', () => {
+    it('預覽：8 列、受空值影響的列依保存資料（保留缺漏者為空白）、0102 保留前導零', () => {
       mapCorrectly(game);
       game.setFieldBlankPolicy('default_false');
       const check = game.previewFieldMap();
       expect(check?.ok).toBeTrue();
       if (!check?.ok) return;
       expect(check.result.rowCount).toBe(8);
-      expect(check.result.affectedCount).toBe(4);
+      expect(check.result.affectedCount).toBe(BLANK_COUNT);
       expect(check.result.blankPolicy).toBe('default_false');
       expect(check.result.rows.length).toBe(8);
       const codes = check.result.rows.map((r) => r.values['personnel-code']);
@@ -1996,7 +2120,7 @@ describe('GameStateService', () => {
       ['default_false', false],
       ['request_review', null],
     ] as const) {
-      it(`政策 ${policy}：空白列的 exclude-flag 為 ${blankValue}；有→true、無→false`, () => {
+      it(`政策 ${policy}：空白列的 exclude-flag 為 ${blankValue}；無→false（0521 的本人回覆）`, () => {
         mapCorrectly(game);
         game.setFieldBlankPolicy(policy);
         game.previewFieldMap();
@@ -2004,11 +2128,10 @@ describe('GameStateService', () => {
         const sub = game.fieldMap()!.submitted!;
         expect(sub.blankPolicy).toBe(policy);
         expect(sub.rowCount).toBe(8);
-        expect(sub.affectedCount).toBe(4);
+        expect(sub.affectedCount).toBe(BLANK_COUNT);
         const flag = (id: string) => sub.rows.find((r) => r.id === id)!.values['exclude-flag'];
         for (const id of BLANK_ROWS) expect(flag(id)).toBe(blankValue);
-        expect(flag('row.0716')).toBeTrue();
-        for (const id of ['row.0314', 'row.1013', 'row.1108']) expect(flag(id)).toBeFalse();
+        expect(flag('row.0521')).toBeFalse();
         const row0102 = sub.rows.find((r) => r.id === 'row.0102')!;
         expect(row0102.values).toEqual({
           'personnel-code': '0102',
@@ -2022,7 +2145,7 @@ describe('GameStateService', () => {
         if (persisted?.kind === 'field-map') expect(persisted.submitted).toEqual(sub);
         const event = stored()!.events[stored()!.events.length - 1];
         expect(event.kind).toBe('field-map.submit');
-        expect(event.payload).toEqual({ taskId: TASK_DAY6, blankPolicy: policy, rowCount: 8, affectedCount: 4 });
+        expect(event.payload).toEqual({ taskId: TASK_DAY6, blankPolicy: policy, rowCount: 8, affectedCount: BLANK_COUNT });
         expect(storedIsValid()).toBeTrue();
       });
     }
@@ -2063,13 +2186,19 @@ describe('GameStateService', () => {
       expect(restored.fieldMap()!.submitted!.rows.find((r) => r.id === 'row.0102')!.values['exclude-flag']).toBeNull();
       expect(restored.taskDone()).toBeTrue();
 
+      // M1：交付欄位映射後還有交付報告（依賴欄位映射）；完成報告才結束
       expect(restored.completeWork()).toBeTrue();
+      expect(restored.stage()).toBe('work');
+      expect(restored.taskId()).toBe(TASK_DAY6_REPORT);
+      expect(completeWorkdayTask(restored)).toBeTrue();
       expect(restored.stage()).toBe('end');
       const again = freshService();
       expect(again.stage()).toBe('end');
       expect(again.progressText()).toBe('六日試玩完成');
-      expect(taskRows(again)).toEqual([row(TASK_DAY6, 'done', 8, 8)]);
-      expect(again.fieldMap()!.submitted).toEqual(submitted);
+      expect(taskRows(again)).toEqual([row(TASK_DAY6, 'done', 8, 8), row(TASK_DAY6_REPORT, 'done', 8, 8)]);
+      // 結束時目前工作是交付報告；欄位映射的提交快照仍在存檔
+      const fm = again.save()!.taskProgress[TASK_DAY6];
+      expect(fm?.kind === 'field-map' ? fm.submitted : undefined).toEqual(submitted);
     });
 
     it('未提交的對應與政策在重新載入後保留', () => {
@@ -2219,7 +2348,7 @@ describe('GameStateService', () => {
       const s = stored()!;
       expect(s.version).toBe(12);
       expect(s.waivedTasks).toEqual(waived);
-      expect(s).toEqual({ ...JSON.parse(raw), version: 11, caseReviews: {}, returns: [], issueSchedule: {}, ...V11_MIGRATED_EMPTY, waivedTasks: waived });
+      expect(s).toEqual({ ...JSON.parse(raw), version: 12, caseReviews: {}, returns: [], issueSchedule: {}, ...V11_MIGRATED_EMPTY, waivedTasks: waived });
       expect(s.events).toEqual(v6.events);
       expect(s.batches).toEqual(v6.batches);
       expect(s.taskProgress).toEqual(v6.taskProgress);
@@ -2227,7 +2356,7 @@ describe('GameStateService', () => {
       expect(s.readMessages).toEqual(v6.readMessages);
       expect(s.night).toEqual(v6.night);
       expect(g.save()).toEqual(s);
-      expect(new SaveRepository().load().migratedFrom).toBe(11);
+      expect(new SaveRepository().load().migratedFrom).toBe(12);
       expect(storedIsValid()).toBeTrue();
       return g;
     }
@@ -2247,6 +2376,7 @@ describe('GameStateService', () => {
       expect(g.taskId()).toBe(TASK_DAY1_FOLLOWUP);
       archiveCurrent(g, 'default_false');
       expect(g.completeWork()).toBeTrue();
+      finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
       expect(g.stage()).toBe('wrap');
       expect(taskRows(g)).toEqual([row(TASK_DAY1, 'done', 3, 3), row(TASK_DAY1_FOLLOWUP, 'done', 3, 3)]);
       expect(storedIsValid()).toBeTrue();
@@ -2292,6 +2422,7 @@ describe('GameStateService', () => {
       expect(g.isLastTask()).toBeTrue();
       archiveCurrent(g, 'default_false');
       expect(g.completeWork()).toBeTrue();
+      finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
       expect(g.stage()).toBe('wrap');
       expect(g.save()!.waivedTasks).toEqual([TASK_DAY1_FOLLOWUP]);
       g.advanceDay();
@@ -2336,7 +2467,7 @@ describe('GameStateService', () => {
       expect(unlockedIds(g, WU_DM)).toEqual([LUNCH_DM['join']]);
       for (const id of REVIEW_ANY_MSGS) expect(unlockedIds(g, LUNCH_CHAT)).toContain(id);
       expect(g.isPromptOpen(PROMPT_REVIEW_RETURNED)).toBeTrue();
-      expect(taskRows(g)).toEqual([row(TASK_DAY4, 'active', 6, 1)]);
+      expect(taskRows(g)).toEqual([row(TASK_DAY4, 'active', 6, 1), ...DAY4_M1_PENDING]);
       finishToday(g);
       g.advanceDay();
       expect([g.dayId(), g.stage(), g.taskId()]).toEqual([DAY_05, 'morning', TASK_DAY5]);
@@ -2362,13 +2493,13 @@ describe('GameStateService', () => {
       expect(s.version).toBe(12);
       expect(s.chatReplies).toEqual({});
       expect(s.waivedTasks).toEqual(WAIVED_THROUGH_DAY2);
-      expect(s).toEqual({ ...JSON.parse(raw), version: 11, caseReviews: {}, returns: [], issueSchedule: {}, ...V11_MIGRATED_EMPTY, chatReplies: {}, waivedTasks: WAIVED_THROUGH_DAY2 });
+      expect(s).toEqual({ ...JSON.parse(raw), version: 12, caseReviews: {}, returns: [], issueSchedule: {}, ...V11_MIGRATED_EMPTY, chatReplies: {}, waivedTasks: WAIVED_THROUGH_DAY2 });
       expect(s.batches).toEqual(v5.batches);
       expect(s.taskProgress).toEqual(v5.taskProgress);
       expect(s.events).toEqual(v5.events);
       expect(s.readMessages).toEqual(v5.readMessages);
       expect(s.night).toEqual(v5.night!);
-      expect(new SaveRepository().load().migratedFrom).toBe(11);
+      expect(new SaveRepository().load().migratedFrom).toBe(12);
       expect(storedIsValid()).toBeTrue();
 
       // 遷移後可接著回答當日 prompt 並完成當日
@@ -2414,7 +2545,7 @@ describe('GameStateService', () => {
       expect(raw['evidence']).toBeUndefined();
       expect(raw['reply']).toBeUndefined();
       expect(s).toEqual(JSON.parse(JSON.stringify(g.save()!)));
-      expect(new SaveRepository().load().migratedFrom).toBe(11);
+      expect(new SaveRepository().load().migratedFrom).toBe(12);
       expect(storedIsValid()).toBeTrue();
 
       g.advanceDay();
@@ -2434,7 +2565,7 @@ describe('GameStateService', () => {
     it('現行 v11 載入不會再寫回（localStorage 字串不變；migratedFrom 11）', () => {
       game.newGame();
       const raw = localStorage.getItem(SAVE_KEY)!;
-      expect(new SaveRepository().load().migratedFrom).toBe(11);
+      expect(new SaveRepository().load().migratedFrom).toBe(12);
       const setItem = spyOn(Storage.prototype, 'setItem').and.callThrough();
       const g = freshService();
       expect(g.hasSave()).toBeTrue();
@@ -2482,8 +2613,8 @@ describe('GameStateService', () => {
       localStorage.setItem(SAVE_KEY, JSON.stringify(legacyV2Day2));
       const first = freshService();
       const afterFirst = localStorage.getItem(SAVE_KEY)!;
-      expect(JSON.parse(afterFirst).version).toBe(11);
-      expect(new SaveRepository().load().migratedFrom).toBe(11);
+      expect(JSON.parse(afterFirst).version).toBe(12);
+      expect(new SaveRepository().load().migratedFrom).toBe(12);
 
       const second = freshService();
       expect(second.storageIssue()).toBe('');
@@ -2512,6 +2643,7 @@ describe('GameStateService', () => {
       expect(g.taskId()).toBe(TASK_DAY1_FOLLOWUP);
       archiveCurrent(g, 'default_false');
       expect(g.completeWork()).toBeTrue();
+      finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
       expect(g.stage()).toBe('wrap');
       expect(storedIsValid()).toBeTrue();
     });
@@ -2530,6 +2662,7 @@ describe('GameStateService', () => {
       expect(g.taskId()).toBe(TASK_DAY2_ARCHIVE);
       archiveCurrent(g, 'default_false');
       expect(g.completeWork()).toBeTrue();
+      finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
       expect(g.stage()).toBe('wrap');
       expect(g.nextDayId()).toBe(DAY_03);
       expect(storedIsValid()).toBeTrue();
@@ -2557,7 +2690,7 @@ describe('GameStateService', () => {
       expect(stored()!.chatReplies).toEqual({});
       expect(stored()!.readMessages).toEqual(['msg.a', 'msg.b']);
       expect(stored()!.batches).toEqual(legacyV3Overnight.batches);
-      expect(new SaveRepository().load().migratedFrom).toBe(11);
+      expect(new SaveRepository().load().migratedFrom).toBe(12);
       expect(storedIsValid()).toBeTrue();
     });
 
@@ -2966,6 +3099,7 @@ describe('GameStateService', () => {
         expect(g.completeWork()).toBeTrue();
         archiveCurrent(g, 'default_false');
         expect(g.completeWork()).toBeTrue();
+        finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
         nextDay(g);
         expect(g.batchId()).toBe(BATCH_DAY01);
         expect(g.archived('B102')).toEqual(entry);
@@ -3111,9 +3245,15 @@ describe('GameStateService', () => {
     /** 回條郵件的固定 ID（R12）：'mail.'＋回條 ID。 */
     const mailId = (n: number) => `mail.${receiptId(n)}`;
     /** 未開啟的郵件 ID（依收到順序）；同時確認 unreadMailCount 一致。 */
+    /** 退件回條的郵件（M1 延後回條另寄，本段只看退件回條）。 */
+    const isReceiptMail = (m: MailRecord) => m.packId === 'mail.return-receipts';
+    function receiptBox(g: GameStateService): MailRecord[] {
+      return g.mailbox().filter(isReceiptMail);
+    }
+    /** 未讀的退件回條郵件；未讀總數＝已送達郵件（含 M1 延後回條）中未開啟的封數。 */
     function unreadMail(g: GameStateService): string[] {
-      const ids = g.mailbox().filter((m) => !g.isMailRead(m.id)).map((m) => m.id);
-      expect(g.unreadMailCount()).toBe(ids.length);
+      const ids = receiptBox(g).filter((m) => !g.isMailRead(m.id)).map((m) => m.id);
+      expect(g.unreadMailCount()).toBe(g.mailbox().filter((m) => !g.isMailRead(m.id)).length);
       return ids;
     }
     /** 回條郵件（R12）：退件回條包、模板＝回條種類、收到日＝回條日，附件引用案件／回條／送件版本。 */
@@ -3195,7 +3335,7 @@ describe('GameStateService', () => {
       expect(game.returns()).toEqual([]);
       expect(game.pendingIssueCount()).toBe(0);
       expect(unreadMail(game)).toEqual([]);
-      expect(game.mailbox()).toEqual([]);
+      expect(receiptBox(game)).toEqual([]);
       expect(game.conditionContext()!.returnNotified(AUDIT_ID)).toBeFalse();
       expect(unlockedIds(game, LIN_DM)).not.toContain(RETURN_MSG);
 
@@ -3207,8 +3347,8 @@ describe('GameStateService', () => {
       expect(game.save()!.issueSchedule).toEqual({});
       expect(game.save()!.readMail).toEqual([]);
       // R12：回條建立的同時寄出一封回條郵件（未讀）
-      expect(game.mailbox()).toEqual([receiptMailOf(RECEIPT0)]);
-      expect(stored()!.mailbox).toEqual([receiptMailOf(RECEIPT0)]);
+      expect(receiptBox(game)).toEqual([receiptMailOf(RECEIPT0)]);
+      expect(stored()!.mailbox.filter(isReceiptMail)).toEqual([receiptMailOf(RECEIPT0)]);
       expect(game.pendingIssueCount()).toBe(1);
       expect(unreadMail(game)).toEqual([mailId(0)]);
       expect(countKind(game, 'return.notified')).toBe(1);
@@ -3240,11 +3380,11 @@ describe('GameStateService', () => {
       expect(g.dayId()).toBe(DAY_04);
       expect(g.save()!.issueSchedule).toEqual({ [DAY_04]: [RETURN_B102] });
       expect(g.returns()).toEqual([CASE_DAY3]);
-      expect(g.mailbox()).toEqual([receiptMailOf(RECEIPT0)]); // 跨日、刷新都不重寄
+      expect(receiptBox(g)).toEqual([receiptMailOf(RECEIPT0)]); // 跨日、刷新都不重寄
       expect(countKind(g, 'return.notified')).toBe(1);
       expect(g.stage()).toBe('morning');
       expect(g.taskId()).toBe(TASK_DAY4);
-      expect(taskRows(g)).toEqual([row(TASK_DAY4, 'pending', 6, 0), row(TASK_DAY4_RETURN, 'pending', 1, 0)]);
+      expect(taskRows(g)).toEqual([row(TASK_DAY4, 'pending', 6, 0), row(TASK_DAY4_RETURN, 'pending', 1, 0), ...DAY4_M1_PENDING]);
       const item = g.dayTasks()[1];
       expect(item.kind).toBe('return-review');
       expect(item.index).toBe(2);
@@ -3264,9 +3404,9 @@ describe('GameStateService', () => {
       expect(game.taskContent()!.kind).toBe('return-review');
       expect(game.batchId()).toBeNull();
       expect(game.records()).toEqual([]);
-      expect(game.isLastTask()).toBeTrue();
+      expect(game.isLastTask()).toBeFalse(); // M1：之後還有附件關聯與批次轉換
       expect(game.taskDone()).toBeFalse();
-      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'done', 6, 6), row(TASK_DAY4_RETURN, 'active', 1, 0)]);
+      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'done', 6, 6), row(TASK_DAY4_RETURN, 'active', 1, 0), ...DAY4_M1_PENDING]);
       expect(game.activeReturns()).toEqual([CASE_DAY3]);
       expect(game.latestIssueCode(issue(game))).toBe('102'); // 修訂表單預填上一次實際提交的值
       expect(game.completeWork()).toBeFalse(); // 還有待修正的案件
@@ -3297,7 +3437,7 @@ describe('GameStateService', () => {
       // 待處理件數歸零，但未讀回條不因此變成已讀（兩者分開）
       expect(game.pendingIssueCount()).toBe(0);
       expect(unreadMail(game)).toEqual([mailId(0)]);
-      expect(game.mailbox().length).toBe(1); // 重送不寄信（回條才寄）
+      expect(receiptBox(game).length).toBe(1); // 重送不寄信（回條才寄）
       expect(game.editableReceiptId(RETURN_B102)).toBeNull(); // 待核對：回條只能檢閱
       // 同一版本不能再送一次，也不能改送窗口
       const settled = game.save();
@@ -3305,17 +3445,26 @@ describe('GameStateService', () => {
       expect(game.sendReturnToWindowStrict(RETURN_B102, receiptId(0))).toBe('noop');
       expect(game.save()).toBe(settled);
       expect(countKind(game, 'return.resubmit')).toBe(1);
-      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'done', 6, 6), row(TASK_DAY4_RETURN, 'active', 1, 1)]);
+      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'done', 6, 6), row(TASK_DAY4_RETURN, 'active', 1, 1), ...DAY4_M1_PENDING]);
       expect(game.taskDone()).toBeTrue();
       expect(expectReloadStable(game).returns()).toEqual([resubmitted]);
       expect(storedIsValid()).toBeTrue();
 
       expect(game.completeWork()).toBeTrue();
+      // M1：錯誤文件處理之後還有附件關聯與批次轉換，完成後才進本日交接
+      expect(game.stage()).toBe('work');
+      finishWorkdayTasks(game);
       expect(game.stage()).toBe('wrap');
-      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'done', 6, 6), row(TASK_DAY4_RETURN, 'done', 1, 1)]);
-      expect(kindsOf(game.dayEvents()).slice(-4)).toEqual(['task.complete', 'return.resubmit', 'task.complete', 'day.complete']);
+      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'done', 6, 6), row(TASK_DAY4_RETURN, 'done', 1, 1), ...DAY4_M1_DONE]);
+      expect(kindsOf(game.dayEvents()).slice(-8)).toEqual([
+        'task.complete',
+        'return.resubmit',
+        'task.complete',
+        ...DAY4_M1_EVENTS,
+        'day.complete',
+      ]);
       const delivered = game.save()!.events.filter((e) => e.kind === 'task.complete').map((e) => (e.payload as { taskId: string }).taskId);
-      expect(delivered.slice(-2)).toEqual([TASK_DAY4, TASK_DAY4_RETURN]);
+      expect(delivered.slice(-4)).toEqual([TASK_DAY4, TASK_DAY4_RETURN, TASK_DAY4_ATTACH, TASK_DAY4_TRANSFORM]);
       // 「本日處理已交付」≠「案件已解決」：交接後仍待核對
       expect(issue(game).status).toBe('awaiting-check');
       expect(game.returns().some((r) => r.status === 'resolved')).toBeFalse();
@@ -3330,6 +3479,7 @@ describe('GameStateService', () => {
       toIssueTask(game);
       expect(game.resubmitReturnStrict(RETURN_B102, receiptId(0), '103')).toBe('ok');
       expect(game.completeWork()).toBeTrue();
+      finishWorkdayTasks(game);
       game.advanceDay();
 
       // ---- Day 5 morning：下游核對一次 ----
@@ -3350,13 +3500,14 @@ describe('GameStateService', () => {
         versionIndex: 0,
         outcome: 'returned',
       });
-      expect(kindsOf(game.dayEvents())).toEqual(['return.checked']);
+      // M1：同時核對 Day 4 的附件關聯（引用的是 0314 的窗口收件回條，對象相符）
+      expect(kindsOf(game.dayEvents())).toEqual(['return.checked', 'attachment.checked']);
       // 排程規則：回條當天（Day 5）收到 → 下一工作日（Day 6）才進待辦；Day 5 沒有錯誤文件處理工作
       expect(game.save()!.issueSchedule).toEqual({ [DAY_04]: [RETURN_B102] });
-      expect(taskRows(game)).toEqual([row(TASK_DAY5, 'pending', 8, 0)]);
+      expect(taskRows(game)).toEqual([row(TASK_DAY5, 'pending', 8, 0), ...DAY5_M1_PENDING]);
       expect(game.pendingIssueCount()).toBe(1);
       expect(unreadMail(game)).toEqual([mailId(0), mailId(1)]);
-      expect(game.mailbox()).toEqual([receiptMailOf(RECEIPT0), receiptMailOf(receipt1)]);
+      expect(receiptBox(game)).toEqual([receiptMailOf(RECEIPT0), receiptMailOf(receipt1)]);
       expect(game.latestIssueCode(issue(game))).toBe('103');
       expect(storedIsValid()).toBeTrue();
       // 刷新不再核對、不重複回條
@@ -3399,10 +3550,10 @@ describe('GameStateService', () => {
       expect(game.returns().length).toBe(1); // 同一案重錯只增加歷程，不複製成新案件
       expect(countKind(game, 'return.checked')).toBe(2);
       expect(game.save()!.issueSchedule).toEqual({ [DAY_04]: [RETURN_B102] });
-      expect(taskRows(game)).toEqual([row(TASK_DAY6, 'pending', 8, 0)]);
+      expect(taskRows(game)).toEqual([row(TASK_DAY6, 'pending', 8, 0), ...DAY6_M1_PENDING]);
       expect(game.pendingIssueCount()).toBe(1);
       expect(unreadMail(game)).toEqual([mailId(0), mailId(1), mailId(2)]);
-      expect(game.mailbox()).toEqual([receiptMailOf(RECEIPT0), receiptMailOf(receipt1), receiptMailOf(receipt2)]);
+      expect(receiptBox(game)).toEqual([receiptMailOf(RECEIPT0), receiptMailOf(receipt1), receiptMailOf(receipt2)]);
       // 排定日（Day 4）之後才再次退回：那天的錯誤文件處理仍算已交付，存檔合法、可重新載入
       expect(storedIsValid()).toBeTrue();
       let g = expectReloadStable(game);
@@ -3426,6 +3577,7 @@ describe('GameStateService', () => {
       expect(issue(game).status).toBe('awaiting-check');
       expect(issue(game).receipts).toEqual([RECEIPT0]);
       expect(game.completeWork()).toBeTrue();
+      finishWorkdayTasks(game);
       expect(game.stage()).toBe('wrap');
       expect(issue(game).status).toBe('awaiting-check');
       let g = expectReloadStable(game);
@@ -3448,9 +3600,9 @@ describe('GameStateService', () => {
       ]);
       expect(g.pendingIssueCount()).toBe(0);
       expect(unreadMail(g)).toEqual([mailId(0), mailId(1)]);
-      expect(g.mailbox()).toEqual([receiptMailOf(RECEIPT0), receiptMailOf(resolvedReceipt)]);
+      expect(receiptBox(g)).toEqual([receiptMailOf(RECEIPT0), receiptMailOf(resolvedReceipt)]);
       expect(g.editableReceiptId(RETURN_B102)).toBeNull();
-      expect(taskRows(g)).toEqual([row(TASK_DAY5, 'pending', 8, 0)]);
+      expect(taskRows(g)).toEqual([row(TASK_DAY5, 'pending', 8, 0), ...DAY5_M1_PENDING]);
       // 已結案不能再送或送窗口；原提交仍是 102（歷史不被改寫）
       g.startDay();
       const s = g.save();
@@ -3473,7 +3625,7 @@ describe('GameStateService', () => {
     it('Day 4 在原歸檔工作時就從文件問題頁送窗口 → 待窗口回覆（未解決）；當日錯誤文件處理同步變成已交付，isLastTask 更新；之後到結束都不自動結案', () => {
       playToDay4WithReturn(game);
       expect(game.isLastTask()).toBeFalse();
-      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'active', 6, 0), row(TASK_DAY4_RETURN, 'pending', 1, 0)]);
+      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'active', 6, 0), row(TASK_DAY4_RETURN, 'pending', 1, 0), ...DAY4_M1_PENDING]);
       expect(game.sendReturnToWindowStrict(RETURN_B102, receiptId(0))).toBe('ok');
       expect(game.taskId()).toBe(TASK_DAY4); // 不受目前工作限制，也不改變目前工作
       const windowed: ReturnCase = {
@@ -3489,15 +3641,17 @@ describe('GameStateService', () => {
         jasmine.objectContaining({ kind: 'return.window', payload: { dayId: DAY_04, returnId: RETURN_B102, versionIndex: 0 } }),
       );
       expect(game.pendingIssueCount()).toBe(0);
-      // 當日工作同步：錯誤文件處理已交付，原歸檔工作成為最後一件
-      expect(game.isLastTask()).toBeTrue();
-      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'active', 6, 0), row(TASK_DAY4_RETURN, 'pending', 1, 1)]);
+      // 當日工作同步：錯誤文件處理已交付（不再是待辦）；M1 的附件關聯與批次轉換仍在後面
+      expect(game.isLastTask()).toBeFalse();
+      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'active', 6, 0), row(TASK_DAY4_RETURN, 'done', 1, 1), ...DAY4_M1_PENDING]);
       expect(game.sendReturnToWindowStrict(RETURN_B102, receiptId(0))).toBe('noop');
       expect(game.resubmitReturnStrict(RETURN_B102, receiptId(0), '0102')).toBe('noop');
       archiveCurrent(game, 'default_false');
       expect(game.completeWork()).toBeTrue();
+      expect(game.taskId()).toBe(TASK_DAY4_ATTACH); // 越過已交付的錯誤文件處理
+      finishWorkdayTasks(game);
       expect(game.stage()).toBe('wrap');
-      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'done', 6, 6), row(TASK_DAY4_RETURN, 'done', 1, 1)]);
+      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'done', 6, 6), row(TASK_DAY4_RETURN, 'done', 1, 1), ...DAY4_M1_DONE]);
       const delivered = game.save()!.events.filter((e) => e.kind === 'task.complete').map((e) => (e.payload as { taskId: string }).taskId);
       expect(delivered).not.toContain(TASK_DAY4_RETURN); // 沒有空跑一次錯誤文件處理
       expect(storedIsValid()).toBeTrue();
@@ -3518,6 +3672,7 @@ describe('GameStateService', () => {
       toIssueTask(game);
       expect(game.resubmitReturnStrict(RETURN_B102, receiptId(0), '103')).toBe('ok');
       expect(game.completeWork()).toBeTrue();
+      finishWorkdayTasks(game);
       nextDay(game);
       expect(issue(game)).toEqual(jasmine.objectContaining({ status: 'pending', dueDayId: DAY_06 }));
       // Day 5 不處理也能交接（案件今天沒有到期）
@@ -3529,7 +3684,7 @@ describe('GameStateService', () => {
       expect([game.dayId(), game.stage(), game.taskId()]).toEqual([DAY_06, 'morning', TASK_DAY6]);
       expect(game.save()!.issueSchedule).toEqual({ [DAY_04]: [RETURN_B102], [DAY_06]: [RETURN_B102] });
       expect(issue(game).receipts.length).toBe(2); // 排程只引用既有案件，不新增回條
-      expect(taskRows(game)).toEqual([row(TASK_DAY6, 'pending', 8, 0), row(TASK_DAY6_ISSUE, 'pending', 1, 0)]);
+      expect(taskRows(game)).toEqual([row(TASK_DAY6, 'pending', 8, 0), row(TASK_DAY6_ISSUE, 'pending', 1, 0), ...DAY6_M1_PENDING]);
       expect(game.dayTasks()[1].heading).toBe(DOCUMENT_ISSUES_UI.taskHeading);
       game.startDay();
       expect(game.isLastTask()).toBeFalse();
@@ -3542,7 +3697,7 @@ describe('GameStateService', () => {
       expect(game.taskId()).toBe(TASK_DAY6_ISSUE);
       expect(game.task()).toEqual({ id: TASK_DAY6_ISSUE, kind: 'return-review', dayId: DAY_06 });
       expect(game.taskContent()).toBeNull(); // 虛擬位置不在內容檔
-      expect(game.isLastTask()).toBeTrue();
+      expect(game.isLastTask()).toBeFalse(); // M1：之後還有交付報告
       expect(game.activeReturns().map((r) => r.id)).toEqual([RETURN_B102]);
       expect(game.completeWork()).toBeFalse();
       expect(storedIsValid()).toBeTrue();
@@ -3551,8 +3706,9 @@ describe('GameStateService', () => {
       expect(game.resubmitReturnStrict(RETURN_B102, receiptId(1), '0102')).toBe('ok');
       expect(issue(game).versions[1]).toEqual({ index: 1, action: 'resubmit', code: '0102', dayId: DAY_06, checkDayId: null });
       expect(game.completeWork()).toBeTrue();
+      finishWorkdayTasks(game);
       expect(game.stage()).toBe('end');
-      expect(taskRows(game)).toEqual([row(TASK_DAY6, 'done', 8, 8), row(TASK_DAY6_ISSUE, 'done', 1, 1)]);
+      expect(taskRows(game)).toEqual([row(TASK_DAY6, 'done', 8, 8), row(TASK_DAY6_ISSUE, 'done', 1, 1), row('task.day6.m1-report', 'done', 8, 8)]);
       // 不為結束畫面自動結案
       expect(issue(game).status).toBe('awaiting-check');
       expect(issue(game).receipts.length).toBe(2);
@@ -3596,6 +3752,7 @@ describe('GameStateService', () => {
       expect(g.pendingIssueCount()).toBe(0);
       expect(unreadMail(g)).toEqual([]); // 處理案件不會動到郵件已讀
       expect(g.completeWork()).toBeTrue();
+      finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
       g.advanceDay();
       expect(g.pendingIssueCount()).toBe(1);
       expect(unreadMail(g)).toEqual([mailId(1)]);
@@ -3637,11 +3794,11 @@ describe('GameStateService', () => {
       expect(game.save()!.events.find((e) => e.kind === 'return.notified')!.payload).toEqual({ dayId: DAY_03, auditId: AUDIT_ID, count: 2 });
       expect(game.pendingIssueCount()).toBe(2);
       expect(unreadMail(game)).toEqual([mailId(0), `mail.${RETURN_B607}#0`]);
-      expect(game.mailbox().map((m) => (m.attachments[0] as ReturnReceiptAttachment).caseId)).toEqual([RETURN_B102, RETURN_B607]);
+      expect(receiptBox(game).map((m) => (m.attachments[0] as ReturnReceiptAttachment).caseId)).toEqual([RETURN_B102, RETURN_B607]);
       finishToday(game);
       nextDay(game);
       expect(game.save()!.issueSchedule).toEqual({ [DAY_04]: [RETURN_B102, RETURN_B607] });
-      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'active', 6, 0), row(TASK_DAY4_RETURN, 'pending', 2, 0)]);
+      expect(taskRows(game)).toEqual([row(TASK_DAY4, 'active', 6, 0), row(TASK_DAY4_RETURN, 'pending', 2, 0), ...DAY4_M1_PENDING]);
       archiveCurrent(game, 'default_false');
       expect(game.completeWork()).toBeTrue();
       expect(game.resubmitReturnStrict(RETURN_B607, `${RETURN_B607}#0`, '0607')).toBe('ok');
@@ -3649,6 +3806,7 @@ describe('GameStateService', () => {
       expect(game.completeWork()).toBeFalse();
       expect(game.sendReturnToWindowStrict(RETURN_B102, receiptId(0))).toBe('ok');
       expect(game.completeWork()).toBeTrue();
+      finishWorkdayTasks(game); // M1：當日其餘的附件關聯／批次轉換／交付報告
       expect(game.stage()).toBe('wrap');
       expect(game.returns().map((r) => r.status)).toEqual(['awaiting-window', 'awaiting-check']);
       game.advanceDay();
@@ -3672,6 +3830,7 @@ describe('GameStateService', () => {
       expect(game.resubmitReturnStrict(RETURN_B102, receiptId(0), '103')).toBe('ok');
       expect(game.editableReceiptId(RETURN_B102)).toBeNull();
       expect(game.completeWork()).toBeTrue();
+      finishWorkdayTasks(game); // M1：當日其餘的附件關聯／批次轉換／交付報告
       nextDay(game);
       expect(issue(game).receipts.map((r) => r.id)).toEqual([receiptId(0), receiptId(1)]);
       expect(game.editableReceiptId(RETURN_B102)).toBe(receiptId(1));
@@ -3747,6 +3906,7 @@ describe('GameStateService', () => {
       expect(g.save()).toBe(before);
       expect(g.issueDraft(receiptId(0))).toBe('old');
       expect(g.completeWork()).toBeTrue();
+      finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
       nextDay(g); // Day 5：再次退回 → #1 可修訂
       expect(g.editableReceiptId(RETURN_B102)).toBe(receiptId(1));
       g.setIssueDraft(receiptId(0), 'new');
@@ -3792,8 +3952,9 @@ describe('GameStateService', () => {
       const s = stored()!;
       expect(s.version).toBe(12);
       expect(s).toEqual(JSON.parse(JSON.stringify(g.save()!)));
-      expect(g.save()).toEqual({ ...native, onboarding: { step: 0, complete: true } });
-      expect(s.mailbox).toEqual([receiptMailOf(RECEIPT0)]);
+      // v10 沒有 M1 延後回條：遷移只由退件回條重建郵件
+      expect(g.save()).toEqual({ ...native, mailbox: native.mailbox.filter(isReceiptMail), onboarding: { step: 0, complete: true } });
+      expect(s.mailbox.filter(isReceiptMail)).toEqual([receiptMailOf(RECEIPT0)]);
       expect(s.readMail).toEqual([mailId(0)]);
       expect(s.helpRequests).toEqual({});
       expect(s.issueDrafts).toEqual({});
@@ -3804,7 +3965,7 @@ describe('GameStateService', () => {
       expect(routeForSave(g.save()!)).toBe(routeForStage(g.stage()!));
       expect(unreadMail(g)).toEqual([]);
       expect(g.editableReceiptId(RETURN_B102)).toBe(receiptId(0));
-      expect(new SaveRepository().load().migratedFrom).toBe(11);
+      expect(new SaveRepository().load().migratedFrom).toBe(12);
       expectReloadStable(g);
       // 遷移後照常處理
       expect(g.resubmitReturnStrict(RETURN_B102, receiptId(0), '0102')).toBe('ok');
@@ -3826,15 +3987,16 @@ describe('GameStateService', () => {
       expect(g.save()!.issueSchedule).toEqual({});
       expect(g.pendingIssueCount()).toBe(0);
       expect(unreadMail(g)).toEqual([]);
-      expect(g.mailbox()).toEqual([]);
+      expect(receiptBox(g)).toEqual([]);
       expect(unlockedIds(g, LIN_DM)).not.toContain(RETURN_MSG);
-      expect(taskRows(g)).toEqual([row(TASK_DAY4, 'pending', 6, 0)]);
+      expect(taskRows(g)).toEqual([row(TASK_DAY4, 'pending', 6, 0), ...DAY4_M1_PENDING]);
       g.startDay();
-      expect(g.isLastTask()).toBeTrue();
+      expect(g.isLastTask()).toBeFalse(); // M1：之後還有附件關聯與批次轉換
       archiveCurrent(g, 'default_false');
       expect(g.completeWork()).toBeTrue();
+      finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
       expect(g.stage()).toBe('wrap');
-      expect(taskRows(g)).toEqual([row(TASK_DAY4, 'done', 6, 6)]);
+      expect(taskRows(g)).toEqual([row(TASK_DAY4, 'done', 6, 6), ...DAY4_M1_DONE]);
       const delivered = g.save()!.events.filter((e) => e.kind === 'task.complete').map((e) => (e.payload as { taskId: string }).taskId);
       expect(delivered).not.toContain(TASK_DAY4_RETURN);
       expect(storedIsValid()).toBeTrue();
@@ -3885,10 +4047,10 @@ describe('GameStateService', () => {
       expect(stored()!.version).toBe(12);
       expect(stored()!.returns).toEqual([]);
       expect(stored()!.issueSchedule).toEqual({});
-      expect(stored()!.mailbox).toEqual([]);
+      expect(stored()!.mailbox.filter(isReceiptMail)).toEqual([]);
       expect(stored()!.readMail).toEqual([]);
       expect(stored()!.taskProgress[TASK_DAY2]).toEqual({ kind: 'reconcile', reportOpened: true, receiptOpened: false, reply: 'ack' });
-      expect(new SaveRepository().load().migratedFrom).toBe(11);
+      expect(new SaveRepository().load().migratedFrom).toBe(12);
       expect(g.stage()).toBe('wrap');
       expectNoReturnThroughDay4(g);
     });
@@ -3938,7 +4100,7 @@ describe('GameStateService', () => {
         expect(g.storageIssue()).toBe('');
         expect(stored()!.version).toBe(12);
         expect(stored()).toEqual(JSON.parse(JSON.stringify(g.save()!)));
-        expect(new SaveRepository().load().migratedFrom).toBe(11);
+        expect(new SaveRepository().load().migratedFrom).toBe(12);
         // 舊檔已跨過入職：不補簽、直接進桌面
         expect(g.onboarding()).toEqual({ step: 0, complete: true });
         expect(g.profileName()).toBeNull();
@@ -3956,20 +4118,21 @@ describe('GameStateService', () => {
         const native = game.save()!;
         const g = loadV9(toV9(native));
         // 郵件由回條重建（與原生相同）；v9→v10 把第一張退件回條視為已讀 → readMail
-        expect(g.save()).toEqual({ ...native, readMail: [mailId(0)], onboarding: { step: 0, complete: true } });
-        expect(g.mailbox()).toEqual([receiptMailOf(RECEIPT0)]);
+        expect(g.save()).toEqual({ ...native, mailbox: native.mailbox.filter(isReceiptMail), readMail: [mailId(0)], onboarding: { step: 0, complete: true } });
+        expect(receiptBox(g)).toEqual([receiptMailOf(RECEIPT0)]);
         expect(g.returns()).toEqual([CASE_DAY3]);
         expect(g.save()!.issueSchedule).toEqual({ [DAY_04]: [RETURN_B102] });
         expect(unreadMail(g)).toEqual([]);
         expect(g.pendingIssueCount()).toBe(1);
         expect([g.dayId(), g.stage(), g.taskId()]).toEqual([DAY_04, 'work', TASK_DAY4_RETURN]);
-        expect(taskRows(g)).toEqual([row(TASK_DAY4, 'done', 6, 6), row(TASK_DAY4_RETURN, 'active', 1, 0)]);
+        expect(taskRows(g)).toEqual([row(TASK_DAY4, 'done', 6, 6), row(TASK_DAY4_RETURN, 'active', 1, 0), ...DAY4_M1_PENDING]);
         expect(g.activeReturns().map((r) => r.id)).toEqual([RETURN_B102]);
         expect(g.latestIssueCode(g.returns()[0])).toBe('102');
 
         expect(g.resubmitReturnStrict(RETURN_B102, receiptId(0), '0102')).toBe('ok');
         expect(g.returns()[0].versions).toEqual([{ index: 0, action: 'resubmit', code: '0102', dayId: DAY_04, checkDayId: DAY_05 }]);
         expect(g.completeWork()).toBeTrue();
+        finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
         g.advanceDay();
         expect(g.returns()[0].status).toBe('resolved');
         expect(unreadMail(g)).toEqual([mailId(1)]);
@@ -3981,6 +4144,7 @@ describe('GameStateService', () => {
         toIssueTask(game);
         expect(game.resubmitReturnStrict(RETURN_B102, receiptId(0), '103')).toBe('ok');
         expect(game.completeWork()).toBeTrue();
+        finishWorkdayTasks(game); // M1：當日其餘的附件關聯與批次轉換
         const native = game.save()!;
         const v9 = toV9(native);
         expect(v9.returns[0].status).toBe('resubmitted');
@@ -3995,9 +4159,9 @@ describe('GameStateService', () => {
         expect(g.returns()).toEqual([migrated]);
         expect(g.save()!.issueSchedule).toEqual({ [DAY_04]: [RETURN_B102] });
         expect(g.save()!.readMail).toEqual([mailId(0)]);
-        expect(g.mailbox()).toEqual([receiptMailOf(RECEIPT0)]);
+        expect(receiptBox(g)).toEqual([receiptMailOf(RECEIPT0)]);
         expect(g.stage()).toBe('wrap');
-        expect(taskRows(g)).toEqual([row(TASK_DAY4, 'done', 6, 6), row(TASK_DAY4_RETURN, 'done', 1, 1)]);
+        expect(taskRows(g)).toEqual([row(TASK_DAY4, 'done', 6, 6), row(TASK_DAY4_RETURN, 'done', 1, 1), ...DAY4_M1_DONE]);
         expect(g.pendingIssueCount()).toBe(0);
 
         g.advanceDay();
@@ -4010,7 +4174,7 @@ describe('GameStateService', () => {
           receipts: [RECEIPT0, { id: receiptId(1), kind: 'returned', dayId: DAY_05, versionIndex: 0, code: '103', reason: 'code-mismatch' }],
         });
         expect(unreadMail(g)).toEqual([mailId(1)]);
-        expect(taskRows(g)).toEqual([row(TASK_DAY5, 'pending', 8, 0)]);
+        expect(taskRows(g)).toEqual([row(TASK_DAY5, 'pending', 8, 0), ...DAY5_M1_PENDING]);
         expect(storedIsValid()).toBeTrue();
       });
 
@@ -4019,6 +4183,7 @@ describe('GameStateService', () => {
         toIssueTask(game);
         expect(game.resubmitReturnStrict(RETURN_B102, receiptId(0), '0102')).toBe('ok');
         expect(game.completeWork()).toBeTrue();
+        finishWorkdayTasks(game); // M1：當日其餘的附件關聯／批次轉換／交付報告
         game.advanceDay(); // v10 會在這裡核對；v9 當時不會
         const v9 = toV9(game.save()!);
         expect([v9.dayId, v9.stage, v9.returns[0].status]).toEqual([DAY_05, 'morning', 'resubmitted']);
@@ -4034,7 +4199,7 @@ describe('GameStateService', () => {
           },
         ]);
         expect(g.save()!.issueSchedule).toEqual({ [DAY_04]: [RETURN_B102] });
-        expect(taskRows(g)).toEqual([row(TASK_DAY5, 'pending', 8, 0)]);
+        expect(taskRows(g)).toEqual([row(TASK_DAY5, 'pending', 8, 0), ...DAY5_M1_PENDING]);
         expect(countKind(g, 'return.checked')).toBe(0);
 
         g.startDay();
@@ -4055,6 +4220,7 @@ describe('GameStateService', () => {
         toIssueTask(game);
         expect(game.sendReturnToWindowStrict(RETURN_B102, receiptId(0))).toBe('ok');
         expect(game.completeWork()).toBeTrue();
+        finishWorkdayTasks(game); // M1：當日其餘的附件關聯與批次轉換
         const v9 = toV9(game.save()!);
         expect(v9.returns[0].status).toBe('window');
         const g = loadV9(v9);
@@ -4455,6 +4621,7 @@ describe('GameStateService', () => {
       expect(restored.archived('H204')).toEqual(entry);
       archiveCurrent(restored, 'default_false');
       expect(restored.completeWork()).toBeTrue();
+      finishWorkdayTasks(restored); // M1：當日其餘的附件關聯／批次轉換／交付報告
       nextDay(restored);
       expect(h204Dms(restored)).toEqual([H204_DM['registry']]);
       expect(stored()!.batches[BATCH_DAY03]!.archived['H204']!.archiveCode).toBe('zz 0099');
@@ -4506,7 +4673,7 @@ describe('GameStateService', () => {
       expect(game.submitFieldMap()).toBeTrue();
       const sub = game.fieldMap()!.submitted!;
       expect(sub.rowCount).toBe(8);
-      expect(sub.affectedCount).toBe(4);
+      expect(sub.affectedCount).toBe(BLANK_COUNT);
       expect(sub.rows.find((r) => r.id === 'row.0102')!.values).toEqual({
         'personnel-code': '0102',
         'exclude-flag': false,
@@ -4519,12 +4686,14 @@ describe('GameStateService', () => {
         expect(out['effective-date']).withContext(r.id).toBe(r.values['contact-result']);
       }
       const ev = stored()!.events[stored()!.events.length - 1];
-      expect(ev.payload).toEqual({ taskId: TASK_DAY6, blankPolicy: 'default_false', rowCount: 8, affectedCount: 4 });
+      expect(ev.payload).toEqual({ taskId: TASK_DAY6, blankPolicy: 'default_false', rowCount: 8, affectedCount: BLANK_COUNT });
       expect(storedIsValid()).toBeTrue();
       const restored = freshService();
       expect(restored.storageIssue()).toBe('');
       expect(restored.fieldMap()!.submitted).toEqual(sub);
       expect(restored.completeWork()).toBeTrue();
+      // M1：Day 6 還有交付報告
+      expect(completeWorkdayTask(restored)).toBeTrue();
       expect(restored.stage()).toBe('end');
     });
 
@@ -4578,6 +4747,7 @@ describe('GameStateService', () => {
         // Day 1 補入批次不影響核對來源
         archiveCurrent(g, 'request_review');
         expect(g.completeWork()).toBeTrue();
+        finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
         nextDay(g);
         expect(g.night()!.intervention).toBe(intervention);
         const seen: boolean[] = [g.arranged()];
@@ -4589,6 +4759,7 @@ describe('GameStateService', () => {
         seen.push(freshService().arranged());
         archiveCurrent(g, 'default_false');
         expect(g.completeWork()).toBeTrue();
+        finishWorkdayTasks(g); // M1：當日其餘的附件關聯／批次轉換／交付報告
         expect(g.stage()).toBe('wrap');
         seen.push(g.arranged());
         seen.push(freshService().arranged());

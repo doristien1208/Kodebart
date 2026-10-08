@@ -59,7 +59,6 @@ import {
   activeTaskOf,
   eventDayId,
   isTaskWaived,
-  nextOpenTask,
   startDay,
   TaskPlan,
   answerChat,
@@ -321,10 +320,15 @@ export class GameStateService {
       };
     });
   });
-  /** 目前工作是當日最後一件未完成的工作（按鈕叫「完成今日交接」而不是「交付此項工作」）。 */
+  /**
+   * 目前工作是當日最後一件未完成的工作（按鈕叫「完成今日交接」而不是「交付此項工作」）。
+   * M1：其他尚未結清的工作即使還在等依賴（鎖住）也算「還有工作」，交付目前這件後就會開放。
+   */
   readonly isLastTask = computed(() => {
     const s = this._save();
-    return s ? s.stage === 'work' && nextOpenTask(s, this.dir, s.taskId) === null : false;
+    const plan = this.plan();
+    if (!s || !plan || s.stage !== 'work') return false;
+    return plan.tasks.every((t) => t.id === s.taskId || isTaskSettled(s, this.dir, t));
   });
 
   /** 當日的事件（依 payload 的 dayId／taskId／batchId 歸屬），依發生順序；給系統作業紀錄。 */

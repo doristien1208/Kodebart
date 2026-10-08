@@ -817,7 +817,7 @@ describe('migrateV5ToV6', () => {
   });
 
   it('SAVE_VERSION 為 11，舊版本清單為 2／3／4／5／6／7／8／9／10', () => {
-    expect(SAVE_VERSION).toBe(11);
+    expect(SAVE_VERSION).toBe(12);
     expect([...LEGACY_SAVE_VERSIONS]).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
 });
@@ -988,7 +988,7 @@ describe('migrateToCurrent：v11、v10、v9、v8、v7、v6 與損壞資料', () 
     for (const legacy of [v2End, v3End, v4Day2End, v5Day3, v6, v7, v8, v9, v10] as unknown[]) {
       const once = migrateToCurrent(legacy, DIR6)!;
       const twice = migrateToCurrent(JSON.parse(JSON.stringify(once.save)), DIR6)!;
-      expect(twice.from).toBe(11);
+      expect(twice.from).toBe(12);
       expect(JSON.stringify(twice.save)).toBe(JSON.stringify(once.save));
     }
   });
@@ -2060,7 +2060,7 @@ describe('migrateV10ToV11（R12）', () => {
     expect(result.save).toEqual(migrateV11ToV12(migrateV10ToV11(v10, DIR_M), DIR_M));
     expect(JSON.stringify(v10)).toBe(before);
     const again = migrateToCurrent(JSON.parse(JSON.stringify(result.save)), DIR_M)!;
-    expect(again.from).toBe(11);
+    expect(again.from).toBe(12);
     expect(again.save).toEqual(result.save);
   });
 

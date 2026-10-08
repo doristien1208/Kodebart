@@ -14,6 +14,9 @@ import {
   pageTitle,
   taskKindLabel,
   totalTasks,
+  WORKDAY_UI,
+  arriveLines,
+  interludeAfter,
 } from '../../content/text';
 import { SettingsService } from '../../platform/settings.service';
 import { GameStateService } from '../../state/game-state.service';
@@ -120,13 +123,46 @@ describe('OvernightComponent（本日交接）', () => {
     expectNoNightInfo(el(f).textContent ?? '');
   });
 
-  it('「結束今日，查看明日收件」→ 次日收件 /morning', () => {
+  it('「交接至下個工作日」→ 次日收件 /morning（M1：按鈕文字取工作日內容包）', () => {
     finishTasks(h.game);
     const f = render(OvernightComponent);
-    clickText(f, HANDOFF_UI.next);
+    clickText(f, WORKDAY_UI.tomorrow);
     expect(h.game.stage()).toBe('morning');
     expect(h.game.dayId()).toBe('day.02');
     expect(h.navigated).toEqual(['/morning']);
+  });
+});
+
+describe('M1 收班與到班短文、已抵達回條', () => {
+  let h: Harness;
+
+  beforeEach(() => {
+    localStorage.clear();
+    h = boot();
+    h.game.newGame();
+  });
+
+  afterEach(() => localStorage.clear());
+
+  it('Day 3 日結顯示離班短文；Day 4 收件顯示到班短文與已抵達回條（主旨），不必先讀聊天', () => {
+    finishDay(h.game);
+    finishDay(h.game);
+    expect(h.game.dayId()).toBe('day.03');
+    finishTasks(h.game);
+    expect(h.game.stage()).toBe('wrap');
+    const w = render(OvernightComponent);
+    const leave = interludeAfter('day.03')!.leave;
+    expect(Array.from(el(w).querySelectorAll('[data-interlude="leave"] p')).map((p) => p.textContent?.trim())).toEqual([...leave]);
+    clickText(w, WORKDAY_UI.tomorrow);
+    expect(h.game.dayId()).toBe('day.04');
+
+    const m = render(MorningComponent);
+    expect(Array.from(el(m).querySelectorAll('[data-interlude="arrive"] p')).map((p) => p.textContent?.trim())).toEqual([...arriveLines('day.04')]);
+    // 已送達的回條（一般回條若是「第一次交付後」才到，早晨不出現）
+    const delivered = h.game.mailbox().filter((x) => x.dayId === 'day.04');
+    expect(el(m).querySelectorAll('[data-morning-mail-item]').length).toBe(delivered.length);
+    if (delivered.length > 0) expect(el(m).textContent).toContain(WORKDAY_UI.arrivedMail);
+    expect(el(m).textContent).not.toMatch(/\b(true|false|null)\b/);
   });
 });
 
@@ -221,7 +257,7 @@ describe('v6 舊檔（Day 2 已交接）遷移後的本日交接', () => {
     expect(rows[1]).not.toContain(TASKS_UI.statusDone);
     expect(rows[1]).not.toContain(handoffItem('archive', 4));
 
-    clickText(f, HANDOFF_UI.next);
+    clickText(f, WORKDAY_UI.tomorrow);
     expect(h.game.dayId()).toBe('day.03');
     expect(h.game.stage()).toBe('morning');
   });
@@ -255,7 +291,8 @@ describe('錯誤文件處理（R10／R11）在次日收件與本日交接的顯�
     const h = toDay4Morning({ B102: '102' }, 'release');
     const f = render(MorningComponent);
     const rows = items(f, 'data-morning-item');
-    expect(rows.length).toBe(2);
+    // 歸檔、錯誤文件處理，以及 M1 的附件關聯與批次轉換
+    expect(rows.length).toBe(4);
     expect(rows[1]).toContain(taskKindLabel('return-review'));
     expect(rows[1]).toContain(DOCUMENT_ISSUES_UI.taskHeading);
     expect(rows[1]).toContain(morningPending('return-review', 1));
@@ -266,10 +303,10 @@ describe('錯誤文件處理（R10／R11）在次日收件與本日交接的顯�
     expect(h.game.stage()).toBe('wrap');
     const w = render(OvernightComponent);
     const handoff = items(w, 'data-handoff-item');
-    expect(handoff.length).toBe(2);
+    expect(handoff.length).toBe(4);
     expect(handoff[1]).toContain(handoffItem('return-review', 1));
     expect(handoff[1]).toContain(HANDOFF_UI.doneMark);
-    expect(el(w).querySelector('[data-handoff-total]')?.textContent?.trim()).toBe(totalTasks(2));
+    expect(el(w).querySelector('[data-handoff-total]')?.textContent?.trim()).toBe(totalTasks(4));
   });
 
   for (const [label, codes, disposition] of [
@@ -281,7 +318,8 @@ describe('錯誤文件處理（R10／R11）在次日收件與本日交接的顯�
       expect(h.game.returns().length).toBe(0);
       const f = render(MorningComponent);
       const rows = items(f, 'data-morning-item');
-      expect(rows.length).toBe(1);
+      // 歸檔＋M1 的附件關聯與批次轉換；沒有錯誤文件處理
+      expect(rows.length).toBe(3);
       expect(el(f).textContent).not.toContain(DOCUMENT_ISSUES_UI.taskHeading);
     });
   }

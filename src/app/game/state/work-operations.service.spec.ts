@@ -486,6 +486,7 @@ describe('WorkOperationsService', () => {
       expect(countKind(game, 'return.resubmit')).toBe(1);
       expect(countKind(game, 'return.window')).toBe(0);
       expect(game.completeWork()).toBeTrue();
+      finishToday(game); // M1：同日其餘附件／批次工作
       expect(game.stage()).toBe('wrap');
       expect(game.returns()[0].status).toBe('awaiting-check');
       expect(isValidSave(stored(), DAY_DIRECTORY)).toBeTrue();
@@ -550,7 +551,7 @@ describe('WorkOperationsService', () => {
       expect(game.returns()[0].receipts.length).toBe(2);
       game.startDay();
       expect(game.task()!.kind).toBe('archive');
-      expect(game.dayTasks().map((t) => t.kind)).toEqual(['archive']);
+      expect(game.dayTasks().map((t) => t.kind)).toEqual(['archive', 'attachment', 'transform']); // 錯誤文件處理排在 Day 6
 
       expect(game.editableReceiptId(RETURN_B102)).toBe(R1);
       expect(await ops.resubmitReturn(RETURN_B102, R1, '0102')).toBeTrue();

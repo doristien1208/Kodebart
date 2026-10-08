@@ -3,7 +3,7 @@ import { DOCUMENT_ISSUES_UI, MAIL_UI, RECORD_REVIEW_UI, issueStatusLabel, receip
 import { RETURN_RECEIPT_MAIL_PACK } from '../../../core/mail';
 import { MailAttachment, MailRecord } from '../../../core/types';
 import { GameStateService } from '../../../state/game-state.service';
-import { onlyCase, receiptRef, resubmitNow, toFirstReturn, toNextDay } from '../testing/mail-play';
+import { onlyCase, receiptMails, receiptRef, resubmitNow, toFirstReturn, toNextDay } from '../testing/mail-play';
 import { AttachmentDocumentView, attachmentDocument } from './attachment-view';
 import { MailView, attachmentState, buildMailViews, latestMailOfCase, mailCounts, mailMatches, mailView } from './mail-view';
 
@@ -12,8 +12,9 @@ import { MailView, attachmentState, buildMailViews, latestMailOfCase, mailCounts
  * 找不到案件或回條一律「找不到」，不改開最新版本；沒有附件的郵件照樣呈現；不輸出內部 ID。
  */
 
+/** 退件回條郵件的畫面資料（M1 工作日郵件另見 workday 案例）。 */
 function views(game: GameStateService): MailView[] {
-  return buildMailViews(game.mailbox(), game.returns(), (id) => game.isMailRead(id));
+  return buildMailViews(receiptMails(game), game.returns(), (id) => game.isMailRead(id));
 }
 
 /** 附件文件（姓名取自存檔批次的提交快照）。 */
@@ -52,7 +53,7 @@ describe('mail-view presenter（R12 郵件）', () => {
 
   it('已讀只看 readMail；重新送審後附件變「已送出・等待核對」、不再待處理；送窗口顯示「待窗口回覆」', () => {
     let game = toFirstReturn();
-    game.markMailRead([game.mailbox()[0]?.id ?? '']);
+    game.markMailRead([receiptMails(game)[0]?.id ?? '']);
     expect(views(game)[0]?.read).toBeTrue();
     resubmitNow(game, '102');
     expect(views(game)[0]?.attachments[0]?.state).toBe('awaiting');
@@ -89,7 +90,7 @@ describe('mail-view presenter（R12 郵件）', () => {
     expect(older?.banner).toBe(MAIL_UI.historical);
     expect(newer?.checkedCode).toBe('1020');
     expect(newer?.versions.map((v) => [v.code, v.result])).toEqual([['1020', DOCUMENT_ISSUES_UI.outcome.returned]]);
-    expect(latestMailOfCase(game.mailbox(), game.returns(), onlyCase(game).id)?.ref).toEqual(receiptRef(game, 1));
+    expect(latestMailOfCase(receiptMails(game), game.returns(), onlyCase(game).id)?.ref).toEqual(receiptRef(game, 1));
   });
 
   it('正確修訂：隔日「文件核對完成」郵件，附件為已結案；舊附件為歷史版本', () => {
@@ -162,7 +163,7 @@ describe('mail-view presenter（R12 郵件）', () => {
     toNextDay(game);
     resubmitNow(game, '1020');
     toNextDay(game);
-    game.markMailRead([game.mailbox()[0]?.id ?? '']);
+    game.markMailRead([receiptMails(game)[0]?.id ?? '']);
     const list = views(game);
     expect(mailCounts(list)).toEqual({ all: 2, unread: 1, pending: 1 });
     expect(list.filter((v) => mailMatches(v, 'unread')).map((v) => v.received)).toEqual([dayDateLabel('day.05')]);

@@ -1,16 +1,17 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { archiveTask, reconcileTask, recordsOfTask } from '../../../content/bundle';
+import { archiveTask, reconcileTask, recordsOfTask, taskHeading } from '../../../content/bundle';
 import { recordLabel } from '../../../content/records';
-import { ARCHIVE_UI, DOCUMENT_ISSUES_UI, SOURCE_CARD, TASKS_UI, stepLabel, taskKindLabel } from '../../../content/text';
+import { ARCHIVE_UI, DOCUMENT_ISSUES_UI, SOURCE_CARD, TASKS_UI, WORKDAY_UI, taskKindLabel } from '../../../content/text';
 import { GameStateService } from '../../../state/game-state.service';
 import { WorkOperationsService } from '../../../state/work-operations.service';
 import { archiveAll, archiveOne, finishDay, instantOperations, playTo, reviewAll, settle } from '../../testing/play';
 import { WorkViewComponent } from './work-view.component';
 
 /**
- * R8 §1.6：工作頁的當日步驟、交付按鈕文字、同日換工作不離開 /work，
- * 以及換到下一件歸檔工作時本地畫面狀態（選取、預覽、錯誤）重設為新批次第一筆。
+ * R8 §1.6／M1 §1：工作頁的工作佇列（種類、狀態、依賴）、交付按鈕文字、同日換工作不離開 /work，
+ * 換到下一件歸檔工作時本地畫面狀態（選取、預覽、錯誤）重設為新批次第一筆；
+ * 當日最後一件交付前先顯示本日交接，確認後才離開桌面。
  */
 
 interface Harness {
@@ -43,14 +44,13 @@ function root(fixture: ComponentFixture<WorkViewComponent>): HTMLElement {
   return fixture.nativeElement as HTMLElement;
 }
 
-function stepText(fixture: ComponentFixture<WorkViewComponent>): string {
-  return root(fixture).querySelector('[data-step]')?.textContent?.trim() ?? '';
+/** 工作佇列的各項（依當日順序）。 */
+function queueItems(fixture: ComponentFixture<WorkViewComponent>): HTMLButtonElement[] {
+  return Array.from(root(fixture).querySelectorAll<HTMLButtonElement>('app-work-queue [data-queue-task]'));
 }
 
 function statuses(fixture: ComponentFixture<WorkViewComponent>): string[] {
-  return Array.from(root(fixture).querySelectorAll('app-task-stepper li')).map(
-    (li) => li.getAttribute('data-task-status') ?? '',
-  );
+  return queueItems(fixture).map((b) => b.getAttribute('data-task-status') ?? '');
 }
 
 function buttonByText(fixture: ComponentFixture<WorkViewComponent>, text: string): HTMLButtonElement | undefined {
@@ -90,14 +90,17 @@ describe('WorkViewComponent（R8 同日多工作）', () => {
     localStorage.clear();
   });
 
-  it('Day 1 第一件：「第 1 / 2 項」、進行中／待處理、按鈕為「交付此項工作」', () => {
+  it('Day 1 第一件：佇列兩項（進行中／等待前一批交付）、按鈕為「交付此項工作」', () => {
     fixture = render();
-    expect(stepText(fixture)).toBe(stepLabel(1, 2));
-    expect(stepText(fixture)).toBe('第 1 / 2 項');
+    expect(root(fixture).querySelector('[data-step]')?.textContent?.trim()).toBe(WORKDAY_UI.workQueue);
     expect(statuses(fixture)).toEqual(['active', 'pending']);
-    const labels = root(fixture).querySelector('app-task-stepper ol')?.textContent ?? '';
+    const labels = root(fixture).querySelector('app-work-queue ol')?.textContent ?? '';
     expect(labels).toContain(TASKS_UI.statusActive);
-    expect(labels).toContain(TASKS_UI.statusPending);
+    // Day 1 第二批依賴第一批（保留原本的先後）：鎖住並說明等待哪一件
+    expect(labels).toContain(WORKDAY_UI.pendingDependency);
+    expect(queueItems(fixture)[1]?.hasAttribute('data-queue-locked')).toBeTrue();
+    expect(queueItems(fixture)[1]?.disabled).toBeTrue();
+    expect(queueItems(fixture)[1]?.textContent).toContain(taskHeading('task.day1.archive'));
     expect(buttonByText(fixture, TASKS_UI.deliver)?.disabled).toBeTrue();
     expect(buttonByText(fixture, TASKS_UI.finishDay)).toBeUndefined();
   });
@@ -127,8 +130,8 @@ describe('WorkViewComponent（R8 同日多工作）', () => {
 
     const second = archiveTask('task.day1.archive-followup');
     const secondBatch = recordsOfTask(second.id);
-    expect(stepText(fixture)).toBe(stepLabel(2, 2));
     expect(statuses(fixture)).toEqual(['done', 'active']);
+    expect(queueItems(fixture)[0]?.textContent).toContain(WORKDAY_UI.statusSent);
     expect(root(fixture).querySelector('app-archive-work h3')?.textContent?.trim()).toBe(second.text.heading);
     expect(
       Array.from(root(fixture).querySelectorAll('app-archive-queue .truncate')).map((s) => s.textContent?.trim()),
@@ -140,12 +143,19 @@ describe('WorkViewComponent（R8 同日多工作）', () => {
     expect(root(fixture).querySelector('app-archive-preview')).toBeNull();
     expect(document.activeElement).toBe(root(fixture).querySelector('[data-step]'));
 
-    // 最後一件：按鈕改為「完成今日交接」，交付後才到本日交接
+    // 最後一件：按鈕改為「完成今日交接」；按下先顯示本日交接（交付清單），確認後才交付並離開桌面
     expect(buttonByText(fixture, TASKS_UI.finishDay)?.disabled).toBeTrue();
     archiveAll(game);
     fixture.detectChanges();
     expect(buttonByText(fixture, TASKS_UI.finishDay)?.disabled).toBeFalse();
     buttonByText(fixture, TASKS_UI.finishDay)?.click();
+    await fixture.whenStable();
+    expect(game.stage()).toBe('work');
+    const panel = root(fixture).querySelector('[data-handoff-panel]');
+    expect(panel?.textContent).toContain(WORKDAY_UI.handoff);
+    expect(panel?.querySelectorAll('[data-handoff-item]').length).toBe(2);
+    expect(document.activeElement).toBe(panel?.querySelector('h3') ?? null);
+    root(fixture).querySelector<HTMLButtonElement>('[data-handoff-confirm]')?.click();
     await fixture.whenStable();
     expect(game.stage()).toBe('wrap');
     expect(h.navigated[h.navigated.length - 1]).toBe('/overnight');
@@ -156,7 +166,7 @@ describe('WorkViewComponent（R8 同日多工作）', () => {
     finishDay(game);
     expect(game.dayId()).toBe('day.02');
     fixture = render();
-    expect(stepText(fixture)).toBe(stepLabel(1, 2));
+    expect(statuses(fixture)).toEqual(['active', 'pending']);
 
     const text = reconcileTask('task.day2.reconcile').text;
     buttonByText(fixture, text.openReport)?.click();
@@ -179,43 +189,72 @@ describe('WorkViewComponent（R8 同日多工作）', () => {
     expect(game.taskId()).toBe('task.day2.archive');
     expect(game.arranged()).toBe(arrangedBefore);
     expect(h.navigated).not.toContain('/overnight');
-    expect(stepText(fixture)).toBe(stepLabel(2, 2));
     expect(statuses(fixture)).toEqual(['done', 'active']);
     expect(root(fixture).querySelector('app-day2-reconcile')).toBeNull();
     expect(selectedLabel(fixture)).toBe(recordLabel(recordsOfTask('task.day2.archive')[0]!));
     expect(buttonByText(fixture, TASKS_UI.finishDay)).toBeDefined();
   });
 
-  it('單一工作的日子（Day 3）：「第 1 / 1 項」，按鈕直接是「完成今日交接」', () => {
+  it('單一工作的日子（Day 3）：佇列一項，按鈕直接是「完成今日交接」', () => {
     finishDay(h.game);
     finishDay(h.game);
     expect(h.game.dayId()).toBe('day.03');
     fixture = render();
-    expect(stepText(fixture)).toBe(stepLabel(1, 1));
+    expect(queueItems(fixture).length).toBe(1);
     expect(buttonByText(fixture, TASKS_UI.finishDay)).toBeDefined();
     expect(buttonByText(fixture, TASKS_UI.deliver)).toBeUndefined();
   });
 
   /* ---------- R10：退件複審只在有退件時出現在當日步驟 ---------- */
 
-  it('Day 1 填「102」且 Day 2 放行 → Day 4 步驟多一項「複審／錯誤文件處理」', () => {
+  it('Day 1 填「102」且 Day 2 放行 → Day 4 佇列多一項「複審／錯誤文件處理」', () => {
     const { game } = h;
     archiveOne(game, 'B102', 'default_false', undefined, '102');
     playTo(game, 'day.04');
     fixture = render();
-    expect(stepText(fixture)).toBe(stepLabel(1, 2));
-    const items = Array.from(root(fixture).querySelectorAll('app-task-stepper li'));
-    expect(items.length).toBe(2);
+    const items = queueItems(fixture);
+    // 歸檔、錯誤文件處理、M1 的附件關聯與批次轉換
+    expect(items.length).toBe(4);
     expect(items[1]?.textContent).toContain(taskKindLabel('return-review'));
     expect(items[1]?.textContent).toContain(DOCUMENT_ISSUES_UI.taskHeading);
-    expect(statuses(fixture)).toEqual(['active', 'pending']);
+    expect(statuses(fixture)).toEqual(['active', 'pending', 'pending', 'pending']);
   });
 
   it('照來源填寫並放行（沒有退件）→ Day 4 不出現空的複審工作', () => {
     playTo(h.game, 'day.04');
     fixture = render();
-    expect(stepText(fixture)).toBe(stepLabel(1, 1));
-    expect(root(fixture).querySelectorAll('app-task-stepper li').length).toBe(1);
-    expect(root(fixture).querySelector('app-task-stepper')?.textContent).not.toContain(DOCUMENT_ISSUES_UI.taskHeading);
+    expect(queueItems(fixture).length).toBe(3);
+    expect(root(fixture).querySelector('app-work-queue')?.textContent).not.toContain(DOCUMENT_ISSUES_UI.taskHeading);
+  });
+
+  /* ---------- M1：工作佇列自選順序與資料依賴 ---------- */
+
+  it('M1 Day 4：附件關聯不依賴歸檔，可先切過去處理（歸檔的草稿保留）；批次轉換等前一批交付才開放', () => {
+    const { game } = h;
+    playTo(game, 'day.04');
+    fixture = render();
+    const [archive, attachment, transform] = queueItems(fixture);
+    expect(archive?.getAttribute('data-task-status')).toBe('active');
+    expect(attachment?.disabled).toBeFalse();
+    expect(transform?.disabled).toBeTrue();
+    expect(transform?.hasAttribute('data-queue-locked')).toBeTrue();
+    expect(transform?.textContent).toContain(WORKDAY_UI.pendingDependency);
+    expect(transform?.textContent).toContain(taskHeading('task.day4.archive'));
+    expect(transform?.textContent).toContain(taskHeading('task.day4.m1-attachment'));
+    game.updateDraft('H233', { value: 'H-23' });
+
+    attachment?.click();
+    fixture.detectChanges();
+    expect(game.taskId()).toBe('task.day4.m1-attachment');
+    expect(root(fixture).querySelector('app-attachment-work')).not.toBeNull();
+    expect(root(fixture).querySelector('app-archive-work')).toBeNull();
+    expect(game.draft('H233')).toEqual({ value: '' }); // 目前批次已不是 Day 4 歸檔
+    expect(game.save()!.batches['batch.day04.archive']!.drafts['H233']).toEqual({ value: 'H-23' });
+
+    // 回到歸檔：草稿仍在
+    queueItems(fixture)[0]?.click();
+    fixture.detectChanges();
+    expect(game.taskId()).toBe('task.day4.archive');
+    expect(game.draft('H233')).toEqual({ value: 'H-23' });
   });
 });

@@ -17,7 +17,7 @@ import { WorkOperationsService } from '../../../state/work-operations.service';
 import { WindowManagerService } from '../../shared/services/window-manager.service';
 import { settle } from '../../testing/play';
 import { MailAttachmentService, attachmentWindowId } from '../services/mail-attachment.service';
-import { bootGame, onlyCase, receiptRef, resubmitNow, rewriteSave, toFirstReturn, toNextDay } from '../testing/mail-play';
+import { bootGame, onlyCase, receiptMails, receiptRef, resubmitNow, rewriteSave, toFirstReturn, toNextDay } from '../testing/mail-play';
 import { MailAttachmentWindowsComponent } from './mail-attachment-windows.component';
 
 /**
@@ -154,7 +154,7 @@ describe('MailAttachmentWindowsComponent（R12 版本鎖定附件）', () => {
 
     toNextDay(game); // Day 6：0103 ≠ 0102 → 第三封退件
     expect(game.dayId()).toBe('day.06');
-    expect(game.mailbox().map((m) => m.templateId)).toEqual(['returned', 'returned', 'returned']);
+    expect(receiptMails(game).map((m) => m.templateId)).toEqual(['returned', 'returned', 'returned']);
     const third = receiptRef(game, 2);
     open(third);
     f.detectChanges();
@@ -251,7 +251,7 @@ describe('MailAttachmentWindowsComponent（R12 版本鎖定附件）', () => {
     expect(win(f, ref).querySelector('[data-doc-form]')).toBeNull();
     toNextDay(game);
     toNextDay(game);
-    expect(game.mailbox().length).toBe(1);
+    expect(receiptMails(game).length).toBe(1);
     expect(text(win(f, ref).querySelector('[data-doc-banner]'))).toBe(issueStatusLabel('awaiting-window'));
   });
 

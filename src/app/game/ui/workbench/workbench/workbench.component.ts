@@ -9,22 +9,20 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { MESSAGES, WINDOWS_UI, WORKBENCH, mailUnreadCount } from '../../../content/text';
+import { WINDOWS_UI, WORKBENCH } from '../../../content/text';
 import { SettingsService } from '../../../platform/settings.service';
 import { GameStateService } from '../../../state/game-state.service';
-import { DesktopAppId, DesktopService } from '../../desktop/services/desktop.service';
-import { MessageUnreadService } from '../../messages/services/message-unread.service';
-import { UnreadBadgeComponent } from '../../messages/unread-badge/unread-badge.component';
 import { NewsComponent } from '../../news/news/news.component';
 import { WindowManagerService } from '../../shared/services/window-manager.service';
 import { EXECUTION_LOG_WINDOW_ID } from '../execution-log/execution-log.component';
 import { WorkbenchView, WorkbenchViewService } from '../services/workbench-view.service';
 import { WorkViewComponent } from '../work-view/work-view.component';
 
-/** 左側單組功能導航的一項：切換工作平台內的視圖，或開啟桌面上的其他應用。 */
-type NavItem =
-  | { kind: 'view'; view: WorkbenchView; label: string }
-  | { kind: 'app'; app: Exclude<DesktopAppId, 'work'>; label: string; windowId: string };
+/** 功能導航的一項：切換工作平台內的視圖（M1 起通訊與郵件只從桌面入口與視窗列開啟）。 */
+interface NavItem {
+  view: WorkbenchView;
+  label: string;
+}
 
 /**
  * 工作平台（R12 §5）：桌面上「工作平台」主視窗的內容（公司應用）。沒有子路由。
@@ -39,14 +37,13 @@ type NavItem =
  */
 @Component({
   selector: 'app-workbench',
-  imports: [NewsComponent, UnreadBadgeComponent, WorkViewComponent],
+  imports: [NewsComponent, WorkViewComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './workbench.component.css',
   templateUrl: './workbench.component.html',
 })
 export class WorkbenchComponent {
   protected readonly game = inject(GameStateService);
-  private readonly desktop = inject(DesktopService);
   private readonly windows = inject(WindowManagerService);
   private readonly settings = inject(SettingsService);
   private readonly views = inject(WorkbenchViewService);
@@ -56,24 +53,17 @@ export class WorkbenchComponent {
   private viewAnimation: Animation | null = null;
 
   protected readonly WORKBENCH = WORKBENCH;
-  protected readonly MESSAGES = MESSAGES;
   protected readonly WINDOWS = WINDOWS_UI;
   protected readonly logWindowId = EXECUTION_LOG_WINDOW_ID;
 
   protected readonly view = this.views.view;
 
-  /** 通訊的彙總未讀（實際送達且未讀）；頻道列表與對話內的紅點在通訊應用裡。 */
-  protected readonly unreadTotal = inject(MessageUnreadService).total;
-  /** 未讀郵件數（開啟信件才算已讀；與案件待處理無關）。 */
-  protected readonly unreadMail = this.game.unreadMailCount;
-  protected readonly unreadMailLabel = computed(() => mailUnreadCount(this.unreadMail()));
-
   /**
    * M1：工作平台只保留工作與公司公告；通訊與郵件從桌面入口或底部視窗列開啟，不在這裡重複導航。
    */
   protected readonly navItems: readonly NavItem[] = [
-    { kind: 'view', view: 'work', label: WORKBENCH.nav.work },
-    { kind: 'view', view: 'news', label: WORKBENCH.nav.news },
+    { view: 'work', label: WORKBENCH.nav.work },
+    { view: 'news', label: WORKBENCH.nav.news },
   ];
 
   /** 目前這一天的內容：greeting 與工作標題都從這裡讀，不再依日數查表。 */
@@ -107,8 +97,7 @@ export class WorkbenchComponent {
   }
 
   protected select(item: NavItem): void {
-    if (item.kind === 'view') this.views.show(item.view);
-    else this.desktop.openApp(item.app);
+    this.views.show(item.view);
   }
 
   /** 工具列：開啟（或還原、聚焦）系統作業紀錄。 */

@@ -131,13 +131,17 @@ describe('MailComponent（R12 郵件應用）', () => {
     toNextDay(game); // Day 5：再次退回
     f = render();
     filterTo(f, 'all');
-    expect(rows(f).map((r) => text(r.querySelector('[data-mail-received]')))).toEqual([
-      dayDateLabel('day.05'),
-      dayDateLabel('day.03'),
-    ]);
-    expect(counts(f)).toEqual(['2', '2', '1']);
+    // M1 工作日郵件也在收件匣（Day 5 的回條依每局擲骰可能在第一件工作後才送達），退件回條仍新的在前
+    const received = (list: HTMLButtonElement[]): string[] => list.map((r) => text(r.querySelector('[data-mail-received]')));
+    const returned = (list: HTMLButtonElement[]): HTMLButtonElement[] => list.filter((r) => text(r).includes('文件退回'));
+    const all = rows(f);
+    expect(all.length).toBe(game.mailbox().length);
+    expect(received(all)[0]).toBe(dayDateLabel('day.05'));
+    expect(received(all)[all.length - 1]).toBe(dayDateLabel('day.03'));
+    expect(received(returned(all))).toEqual([dayDateLabel('day.05'), dayDateLabel('day.03')]);
+    expect(counts(f).slice(0, 2)).toEqual([String(all.length), String(all.length)]);
     filterTo(f, 'pending');
-    expect(rows(f).map((r) => text(r.querySelector('[data-mail-received]')))).toEqual([dayDateLabel('day.05')]);
+    expect(received(returned(rows(f)))).toEqual([dayDateLabel('day.05')]);
   });
 
   it('選取保存在導覽服務：郵件視窗關閉（元件銷毀）後再開仍是同一封；已讀不重複寫入', () => {

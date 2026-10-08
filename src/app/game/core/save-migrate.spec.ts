@@ -816,9 +816,9 @@ describe('migrateV5ToV6', () => {
     expect('chatReplies' in v5Day6End).toBeFalse();
   });
 
-  it('SAVE_VERSION 為 11，舊版本清單為 2／3／4／5／6／7／8／9／10', () => {
+  it('SAVE_VERSION 為 12（M1），舊版本清單為 2／3／4／5／6／7／8／9／10／11', () => {
     expect(SAVE_VERSION).toBe(12);
-    expect([...LEGACY_SAVE_VERSIONS]).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect([...LEGACY_SAVE_VERSIONS]).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   });
 });
 
@@ -1004,7 +1004,9 @@ describe('migrateToCurrent：v11、v10、v9、v8、v7、v6 與損壞資料', () 
       [v8, 8],
       [v9, 9],
       [v10, 10],
-      [v11, 11],
+      // M1：v11 存檔（與現行同結構、版本號 11）→ from 11；現行 v12 → from 12
+      [{ ...v11, version: 11 }, 11],
+      [v11, 12],
     ];
     for (const [input, from] of cases) {
       const result = migrateToCurrent(input, DIR6);
@@ -1058,7 +1060,7 @@ describe('migrateToCurrent：v11、v10、v9、v8、v7、v6 與損壞資料', () 
     ['{"version":9}', { version: 9 }],
     ['{"version":10}', { version: 10 }],
     ['{"version":11}', { version: 11 }],
-    ['version 12', { ...v11, version: 12 }],
+    ['version 13', { ...v11, version: 13 }],
     ['v9 形狀但標為 version 10', { ...v9, version: 10 }],
     ['v10 形狀但標為 version 11', { ...v10, version: 11 }],
     ['v10 缺 issueSchedule', omitKey(v10, 'issueSchedule')],
@@ -1967,8 +1969,8 @@ describe('migrateV10ToV11（R12）', () => {
       expect(m.attachments[0]!.kind).toBe('return-receipt');
       expect(m.id).toBe(mailIdOfReceipt((m.attachments[0] as ReturnReceiptAttachment).receiptId));
     }
-    expect(isValidSave(v11, DIR_M)).toBeTrue();
-    expect(isValidSave(JSON.parse(JSON.stringify(v11)), DIR_M)).toBeTrue();
+    expect(isValidSave(migrateV11ToV12(v11, DIR_M), DIR_M)).toBeTrue();
+    expect(isValidSave(migrateV11ToV12(JSON.parse(JSON.stringify(v11)), DIR_M), DIR_M)).toBeTrue();
   });
 
   it('收件回條寄成模板 resolved 的郵件', () => {
@@ -1982,7 +1984,7 @@ describe('migrateV10ToV11（R12）', () => {
       [`mail.${M_ID}#1`, 'resolved', mDay(5)],
     ]);
     expect(v11.readMail).toEqual([`mail.${M_ID}#0`]);
-    expect(isValidSave(v11, DIR_M)).toBeTrue();
+    expect(isValidSave(migrateV11ToV12(v11, DIR_M), DIR_M)).toBeTrue();
   });
 
   it('已讀回條轉成已讀郵件（郵件 ID；依郵件順序）；未讀的回條郵件維持未讀', () => {
@@ -1990,7 +1992,7 @@ describe('migrateV10ToV11（R12）', () => {
     const v11 = migrateV10ToV11(v10, DIR_M);
     expect(v11.readMail).toEqual([`mail.${M_ID}#0`, `mail.${M_ID_607}#0`, `mail.${M_ID}#2`]);
     expect('readIssueReceipts' in v11).toBeFalse();
-    expect(isValidSave(v11, DIR_M)).toBeTrue();
+    expect(isValidSave(migrateV11ToV12(v11, DIR_M), DIR_M)).toBeTrue();
     expect(migrateV10ToV11(playedV10([]), DIR_M).readMail).toEqual([]);
   });
 
@@ -2048,7 +2050,7 @@ describe('migrateV10ToV11（R12）', () => {
     expect(v11.readMessages).toEqual(['msg.a', 'msg.test.a2', 'msg.test.a1', 'msg.test.c1']);
     expect(v11.chatReplies).toEqual(v10.chatReplies);
     expect(JSON.stringify(v10)).toBe(before);
-    expect(isValidSave(v11, DIR_M)).toBeTrue();
+    expect(isValidSave(migrateV11ToV12(v11, DIR_M), DIR_M)).toBeTrue();
   });
 
   it('migrateToCurrent：v10 → from 10，結果與 migrateV10ToV11 相同；JSON 字串讀回也一樣；輸入不變；再讀一次是 from 11', () => {

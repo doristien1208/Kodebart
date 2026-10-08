@@ -2518,15 +2518,20 @@ describe('R8：同 kind 連續、單一工作日', () => {
 });
 
 describe('R8：isTaskSettled／isTaskWaived／nextOpenTask', () => {
-  it('nextOpenTask 回傳之後第一件未完成且非免補的工作；沒有則 null', () => {
+  it('nextOpenTask 先找之後第一件可開始（未完成、非免補、依賴已結清）的工作，再從頭找（M1 自選順序）；都沒有則 null', () => {
     const s = createSave(1, DIR_MIX);
     expect(nextOpenTask(s, DIR_MIX, MIX_A1)!.id).toBe(MIX_B);
     expect(nextOpenTask(s, DIR_MIX, MIX_C)!.id).toBe(MIX_A2);
-    expect(nextOpenTask(s, DIR_MIX, MIX_A2)).toBeNull();
+    // 之後沒有了 → 從頭找：第一件仍未完成
+    expect(nextOpenTask(s, DIR_MIX, MIX_A2)!.id).toBe(MIX_A1);
     const waivedB: Save = { ...s, waivedTasks: [MIX_B] };
     expect(nextOpenTask(waivedB, DIR_MIX, MIX_A1)!.id).toBe(MIX_C);
     const a2Done = archiveEvery(s, MIX_BATCH_A2, DAY3_RECORDS);
-    expect(nextOpenTask(a2Done, DIR_MIX, MIX_C)).toBeNull();
+    expect(nextOpenTask(a2Done, DIR_MIX, MIX_C)!.id).toBe(MIX_A1);
+    // 只剩目前這件時為 null
+    const othersDone: Save = { ...a2Done, waivedTasks: [MIX_B, MIX_C] };
+    const a1Done = archiveEvery(othersDone, MIX_BATCH_A1, DAY1_RECORDS);
+    expect(nextOpenTask(a1Done, DIR_MIX, MIX_A2)).toBeNull();
   });
 
   it('交付時跳過免補工作；後面都已結清則直接完成當日', () => {

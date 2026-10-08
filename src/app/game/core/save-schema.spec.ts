@@ -346,7 +346,7 @@ describe('isValidSave：不合法存檔', () => {
     ['version 8（v8 舊檔不是現行格式，即使帶 returns）', { ...initial, version: 8 }],
     ['version 9（v9 舊檔不是現行格式，即使帶 issueSchedule）', { ...initial, version: 9 }],
     ['version 10（v10 舊檔不是現行格式，即使帶 mailbox／profile）', { ...initial, version: 10 }],
-    ['version 12', { ...initial, version: 12 }],
+    ['version 13', { ...initial, version: 13 }],
     ['version 為字串 "11"', { ...initial, version: '11' }],
     ['version 缺', { ...initial, version: undefined }],
     /* dayId／taskId */
@@ -1027,7 +1027,8 @@ const MDIR: DayDirectory = createDayDirectory(
       nextDayId: DAY_02,
       tasks: [
         { id: M_TASK_1A, kind: 'archive', batchId: BATCH_DAY01, recordKeys: DAY1_RECORDS.map((r) => r.key), caseReviews: [] },
-        { id: M_TASK_1B, kind: 'archive', batchId: M_BATCH_1B, recordKeys: FOLLOWUP_RECORDS.map((r) => r.key), caseReviews: [] },
+        // M1：同日工作以 dependsOn 保持先後（與正式 Day 1／2 相同）；沒有依賴的工作可以自選順序
+        { id: M_TASK_1B, kind: 'archive', batchId: M_BATCH_1B, recordKeys: FOLLOWUP_RECORDS.map((r) => r.key), caseReviews: [], dependsOn: [M_TASK_1A] },
       ],
     },
     {
@@ -1036,7 +1037,7 @@ const MDIR: DayDirectory = createDayDirectory(
       nextDayId: DAY_03,
       tasks: [
         { id: M_TASK_2A, kind: 'reconcile', sourceBatchId: BATCH_DAY01, subjectKey: 'B102', recordKeys: ['B102'] },
-        { id: M_TASK_2B, kind: 'archive', batchId: M_BATCH_2B, recordKeys: DAY2B_RECORDS.map((r) => r.key), caseReviews: [] },
+        { id: M_TASK_2B, kind: 'archive', batchId: M_BATCH_2B, recordKeys: DAY2B_RECORDS.map((r) => r.key), caseReviews: [], dependsOn: [M_TASK_2A] },
       ],
     },
     { dayId: DAY_03, dayNumber: 3, nextDayId: null, tasks: [FIELD_MAP_TASK] },

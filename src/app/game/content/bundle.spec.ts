@@ -197,9 +197,10 @@ describe('日程查表（KB-R5-03）', () => {
       ['archive', 'archive'],
       ['reconcile', 'archive'],
       ['archive'],
-      ['archive', 'return-review'],
-      ['archive'],
-      ['field-map'],
+      // M1：Day 4／5 加入附件關聯與批次轉換，Day 6 加入交付報告
+      ['archive', 'return-review', 'attachment', 'transform'],
+      ['archive', 'attachment', 'transform'],
+      ['field-map', 'report'],
     ]);
     expect(DAY_IDS.map((id) => tasksOfDay(id).map((t) => t.id))).toEqual(DAY_IDS.map((id) => dayPlan(id).tasks.map((t) => t.id)));
   });
@@ -264,7 +265,7 @@ describe('日程查表（KB-R5-03）', () => {
 
   it('tasksOfDay 取該日全部任務；以 taskId 精確取得任務，不看陣列位置（R8）', () => {
     expect(tasksOfDay('day.01').map((t) => t.id)).toEqual(['task.day1.archive', 'task.day1.archive-followup']);
-    expect(tasksOfDay('day.06').map((t) => t.id)).toEqual(['task.day6.field-map']);
+    expect(tasksOfDay('day.06').map((t) => t.id)).toEqual(['task.day6.field-map', 'task.day6.m1-report']);
     expect(() => tasksOfDay('day.09')).toThrowError(/day\.09/);
     expect(contentTask('task.day1.archive-followup')).toBe(tasksOfDay('day.01')[1]);
     expect(archiveTask('task.day2.archive').batchId).toBe('batch.day02.archive');
@@ -407,8 +408,10 @@ describe('Day 3–5 歸檔內容（COLLABORATION §4）', () => {
       const e = expected[n];
       const day = dayContentById(`day.0${n}`);
       const task = archiveTask(`task.day${n}.archive`);
-      // R10：Day 4 在原歸檔之後加入退件複審（沒有退件時由狀態層略過），歸檔本身不變
-      expect(tasksOfDay(day.id).map((t) => t.id)).toEqual(n === 4 ? [task.id, 'task.day4.return-review'] : [task.id]);
+      // R10：Day 4 在原歸檔之後加入退件複審（沒有退件時由狀態層略過），歸檔本身不變；
+      // M1：Day 4／5 另有附件關聯與批次轉換
+      const m1 = n === 3 ? [] : [`task.day${n}.m1-attachment`, `task.day${n}.m1-transform`];
+      expect(tasksOfDay(day.id).map((t) => t.id)).toEqual(n === 4 ? [task.id, 'task.day4.return-review', ...m1] : [task.id, ...m1]);
       expect(task.batchId).toBe(`batch.day0${n}.archive`);
       expect(task.recordIds.length).toBe(e.records.length);
       expect(task.text).toEqual({ eyebrow: e.eyebrow, heading: e.heading, instruction: e.instruction });
@@ -518,7 +521,12 @@ describe('Day 3 午餐群組依工作進度解鎖（unlockAfter，R8 §4）', ()
       expect(bundle.contentMessage(id).visibleFrom).toBe('day.03');
       expect(bundle.contentMessage(id).unlock).toEqual([]);
     }
-    expect(ALL_MESSAGES.filter((m) => m.unlockAfter !== undefined).map((m) => m.id)).toEqual(LUNCH_DAY3);
+    // M1 的新訊息另有工作進度條件（見 validate-content 的正式資料測試）；午餐四則以外的 Day 3 條件都不是這一組
+    expect(ALL_MESSAGES.filter((m) => m.unlockAfter !== undefined && m.channelId === LUNCH && m.visibleFrom === 'day.03').map((m) => m.id)).toEqual([
+      ...LUNCH_DAY3,
+      'msg.day3.m1-printer',
+      'msg.day3.m1-printer-wu',
+    ]);
   });
 
   it('一進 Day 3（0 筆）與提交第 1 筆後都看不到', () => {
@@ -528,7 +536,10 @@ describe('Day 3 午餐群組依工作進度解鎖（unlockAfter，R8 §4）', ()
   });
 
   it('提交第 2 筆起四則一起出現，之後筆數增加不改變', () => {
-    for (const n of [2, 3, 5]) expect(shown(n)).withContext(String(n)).toEqual(LUNCH_DAY3);
+    for (const n of [2, 3, 5]) expect(shown(n).slice(0, 4)).withContext(String(n)).toEqual(LUNCH_DAY3);
+    // M1：提交第 3 筆起另有印表機兩則（不影響午餐四則）
+    expect(shown(2)).toEqual(LUNCH_DAY3);
+    expect(shown(3)).toEqual([...LUNCH_DAY3, 'msg.day3.m1-printer', 'msg.day3.m1-printer-wu']);
   });
 
   it('只看 Day 3 原批次：其他批次的進度不解鎖', () => {
@@ -554,7 +565,7 @@ describe('Day 3 午餐群組依工作進度解鎖（unlockAfter，R8 §4）', ()
   });
 
   it('Day 3 日結與之後各日（批次已完成）仍留在頻道歷史', () => {
-    expect(shown(5, 'day.03', 'wrap')).toEqual(LUNCH_DAY3);
+    expect(shown(5, 'day.03', 'wrap').slice(0, 4)).toEqual(LUNCH_DAY3);
     for (const dayId of ['day.04', 'day.05', 'day.06']) {
       expect(shown(undefined, dayId).slice(0, 4)).withContext(dayId).toEqual(LUNCH_DAY3);
     }
@@ -642,7 +653,11 @@ describe('Day 6 欄位映射內容（COLLABORATION §6）', () => {
     const day = dayContentById('day.06');
     expect(day.workbench.greeting).toBe('早安，新的匯入批次已開放。');
     expect(day.aside.body).toBe('來源表使用舊欄位名稱。請先建立一對一欄位對應，再處理空白值。');
-    expect(dayPlan('day.06').tasks).toEqual([{ id: task.id, kind: 'field-map', recordIds: [], documentIds: [] }]);
+    expect(dayPlan('day.06').tasks).toEqual([
+      { id: task.id, kind: 'field-map', recordIds: [], documentIds: [] },
+      // M1：欄位映射之後的交付報告
+      { id: 'task.day6.m1-report', kind: 'report', recordIds: [], documentIds: [] },
+    ]);
   });
 
   it('依 kind 收斂：field-map 不是 archive／reconcile', () => {
@@ -742,10 +757,14 @@ describe('頻道結構（KB-R4-04、R7 §4）', () => {
       'msg.day2.check-in',
       'msg.day3.dm-drafts',
       'msg.day3.return-code-audit',
+      'msg.day3.m1-find-version',
       'msg.day4.h204.registry',
       'msg.day4.h204.supplement',
       'msg.day4.h204.review',
+      'msg.day4.m1-window-receipt',
+      'msg.day5.m1-default-question',
       'msg.day6.dm-field-order',
+      'msg.day6.m1-handoff-meaning',
     ]);
     expect(ids(messagesOfChannel(DM_WU))).toEqual(['msg.day4.dm-lunch-join', 'msg.day4.dm-lunch-floor', 'msg.day4.dm-lunch-own']);
   });
@@ -755,6 +774,7 @@ describe('頻道結構（KB-R4-04、R7 §4）', () => {
       'msg.day3.dept-large-batch',
       'msg.day4.dept-report',
       'msg.day5.dept-maintenance',
+      'msg.day5.m1-paper-notice',
       'msg.day6.dept-field-map',
     ]);
     expect(ids(messagesOfChannel(LUNCH))).toEqual([
@@ -762,14 +782,19 @@ describe('頻道結構（KB-R4-04、R7 §4）', () => {
       'msg.day3.lunch-yesterday',
       'msg.day3.lunch-hungry',
       'msg.day3.lunch-ask-player',
+      'msg.day3.m1-printer',
+      'msg.day3.m1-printer-wu',
       'msg.day4.review-returned',
       'msg.day4.review-name',
       'msg.day4.review-mood',
       'msg.day4.quick-praise',
       'msg.day4.green-number',
+      'msg.day4.m1-desk-fan',
+      'msg.day5.m1-coffee',
       'msg.day5.box-question',
       'msg.day5.box-receipt',
       'msg.day5.box-is-box',
+      'msg.day6.m1-week-start',
       'msg.day6.box-stop',
       'msg.day6.box-closed',
       'msg.day6.box-found',
@@ -879,16 +904,19 @@ describe('Day 4 互斥訊息（cond.review.*，R7 §5）', () => {
   const D3 = 'batch.day03.archive';
   const ANY = ['msg.day4.review-returned', 'msg.day4.review-name', 'msg.day4.review-mood'];
   const NONE = ['msg.day4.quick-praise', 'msg.day4.green-number'];
+  /** Day 4 依 Day 3 覆核狀態互斥的訊息（M1 的生活訊息另有自己的送達條件，不在這組）。 */
+  const isReviewPair = (m: { visibleFrom: string; unlock: readonly string[] }) =>
+    m.visibleFrom === 'day.04' && m.unlock.some((c) => c.startsWith('cond.review.'));
   const reviewShown = (reviewed: readonly string[], dayId = 'day.04', stage: Stage = 'work') =>
-    unlockedMessages(LUNCH, ctx(dayId, stage, null, reviewed)).filter((m) => m.visibleFrom === 'day.04');
+    unlockedMessages(LUNCH, ctx(dayId, stage, null, reviewed)).filter(isReviewPair);
 
   it('Day 3 批次有 review → 只出現「回到佇列」的三則', () => {
     const shown = reviewShown([D3]);
     expect(ids(shown)).toEqual(ANY);
     expect(shown.map((m) => [actorName(m.actorId), m.time, ...m.lines])).toEqual([
       ['吳婉庭', '10:51', '昨天送覆核的幾筆，早上又回到佇列了。'],
-      ['楊子謙', '10:52', '窗口說這叫「等待補件」，不是退件。'],
-      ['吳婉庭', '10:53', '換個名字，心情有比較好嗎？'],
+      ['楊子謙', '10:52', '我這邊也有兩筆。他們說要再找承辦拿附件。'],
+      ['吳婉庭', '10:53', '所以今天先留著？我怕下午又要全部重送。'],
     ]);
   });
 
@@ -897,7 +925,7 @@ describe('Day 4 互斥訊息（cond.review.*，R7 §5）', () => {
     expect(ids(shown)).toEqual(NONE);
     expect(shown.map((m) => [actorName(m.actorId), m.time, ...m.lines])).toEqual([
       ['吳婉庭', '10:51', '昨天那批結得很快，主管剛在大群稱讚進度。'],
-      ['楊子謙', '10:52', '恭喜，你現在是報表上的綠色數字。'],
+      ['楊子謙', '10:52', '不過我昨天留的那幾筆待補還沒回。有人接到窗口電話嗎？'],
     ]);
   });
 
@@ -907,7 +935,7 @@ describe('Day 4 互斥訊息（cond.review.*，R7 §5）', () => {
       for (const dayId of ['day.04', 'day.05', 'day.06']) {
         for (const stage of ['work', 'wrap', 'end'] as const) {
           const chat = { [LUNCH_PROMPT]: 'join', 'prompt.day4.review-returned': 'ask-useful' };
-          const shown = unlockedMessages(LUNCH, ctx(dayId, stage, null, reviewed, chat)).filter((m) => m.visibleFrom === 'day.04');
+          const shown = unlockedMessages(LUNCH, ctx(dayId, stage, null, reviewed, chat)).filter(isReviewPair);
           expect(ids(shown)).withContext(`${dayId} ${stage} ${reviewed.join(',')}`).toEqual(reviewed.includes(D3) ? ANY : NONE);
         }
       }
@@ -936,6 +964,9 @@ describe('Day 4 互斥訊息（cond.review.*，R7 §5）', () => {
       'msg.day3.lunch-yesterday',
       'msg.day3.lunch-hungry',
       'msg.day3.lunch-ask-player',
+      // M1：Day 3 批次已完成 → 印表機兩則也在歷史裡
+      'msg.day3.m1-printer',
+      'msg.day3.m1-printer-wu',
       ...ANY,
     ]);
   });
@@ -1226,10 +1257,12 @@ describe('Day 3 退件通知與 Day 4 退件複審（cond.return.notified.*，R1
     }
   });
 
-  it('day-04 工作為 [archive, return-review]；複審任務沒有自己的紀錄與文件', () => {
+  it('day-04 工作為 [archive, return-review, attachment, transform]；複審任務沒有自己的紀錄與文件', () => {
     expect(tasksOfDay('day.04').map((t) => [t.id, t.kind])).toEqual([
       ['task.day4.archive', 'archive'],
       [REVIEW_TASK, 'return-review'],
+      ['task.day4.m1-attachment', 'attachment'],
+      ['task.day4.m1-transform', 'transform'],
     ]);
     expect(returnReviewTask(REVIEW_TASK)).toEqual({
       id: REVIEW_TASK,
@@ -1409,7 +1442,7 @@ describe('Day 4 吳婉庭私訊依 Day 3 午餐回覆解鎖（cond.chat.*，R7 �
   it('私訊文字逐字', () => {
     expect(Object.values(EXPECTED).map((id) => bundle.contentMessage(id).lines)).toEqual([
       ['昨天午餐的 85 我晚點再跟你收，先記著。'],
-      ['七樓今天恢復收外送了。楊子謙說這不構成反證。'],
+      ['七樓今天可以送上去了。昨天那袋我拿到時，醬汁已經漏一半。'],
       ['你今天也有帶嗎？我正在認真考慮改過自新。'],
     ]);
   });
@@ -1422,10 +1455,17 @@ describe('固定回覆 prompt（R7 §3）', () => {
       ['prompt.help.refusal', 'msg.help.refusal.paths', DM, 'day.06'],
       ['prompt.day2.check-in', 'msg.day2.check-in', DM, 'day.02'],
       ['prompt.day3.lunch-plan', 'msg.day3.lunch-ask-player', LUNCH, 'day.03'],
+      ['prompt.day3.m1-find-version', 'msg.day3.m1-find-version', DM, 'day.03'],
       ['prompt.day4.review-returned', 'msg.day4.review-mood', LUNCH, 'day.04'],
       ['prompt.day4.quick-close', 'msg.day4.green-number', LUNCH, 'day.04'],
+      ['prompt.day4.m1-desk-fan', 'msg.day4.m1-desk-fan', LUNCH, 'day.04'],
+      ['prompt.day4.m1-window-receipt', 'msg.day4.m1-window-receipt', DM, 'day.04'],
+      ['prompt.day5.m1-coffee', 'msg.day5.m1-coffee', LUNCH, 'day.05'],
       ['prompt.day5.missing-box', 'msg.day5.box-is-box', LUNCH, 'day.05'],
+      ['prompt.day5.m1-default-question', 'msg.day5.m1-default-question', DM, 'day.05'],
+      ['prompt.day6.m1-week-start', 'msg.day6.m1-week-start', LUNCH, 'day.06'],
       ['prompt.day6.closed-box', 'msg.day6.box-system', LUNCH, 'day.06'],
+      ['prompt.day6.m1-handoff-meaning', 'msg.day6.m1-handoff-meaning', DM, 'day.06'],
     ]);
     for (const e of ALL_PROMPTS) {
       const found = promptOf(e.prompt.id);
@@ -1442,12 +1482,23 @@ describe('固定回覆 prompt（R7 §3）', () => {
   });
 
   it('promptsOfChannel 依內容順序', () => {
-    expect(promptsOfChannel(DM).map((e) => e.prompt.id)).toEqual(['prompt.day1.welcome', 'prompt.help.refusal', 'prompt.day2.check-in']);
+    expect(promptsOfChannel(DM).map((e) => e.prompt.id)).toEqual([
+      'prompt.day1.welcome',
+      'prompt.help.refusal',
+      'prompt.day2.check-in',
+      'prompt.day3.m1-find-version',
+      'prompt.day4.m1-window-receipt',
+      'prompt.day5.m1-default-question',
+      'prompt.day6.m1-handoff-meaning',
+    ]);
     expect(promptsOfChannel(LUNCH).map((e) => e.prompt.id)).toEqual([
       'prompt.day3.lunch-plan',
       'prompt.day4.review-returned',
       'prompt.day4.quick-close',
+      'prompt.day4.m1-desk-fan',
+      'prompt.day5.m1-coffee',
       'prompt.day5.missing-box',
+      'prompt.day6.m1-week-start',
       'prompt.day6.closed-box',
     ]);
     expect(promptsOfChannel(DEPT)).toEqual([]);
@@ -1481,23 +1532,23 @@ describe('固定回覆 prompt（R7 §3）', () => {
           id: 'join',
           text: '都可以，我跟你們一起。',
           responses: [
-            { id: 'msg.day3.reply.join-wu', actorId: 'actor.wu-wan-ting', time: '11:46', lines: ['成交。要是警衛又攔人，你負責看起來像主管。'] },
-            { id: 'msg.day3.reply.join-yang', actorId: 'actor.yang-zi-qian', time: '11:47', lines: ['他才第三天。不要害人。'] },
+            { id: 'msg.day3.reply.join-wu', actorId: 'actor.wu-wan-ting', time: '11:46', lines: ['好，我先幫你點不辣的。不要香菜的現在說。'] },
+            { id: 'msg.day3.reply.join-yang', actorId: 'actor.yang-zi-qian', time: '11:47', lines: ['我的不要。婉庭，上次妳說有記住。'] },
           ],
         },
         {
           id: 'ask-floor',
           text: '七樓為什麼不收外送？',
           responses: [
-            { id: 'msg.day3.reply.floor-yang', actorId: 'actor.yang-zi-qian', time: '11:46', lines: ['說是盤點。奇怪的是每次都挑午餐時間。'] },
-            { id: 'msg.day3.reply.floor-wu', actorId: 'actor.wu-wan-ting', time: '11:47', lines: ['你不要把普通偷懶講得像都市傳說。'] },
+            { id: 'msg.day3.reply.floor-yang', actorId: 'actor.yang-zi-qian', time: '11:46', lines: ['警衛說今天那邊在清點，先放一樓。'] },
+            { id: 'msg.day3.reply.floor-wu', actorId: 'actor.wu-wan-ting', time: '11:47', lines: ['那我先下去拿。再放下去湯都涼了。'] },
           ],
         },
         {
           id: 'brought-own',
           text: '我自己帶了。',
           responses: [
-            { id: 'msg.day3.reply.own-wu', actorId: 'actor.wu-wan-ting', time: '11:46', lines: ['好羨慕。明天記得提醒今天的我。'] },
+            { id: 'msg.day3.reply.own-wu', actorId: 'actor.wu-wan-ting', time: '11:46', lines: ['好。下次要訂再跟我說，我每天都在湊免運。'] },
           ],
         },
       ],
@@ -1573,8 +1624,8 @@ describe('Day 3–6 訊息逐字（R7 §5）', () => {
 
   it('Day 3', () => {
     // R9 §2：兩則早訊只換 lines；ID、頻道、人物、時間、解鎖條件不變
-    expect(row('msg.day3.dept-large-batch')).toEqual(['資料作業組', '林予安', '08:19', 'day.03', '早，舊檔那批進佇列了。有補件的話，記得連原表一起看。']);
-    expect(row('msg.day3.dm-drafts')).toEqual(['林予安', '林予安', '08:24', 'day.03', '今天那批有點厚。我先去回窗口電話，卡住再敲我。']);
+    expect(row('msg.day3.dept-large-batch')).toEqual(['資料作業組', '林予安', '08:19', 'day.03', '早，舊檔跟補件都到了。原表別刪，下午交接還會用。']);
+    expect(row('msg.day3.dm-drafts')).toEqual(['林予安', '林予安', '08:24', 'day.03', '黃品蓉那筆有兩個版本。我先去回電話，你把自己用哪一份留在送件紀錄裡，免得窗口回問找不到。']);
     for (const id of ['msg.day3.dept-large-batch', 'msg.day3.dm-drafts']) {
       expect(line(id).unlock).withContext(id).toEqual([]);
       expect(line(id).actorId).withContext(id).toBe('actor.lin-yuan');
@@ -1583,26 +1634,26 @@ describe('Day 3–6 訊息逐字（R7 §5）', () => {
     expect(row('msg.day3.lunch-order')).toEqual(['午休雜談', '吳婉庭', '11:43', 'day.03', '有人要訂午餐嗎？七樓今天又不收外送。']);
     expect(row('msg.day3.lunch-yesterday')).toEqual(['午休雜談', '楊子謙', '11:44', 'day.03', '妳昨天才說那家很難吃。']);
     expect(row('msg.day3.lunch-hungry')).toEqual(['午休雜談', '吳婉庭', '11:44', 'day.03', '昨天的我沒有今天這麼餓。']);
-    expect(row('msg.day3.lunch-ask-player')).toEqual(['午休雜談', '吳婉庭', '11:45', 'day.03', '新來的，你中午吃什麼？']);
+    expect(row('msg.day3.lunch-ask-player')).toEqual(['午休雜談', '吳婉庭', '11:45', 'day.03', '你中午要不要一起訂？我差一份免運。']);
   });
 
   it('Day 4', () => {
     expect(row('msg.day4.dept-report')).toEqual(['資料作業組', '楊子謙', '08:15', 'day.04', '昨天的處理量已經併進本週報表。今天批次格式一樣。']);
     expect(row('msg.day4.dm-lunch-join')).toEqual(['吳婉庭', '吳婉庭', '09:07', 'day.04', '昨天午餐的 85 我晚點再跟你收，先記著。']);
-    expect(row('msg.day4.dm-lunch-floor')).toEqual(['吳婉庭', '吳婉庭', '09:07', 'day.04', '七樓今天恢復收外送了。楊子謙說這不構成反證。']);
+    expect(row('msg.day4.dm-lunch-floor')).toEqual(['吳婉庭', '吳婉庭', '09:07', 'day.04', '七樓今天可以送上去了。昨天那袋我拿到時，醬汁已經漏一半。']);
     expect(row('msg.day4.dm-lunch-own')).toEqual(['吳婉庭', '吳婉庭', '09:07', 'day.04', '你今天也有帶嗎？我正在認真考慮改過自新。']);
     expect(row('msg.day4.review-returned')).toEqual(['午休雜談', '吳婉庭', '10:51', 'day.04', '昨天送覆核的幾筆，早上又回到佇列了。']);
-    expect(row('msg.day4.review-name')).toEqual(['午休雜談', '楊子謙', '10:52', 'day.04', '窗口說這叫「等待補件」，不是退件。']);
-    expect(row('msg.day4.review-mood')).toEqual(['午休雜談', '吳婉庭', '10:53', 'day.04', '換個名字，心情有比較好嗎？']);
+    expect(row('msg.day4.review-name')).toEqual(['午休雜談', '楊子謙', '10:52', 'day.04', '我這邊也有兩筆。他們說要再找承辦拿附件。']);
+    expect(row('msg.day4.review-mood')).toEqual(['午休雜談', '吳婉庭', '10:53', 'day.04', '所以今天先留著？我怕下午又要全部重送。']);
     expect(row('msg.day4.quick-praise')).toEqual(['午休雜談', '吳婉庭', '10:51', 'day.04', '昨天那批結得很快，主管剛在大群稱讚進度。']);
-    expect(row('msg.day4.green-number')).toEqual(['午休雜談', '楊子謙', '10:52', 'day.04', '恭喜，你現在是報表上的綠色數字。']);
+    expect(row('msg.day4.green-number')).toEqual(['午休雜談', '楊子謙', '10:52', 'day.04', '不過我昨天留的那幾筆待補還沒回。有人接到窗口電話嗎？']);
   });
 
   it('Day 5', () => {
     expect(row('msg.day5.dept-maintenance')).toEqual(['資料作業組', '林予安', '08:31', 'day.05', '下午會做例行維護，請在下班前完成交接。']);
     expect(row('msg.day5.box-question')).toEqual(['午休雜談', '吳婉庭', '12:06', 'day.05', '樓上昨天是不是少了一箱紙本？剛剛又打來問。']);
     expect(row('msg.day5.box-receipt')).toEqual(['午休雜談', '楊子謙', '12:07', 'day.05', '窗口顯示已簽收。']);
-    expect(row('msg.day5.box-is-box')).toEqual(['午休雜談', '吳婉庭', '12:07', 'day.05', '我知道系統有寫。我是問箱子。']);
+    expect(row('msg.day5.box-is-box')).toEqual(['午休雜談', '吳婉庭', '12:07', 'day.05', '我知道回條到了。我剛剛找過，箱子沒放在那裡。']);
   });
 
   it('Day 6', () => {
@@ -1611,7 +1662,7 @@ describe('Day 3–6 訊息逐字（R7 §5）', () => {
     expect(row('msg.day6.box-stop')).toEqual(['午休雜談', '吳婉庭', '11:56', 'day.06', '昨天那箱紙本不用找了。']);
     expect(row('msg.day6.box-closed')).toEqual(['午休雜談', '楊子謙', '11:57', 'day.06', '窗口把單關了。']);
     expect(row('msg.day6.box-found')).toEqual(['午休雜談', '吳婉庭', '11:57', 'day.06', '所以是找到了？']);
-    expect(row('msg.day6.box-system')).toEqual(['午休雜談', '楊子謙', '11:58', 'day.06', '沒有。系統裡結案了。']);
+    expect(row('msg.day6.box-system')).toEqual(['午休雜談', '楊子謙', '11:58', 'day.06', '還沒找到。昨天收到的是電子回條，不是那張紙本移交單。']);
   });
 
   it('Day 3 起跨日歷史保留：Day 6 私訊包含 Day 1–6 的訊息', () => {

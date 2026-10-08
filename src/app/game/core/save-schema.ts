@@ -871,8 +871,11 @@ function isValidSaveBody(s: Record<string, unknown>, dir: DayDirectory, freeOrde
   // 當日佇列：v12 起工作可自選順序，目前工作只需依賴的工作都已結清；舊版依序
   const stage = s['stage'] as Save['stage'];
   if (freeOrder) {
-    const deps = (active.dependsOn ?? []).map((id) => taskPlanOf(plan, id));
-    if (deps.some((t) => t !== undefined && !isRawTaskSettled(s, dir, t))) return false;
+    const depsSettled = (t: TaskPlan) =>
+      (t.dependsOn ?? []).map((id) => taskPlanOf(plan, id)).every((d) => d === undefined || isRawTaskSettled(s, dir, d));
+    if (!depsSettled(active)) return false;
+    // 次日收件：目前工作是當日依序第一件可開始的工作（跨日時就這樣選定）
+    if (stage === 'morning' && plan.tasks.slice(0, activeIndex).some((t) => !isRawTaskSettled(s, dir, t) && depsSettled(t))) return false;
   } else if (plan.tasks.slice(0, activeIndex).some((t) => !isRawTaskSettled(s, dir, t))) return false;
   if (stage === 'end' && plan.nextDayId !== null) return false;
   if (stage === 'wrap' && plan.nextDayId === null) return false;

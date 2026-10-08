@@ -16,6 +16,7 @@ import { ArchiveWorkComponent } from '../../archive/archive-work/archive-work.co
 import { AttachmentWorkComponent } from '../../attachment/attachment-work/attachment-work.component';
 import { Day2ReconcileComponent } from '../../day2/day2-reconcile/day2-reconcile.component';
 import { FieldMappingComponent } from '../../field-map/field-mapping/field-mapping.component';
+import { MailAttachmentService } from '../../mail/services/mail-attachment.service';
 import { ReportWorkComponent } from '../../report/report-work/report-work.component';
 import { ReturnReviewComponent } from '../../return-review/return-review/return-review.component';
 import { WindowManagerService } from '../../shared/services/window-manager.service';
@@ -57,6 +58,7 @@ export class WorkViewComponent {
   protected readonly game = inject(GameStateService);
   private readonly delivery = inject(WorkDeliveryService);
   private readonly windows = inject(WindowManagerService);
+  protected readonly docs = inject(MailAttachmentService);
   private readonly injector = inject(Injector);
   private readonly queue = viewChild(WorkQueueComponent);
 
@@ -91,6 +93,11 @@ export class WorkViewComponent {
 
   protected onCancelHandoff(): void {
     this.delivery.cancelHandoff();
+  }
+
+  /** 並排查閱：把目前開著的文件視窗並排（關閉的不重開）。 */
+  protected tileWindows(): void {
+    this.docs.tile(this.docs.shownRefs());
   }
 
   protected resetWindows(): void {

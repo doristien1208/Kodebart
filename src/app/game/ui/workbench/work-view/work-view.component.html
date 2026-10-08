@@ -1,7 +1,10 @@
 <div class="wv">
   <aside class="wv-queue">
     <app-work-queue [tasks]="game.dayTasks()" (select)="onSelect($event)" />
-    <button type="button" class="btn-ghost wv-reset" data-reset-windows (click)="resetWindows()">{{ ui.resetWindows }}</button>
+    <div class="wv-tools" role="group" [attr.aria-label]="ui.currentCase">
+      <button type="button" class="btn-ghost" data-tile-windows [disabled]="docs.shownRefs().length < 2" (click)="tileWindows()">{{ ui.compare }}</button>
+      <button type="button" class="btn-ghost" data-reset-windows (click)="resetWindows()">{{ ui.resetWindows }}</button>
+    </div>
   </aside>
   <section class="wv-case" [attr.aria-label]="ui.currentCase" data-current-case>
     @if (handoff(); as h) {

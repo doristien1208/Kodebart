@@ -7,9 +7,8 @@ import { WorkOperationsService } from './work-operations.service';
 import { isMailDelivered } from '../core/rules';
 import { isValidSave } from '../core/save-schema';
 import { AttachmentInput } from '../core/workday';
-import { FieldMapProgress, MailRecord, MissingPolicy, Save } from '../core/types';
-import { TransformPolicy } from '../core/day-plan';
-import { archiveWith, completeTask, instantOperations, settle } from '../ui/testing/play';
+import { FieldMapProgress, MailRecord, Save } from '../core/types';
+import { M1_SAVE_A, M1_SAVE_B, doM1Task, instantOperations, playM1Day, playM1To, playM1UntilKind, settle } from '../ui/testing/play';
 
 /**
  * M1 工作日的整合規格（正式內容、正式 DAY_DIRECTORY、真實 localStorage）：
@@ -26,29 +25,8 @@ const DOC_0314_WINDOW = 'doc.day4.m1-0314-window';
 const DOC_0521_REPLY = 'doc.day4.m1-0521-reply';
 const M1_PACK = 'mail.m1-workday';
 
-/** 一份存檔一路的選擇：歸檔輸入／缺值處理、附件關聯、批次缺漏策略。 */
-interface Choices {
-  codes: Readonly<Record<string, string>>;
-  policy: MissingPolicy;
-  attach: Readonly<Record<string, AttachmentInput>>;
-  transform: TransformPolicy;
-}
-
-/** 合法的錯編號（0314 打成 0341）＋錯附件（0314 引用 0521 的本人回覆）＋部門預設。 */
-const SAVE_A: Choices = {
-  codes: { B314: '0341' },
-  policy: 'default_false',
-  attach: { [ATTACH_D4]: { choiceId: 'reference', documentId: DOC_0521_REPLY } },
-  transform: 'departmentDefault',
-};
-
-/** 正確編號＋引用 0314 的窗口收件回條＋保留缺漏（各階段都不補值）。 */
-const SAVE_B: Choices = {
-  codes: {},
-  policy: 'request_review',
-  attach: { [ATTACH_D4]: { choiceId: 'reference', documentId: DOC_0314_WINDOW } },
-  transform: 'review',
-};
+const SAVE_A = M1_SAVE_A;
+const SAVE_B = M1_SAVE_B;
 
 /** 重建 injector（重新讀 localStorage）；提交流程不等演出節奏。 */
 function boot(): GameStateService {
@@ -65,53 +43,9 @@ function save(game: GameStateService): Save {
   return s;
 }
 
-/** 依選擇完成目前這一件工作並交付。 */
-function doTask(game: GameStateService, c: Choices): void {
-  const task = game.task();
-  switch (task?.kind) {
-    case 'archive':
-      archiveWith(game, c.codes, c.policy);
-      expect(game.completeWork()).withContext(task.id).toBeTrue();
-      return;
-    case 'attachment':
-      game.markTaskOpened();
-      expect(game.submitAttachmentStrict(c.attach[task.id] ?? { choiceId: 'reference', documentId: task.candidates[0]?.documentId }))
-        .withContext(task.id)
-        .toBe('ok');
-      expect(game.completeWork()).withContext(task.id).toBeTrue();
-      return;
-    case 'transform':
-      game.setTransformPolicy(c.transform);
-      expect(game.previewTransform()).withContext(task.id).toBeTrue();
-      expect(game.submitTransformStrict()).withContext(task.id).toBe('ok');
-      expect(game.completeWork()).withContext(task.id).toBeTrue();
-      return;
-    default:
-      expect(completeTask(game, c.policy)).withContext(game.taskId() ?? '').toBeTrue();
-  }
-}
-
-/** 完成今天的工作（停在 wrap／end）。 */
-function playDay(game: GameStateService, c: Choices): void {
-  for (let guard = 0; game.stage() === 'work'; guard++) {
-    if (guard > 20) throw new Error('playDay：工作數異常');
-    doTask(game, c);
-  }
-}
-
-/** 從新局玩到指定日的工作階段（或 end）。 */
-function playTo(game: GameStateService, dayId: string | 'end', c: Choices): void {
-  for (let guard = 0; game.dayId() !== dayId || game.stage() !== 'work'; guard++) {
-    if (guard > 20) throw new Error(`playTo：到不了 ${dayId}`);
-    if (game.stage() === 'work') playDay(game, c);
-    if (game.stage() === 'end') {
-      if (dayId === 'end') return;
-      throw new Error(`playTo：${dayId} 之前就結束了`);
-    }
-    if (game.stage() === 'wrap') game.advanceDay();
-    if (game.stage() === 'morning') game.startDay();
-  }
-}
+const doTask = doM1Task;
+const playDay = playM1Day;
+const playTo = playM1To;
 
 function newGame(): GameStateService {
   localStorage.clear();
@@ -270,7 +204,7 @@ describe('M1 工作日（整合）', () => {
     it('附件草稿、批次策略與預覽、已寄郵件與送達時機在重新載入後都相同，不重擲', () => {
       let game = newGame();
       playTo(game, 'day.04', SAVE_A);
-      while (game.task()?.kind !== 'attachment') doTask(game, SAVE_A);
+      playM1UntilKind(game, 'attachment', SAVE_A);
       game.markTaskOpened();
       game.setAttachmentDraft(ATTACH_D4, { choiceId: 'reference', documentId: DOC_0314_WINDOW });
       const mailbox = save(game).mailbox;
@@ -284,7 +218,7 @@ describe('M1 工作日（整合）', () => {
       expect(game.attachmentProgress(ATTACH_D4).draft).toBeUndefined();
       expect(game.completeWork()).toBeTrue();
 
-      while (game.task()?.kind !== 'transform') doTask(game, SAVE_A);
+      playM1UntilKind(game, 'transform', SAVE_A);
       game.setTransformPolicy('review');
       expect(game.previewTransform()).toBeTrue();
       game = boot();
@@ -334,7 +268,7 @@ describe('M1 工作日（整合）', () => {
       const count = (kind: string) => save(game).events.filter((e) => e.kind === kind).length;
 
       playTo(game, 'day.04', SAVE_A);
-      while (game.task()?.kind !== 'attachment') doTask(game, SAVE_A);
+      playM1UntilKind(game, 'attachment', SAVE_A);
       const input: AttachmentInput = { choiceId: 'reference', documentId: DOC_0314_WINDOW };
       const first = ops.submitAttachment(input, '0314');
       expect(await ops.submitAttachment(input, '0314')).toBeFalse();
@@ -344,7 +278,7 @@ describe('M1 工作日（整合）', () => {
       expect(game.attachmentProgress(ATTACH_D4).versions.length).toBe(1);
       expect(game.completeWork()).toBeTrue();
 
-      while (game.task()?.kind !== 'transform') doTask(game, SAVE_A);
+      playM1UntilKind(game, 'transform', SAVE_A);
       game.setTransformPolicy('departmentDefault');
       game.previewTransform();
       const t1 = ops.submitTransform();
@@ -355,7 +289,7 @@ describe('M1 工作日（整合）', () => {
       expect(game.completeWork()).toBeTrue();
 
       playTo(game, 'day.06', SAVE_A);
-      while (game.task()?.kind !== 'report') doTask(game, SAVE_A);
+      playM1UntilKind(game, 'report', SAVE_A);
       game.generateReport();
       const r1 = ops.submitReport();
       expect(await ops.submitReport()).toBeFalse();

@@ -5,7 +5,8 @@
 :host { display: block; container: work / inline-size; }
 .wv { display: grid; gap: 1rem; min-width: 0; }
 .wv-queue { display: grid; gap: .5rem; align-content: start; min-width: 0; }
-.wv-reset { justify-self: start; font-size: .8125rem; }
+.wv-tools { display: flex; flex-wrap: wrap; gap: .5rem; }
+.wv-tools button { font-size: .8125rem; }
 .wv-case { min-width: 0; }
 
 @container work (min-width: 720px) {

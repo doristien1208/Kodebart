@@ -1,5 +1,7 @@
 import { fieldMapTask } from '../../content/bundle';
+import { TransformPolicy } from '../../core/day-plan';
 import { MissingPolicy, RecordKey, Reply, ReviewDisposition, ValidationOk } from '../../core/types';
+import { AttachmentInput } from '../../core/workday';
 import { GameStateService } from '../../state/game-state.service';
 import { WorkOperationsService } from '../../state/work-operations.service';
 
@@ -173,5 +175,88 @@ export function playTo(
     if (!current) throw new Error('playTo：沒有存檔');
     finishDay(game, policyOf(current), decisionId);
     if (++guard > 20) throw new Error(`playTo：到不了 ${dayId}`);
+  }
+}
+
+/* ---------- M1：一份存檔一路的選擇（新增 helper） ---------- */
+
+/** 一份存檔一路的選擇：歸檔輸入（codes）與缺值處理、各附件工作的處理（省略＝引用第一份候選）、批次缺漏策略。 */
+export interface M1Choices {
+  codes: Readonly<Record<RecordKey, string>>;
+  policy: MissingPolicy;
+  attach: Readonly<Record<string, AttachmentInput>>;
+  transform: TransformPolicy;
+}
+
+/** 合法的錯編號（0314 打成 0341）＋錯附件（0314 引用 0521 的本人回覆）＋部門預設。 */
+export const M1_SAVE_A: M1Choices = {
+  codes: { B314: '0341' },
+  policy: 'default_false',
+  attach: { 'task.day4.m1-attachment': { choiceId: 'reference', documentId: 'doc.day4.m1-0521-reply' } },
+  transform: 'departmentDefault',
+};
+
+/** 正確編號＋引用 0314 的窗口收件回條＋保留缺漏（各階段都不補值）。 */
+export const M1_SAVE_B: M1Choices = {
+  codes: {},
+  policy: 'request_review',
+  attach: { 'task.day4.m1-attachment': { choiceId: 'reference', documentId: 'doc.day4.m1-0314-window' } },
+  transform: 'review',
+};
+
+/** 依選擇完成並交付目前這一件工作（交付失敗即丟例外，訊息含工作 ID）。 */
+export function doM1Task(game: GameStateService, c: M1Choices): void {
+  const task = game.task();
+  const fail = (step: string): never => {
+    throw new Error(`${task?.id ?? '（沒有工作）'}：${step}失敗`);
+  };
+  switch (task?.kind) {
+    case 'archive':
+      archiveWith(game, c.codes, c.policy);
+      if (!game.completeWork()) fail('交付');
+      return;
+    case 'attachment':
+      game.markTaskOpened();
+      if (game.submitAttachmentStrict(c.attach[task.id] ?? { choiceId: 'reference', documentId: task.candidates[0]?.documentId }) !== 'ok') fail('送件');
+      if (!game.completeWork()) fail('交付');
+      return;
+    case 'transform':
+      game.setTransformPolicy(c.transform);
+      if (!game.previewTransform()) fail('預覽');
+      if (game.submitTransformStrict() !== 'ok') fail('執行');
+      if (!game.completeWork()) fail('交付');
+      return;
+    default:
+      if (!completeTask(game, c.policy)) fail('交付');
+  }
+}
+
+/** 依選擇完成今天的工作（停在 wrap／end）。 */
+export function playM1Day(game: GameStateService, c: M1Choices): void {
+  for (let guard = 0; game.stage() === 'work'; guard++) {
+    if (guard > 20) throw new Error('playM1Day：工作數異常');
+    doM1Task(game, c);
+  }
+}
+
+/** 依選擇從目前進度玩到指定日的工作階段（剛開工、尚未交付任何工作）；'end' 玩到結束。 */
+export function playM1To(game: GameStateService, dayId: string, c: M1Choices): void {
+  for (let guard = 0; game.dayId() !== dayId || game.stage() !== 'work'; guard++) {
+    if (guard > 20) throw new Error(`playM1To：到不了 ${dayId}`);
+    if (game.stage() === 'work') playM1Day(game, c);
+    if (game.stage() === 'end') {
+      if (dayId === 'end') return;
+      throw new Error(`playM1To：${dayId} 之前就結束了`);
+    }
+    if (game.stage() === 'wrap') game.advanceDay();
+    if (game.stage() === 'morning') game.startDay();
+  }
+}
+
+/** 在目前這一天依選擇完成工作，直到目前工作是指定種類（不交付它）。 */
+export function playM1UntilKind(game: GameStateService, kind: string, c: M1Choices): void {
+  for (let guard = 0; game.task()?.kind !== kind; guard++) {
+    if (guard > 20 || game.stage() !== 'work') throw new Error(`playM1UntilKind：今天沒有 ${kind}`);
+    doM1Task(game, c);
   }
 }

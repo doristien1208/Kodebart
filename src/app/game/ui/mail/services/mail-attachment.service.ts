@@ -64,6 +64,15 @@ export class MailAttachmentService {
   });
   /** 目前這一局開啟過的附件引用。 */
   readonly openRefs = computed<readonly DocumentRef[]>(() => this.openWindows().map((o) => o.ref));
+  /** 目前沒有關閉的文件視窗（含最小化）的引用：工作視窗的「並排查閱」用。 */
+  readonly shownRefs = computed<readonly DocumentRef[]>(() =>
+    this.openWindows()
+      .filter((o) => {
+        const mode = this.windows.state(o.windowId)()?.mode;
+        return mode !== undefined && mode !== 'closed';
+      })
+      .map((o) => o.ref),
+  );
 
   /** 視窗標題（附件名）：註冊視窗時用；視窗元件掛上後以同一函式更新。 */
   titleOf(ref: DocumentRef): string {

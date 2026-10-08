@@ -14,6 +14,7 @@
       <button type="button" #settingsBtn (click)="openSettings()">{{ text.settings }}</button>
     </div>
     <p class="menu-help mt-3 text-[.8rem] text-muted">{{ saveHelp() }}</p>
+    <p class="cover-version mt-2 font-mono text-[.7rem] tracking-[.12em] text-muted">Prototype R12</p>
     @if (game.storageIssue(); as issue) {
       <p role="status" class="text-sm">{{ issue }}</p>
     }

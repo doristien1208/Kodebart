@@ -63,7 +63,10 @@ export class MailComponent {
   protected readonly views = computed<readonly MailView[] | null>(() => {
     this.reload();
     try {
-      return buildMailViews(this.game.mailbox(), this.game.returns(), (id) => this.game.isMailRead(id));
+      // M1 回條：附件名取文件視窗標題，表格與附件狀態取保存的批次輸出與附件版本
+      return buildMailViews(this.game.mailbox(), this.game.returns(), (id) => this.game.isMailRead(id), this.game.save(), (ref) =>
+        this.attachments.titleOf(ref),
+      );
     } catch {
       return null;
     }

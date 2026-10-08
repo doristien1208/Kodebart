@@ -10,7 +10,6 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { Router } from '@angular/router';
 import { ALL_DOCUMENTS, HELP_PACKS, caseReviewForRecord, caseSourceDocument, helpRequestOf } from '../../../content/bundle';
 import { recordLabel } from '../../../content/records';
 import { ArchiveTaskText } from '../../../content/schema';
@@ -18,7 +17,7 @@ import { ARCHIVE_UI, CASE_REVIEW_UI, archiveFooterPending, archiveProgress, deli
 import { MissingPolicy, RecordKey, ValidationOk } from '../../../core/types';
 import { VALIDATION_MESSAGES, isValidCodeString } from '../../../core/validate';
 import { GameStateService } from '../../../state/game-state.service';
-import { routeForStage } from '../../../state/stage-route';
+import { WorkDeliveryService } from '../../workbench/services/work-delivery.service';
 import { OperationView, WorkOperationsService } from '../../../state/work-operations.service';
 import { DesktopService } from '../../desktop/services/desktop.service';
 import { MessagesNavigationService } from '../../messages/services/messages-navigation.service';
@@ -66,8 +65,8 @@ function basisHeading(documentId: string): string {
 })
 export class ArchiveWorkComponent {
   protected readonly game = inject(GameStateService);
+  private readonly delivery = inject(WorkDeliveryService);
   private readonly ops = inject(WorkOperationsService);
-  private readonly router = inject(Router);
   private readonly desktop = inject(DesktopService);
   private readonly nav = inject(MessagesNavigationService);
 
@@ -339,9 +338,8 @@ export class ArchiveWorkComponent {
    * 當日還有工作時仍是 work（停在 /work，WorkView 換成下一件）；全部完成才到日結或結束。
    */
   protected onDeliver(): void {
-    if (!this.game.completeWork()) return;
-    const stage = this.game.stage();
-    void this.router.navigateByUrl(stage ? routeForStage(stage) : '/');
+    // M1：當日最後一件先打開「本日交接」，確認後才離開桌面（WorkDeliveryService）
+    this.delivery.deliver();
   }
 
   /**

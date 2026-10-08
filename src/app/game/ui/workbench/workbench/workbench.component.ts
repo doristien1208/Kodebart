@@ -31,8 +31,8 @@ type NavItem =
  *
  * - 上方應用列：品牌、工具列（開啟系統作業紀錄）與右上身分區（玩家姓名＋組別「資料作業組」；
  *   舊存檔沒有姓名時顯示「員工」）。
- * - 左側單組功能導航：工作、公告（切換本應用的視圖，WorkbenchViewService），
- *   通訊、郵件（開啟桌面上的對應應用＋未讀紅點；不在這裡嵌第二份頁面）。沒有返回開始頁（在桌面主選單）。
+ * - 左側單組功能導航：工作、公告（切換本應用的視圖，WorkbenchViewService）。M1 起通訊與郵件只從桌面入口與
+ *   視窗列開啟，這裡不再重複導航。沒有返回開始頁（在桌面主選單）。
  * - 內容區：標題、greeting、日期標籤＋目前工作（WorkViewComponent，切到公告時隱藏但不銷毀，
  *   本地狀態與案件文件視窗保留）或公告（NewsComponent）。只有內容區捲動。
  * - 視圖切換的淡入只在 SettingsService.animationsEnabled 時播放。
@@ -68,11 +68,12 @@ export class WorkbenchComponent {
   protected readonly unreadMail = this.game.unreadMailCount;
   protected readonly unreadMailLabel = computed(() => mailUnreadCount(this.unreadMail()));
 
+  /**
+   * M1：工作平台只保留工作與公司公告；通訊與郵件從桌面入口或底部視窗列開啟，不在這裡重複導航。
+   */
   protected readonly navItems: readonly NavItem[] = [
     { kind: 'view', view: 'work', label: WORKBENCH.nav.work },
     { kind: 'view', view: 'news', label: WORKBENCH.nav.news },
-    { kind: 'app', app: 'messages', label: WORKBENCH.nav.messages, windowId: 'app.messages' },
-    { kind: 'app', app: 'mail', label: WORKBENCH.nav.mail, windowId: 'app.mail' },
   ];
 
   /** 目前這一天的內容：greeting 與工作標題都從這裡讀，不再依日數查表。 */

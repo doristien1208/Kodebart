@@ -1,0 +1,8 @@
+/* 本日交接：交付清單 → 留待下一工作日 → 確認。只用專案 token。 */
+.ho { display: grid; gap: .75rem; }
+.ho-heading { margin: 0; font-size: 1.1rem; outline-offset: 2px; }
+.ho-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--color-border); }
+.ho-row { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; padding: .5rem 0; border-bottom: 1px solid var(--color-border); }
+.ho-sub { margin: 0; font-size: .875rem; font-weight: 400; color: var(--color-muted); }
+.ho-pending { margin: 0; padding-left: 1.25rem; font-size: .875rem; line-height: 1.6; }
+.ho-actions { display: flex; flex-wrap: wrap; gap: .5rem; }

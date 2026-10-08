@@ -1,1 +1,68 @@
-<p>attachment-work works!</p>
+@if (text(); as t) {
+  <div class="panel aw">
+    <header class="aw-head">
+      <div>
+        <span class="eyebrow">{{ t.eyebrow }}</span>
+        <h3>{{ t.heading }}</h3>
+      </div>
+    </header>
+    <p class="text-muted m-0">{{ t.instruction }}</p>
+
+    @if (subject(); as s) {
+      <section class="aw-subject" [attr.aria-label]="ui.currentCase" data-attachment-subject>
+        <h4 class="aw-sub">{{ ui.currentCase }}｜{{ s.label }}</h4>
+        <dl class="aw-fields">
+          <dt>{{ ui.source }}</dt>
+          <dd><span class="font-mono" data-subject-source>{{ s.sourceCode }}</span>　{{ s.sourceStatus }}</dd>
+          <dt>{{ ui.adopted }}</dt>
+          <dd><span class="font-mono" data-subject-adopted>{{ s.adoptedCode }}</span>　{{ s.adoptedStatus }}</dd>
+        </dl>
+        <div class="aw-tools">
+          <button type="button" data-open-snapshot (click)="open(s.ref)">{{ ui.openSnapshot }}</button>
+        </div>
+      </section>
+    }
+
+    @if (submitted(); as d) {
+      <section class="aw-done" data-attachment-done>
+        @if (d.stateText) {
+          <p class="aw-state" data-attachment-state>{{ d.stateText }}</p>
+        }
+        <dl class="aw-fields">
+          <dt>{{ methodLabel }}</dt>
+          <dd data-attachment-method>{{ d.method }}</dd>
+          @if (d.document) {
+            <dt>{{ ui.chooseAttachment }}</dt>
+            <dd data-attachment-document>{{ d.document }}</dd>
+          }
+          @if (d.evidence) {
+            <dt>{{ ui.referencedEvidence }}</dt>
+            <dd>{{ d.evidence }}</dd>
+          }
+        </dl>
+        <div class="aw-tools">
+          <button type="button" data-open-link (click)="open(d.ref)">{{ ui.openSnapshot }}</button>
+        </div>
+      </section>
+    } @else {
+      <app-attachment-form
+        [candidates]="candidates()"
+        [labels]="labels()"
+        [selected]="selected()"
+        [error]="error()"
+        [busy]="busy()"
+        [operation]="operation()"
+        (pick)="onPick($event)"
+        (open)="onOpenSource($event)"
+        (compare)="onCompare()"
+        (submit)="onSubmit($event)"
+        (retry)="onRetry()"
+      />
+    }
+  </div>
+
+  <div class="work-bar">
+    <p class="text-sm text-muted mb-0">{{ submitted() ? ui.statusSent : ui.statusTodo }}</p>
+    <button type="button" class="btn-primary ml-auto" data-deliver [disabled]="!game.taskDone() || busy()" (click)="onDeliver()">{{ deliverText() }}</button>
+  </div>
+}

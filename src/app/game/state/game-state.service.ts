@@ -124,6 +124,10 @@ import {
   transformCheckOf,
   transformProgressOf,
   generateReport,
+  checkTransform,
+  findTask,
+  transformMissingCount,
+  TransformOutput,
 } from '../core';
 import { createSeed } from '../platform/seed';
 import { DAY_DIRECTORY } from './day-directory';
@@ -610,6 +614,27 @@ export class GameStateService {
   transformCheck(taskId: string): TransformCheck | null {
     const s = this._save();
     return s ? transformCheckOf(s, this.dir, taskId) : null;
+  }
+
+  /**
+   * 批次的列（顯示用）：已交付＝快照；否則依目前策略即時建立（尚未選策略時以「保留缺漏」顯示，
+   * 只用來列出輸入與哪些列有缺漏，不代表已選）。
+   */
+  transformDisplay(taskId: string): TransformOutput | null {
+    const s = this._save();
+    const task = findTask(this.dir, taskId);
+    if (!s || task?.kind !== 'transform') return null;
+    const p = transformProgressOf(s, taskId);
+    if (p.submitted) return p.submitted;
+    const check = checkTransform(s, this.dir, task, p.policy ?? 'review');
+    return check.ok ? check.output : null;
+  }
+
+  /** 這批有沒有需要選策略的缺漏列。 */
+  transformMissing(taskId: string): number {
+    const s = this._save();
+    const task = findTask(this.dir, taskId);
+    return s && task?.kind === 'transform' ? transformMissingCount(s, this.dir, task) : 0;
   }
 
   setTransformPolicy(policy: TransformPolicy): void {

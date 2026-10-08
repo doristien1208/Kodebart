@@ -1,1 +1,81 @@
-<p>transform-work works!</p>
+@if (text(); as t) {
+  <div class="panel tw">
+    <div>
+      <span class="eyebrow">{{ t.eyebrow }}</span>
+      <h3 class="m-0">{{ t.heading }}</h3>
+    </div>
+    <p class="text-muted m-0">{{ t.instruction }}</p>
+
+    <section class="tw-section" [attr.aria-label]="ui.input" data-transform-input>
+      <h4 class="tw-sub">{{ ui.input }}</h4>
+      <div class="tw-scroll" tabindex="0">
+        <table class="tw-table">
+          <thead>
+            <tr>
+              <th scope="col">{{ ui.columns.code }}</th>
+              <th scope="col">{{ ui.source }}</th>
+              <th scope="col">{{ ui.columns.attachment }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of rows(); track r.id) {
+              <tr [attr.data-transform-row]="r.code" [class.tw-missing]="r.missing">
+                <td class="font-mono">{{ r.code }}</td>
+                <td>{{ r.source }}</td>
+                <td>{{ r.attachment }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    @if (submitted()) {
+      <p class="tw-done" data-transform-done>{{ ui.statusSent }}</p>
+    } @else {
+      <fieldset class="tw-policy" [disabled]="busy()" data-transform-policy>
+        <legend class="tw-sub">{{ ui.rule }}</legend>
+        @if (missing() > 0) {
+          <p class="text-sm text-muted mt-0">{{ ui.missingMeaning }}</p>
+        }
+        @for (p of policies; track p) {
+          <label class="tw-option">
+            <input type="radio" name="transform-policy" [value]="p" [checked]="progress().policy === p" (change)="onPolicy(p)" [attr.data-policy]="p" />
+            <span>{{ policyLabel(p) }}</span>
+          </label>
+        }
+      </fieldset>
+      @if (error()) {
+        <p class="field-error" role="alert" data-transform-error>{{ error() }}</p>
+      }
+    }
+
+    @if (counts(); as c) {
+      <dl class="tw-counts" data-transform-counts>
+        <div><dt>{{ ui.submissionCount }}</dt><dd class="font-mono">{{ c.delivered }}</dd></div>
+        <div><dt>{{ ui.replyCount }}</dt><dd class="font-mono">{{ c.reply }}</dd></div>
+        <div><dt>{{ ui.pendingCount }}</dt><dd class="font-mono">{{ c.pending }}</dd></div>
+      </dl>
+    }
+
+    <div class="tw-actions">
+      @if (!submitted()) {
+        <button type="button" data-transform-preview [disabled]="busy()" (click)="onPreview()">{{ ui.preview }}</button>
+      }
+      @if (progress().previewed || submitted()) {
+        <button type="button" class="btn-ghost" data-transform-open (click)="openPreview()">{{ submitted() ? ui.batchCopyLabel : ui.output }}</button>
+      }
+      @if (!submitted()) {
+        <button type="button" data-transform-execute [disabled]="busy() || !progress().previewed" (click)="onExecute()">{{ ui.execute }}</button>
+      }
+    </div>
+    @if (operation(); as op) {
+      <app-operation-status [operation]="op" (retry)="onRetry()" />
+    }
+  </div>
+
+  <div class="work-bar">
+    <p class="text-sm text-muted mb-0">{{ submitted() ? ui.statusSent : ui.statusTodo }}</p>
+    <button type="button" class="btn-primary ml-auto" data-deliver [disabled]="!game.taskDone() || busy()" (click)="onDeliver()">{{ deliverText() }}</button>
+  </div>
+}

@@ -1,1 +1,31 @@
-<p>work-queue works!</p>
+<h3 #heading tabindex="-1" class="wq-heading" data-step>{{ ui.workQueue }}</h3>
+<ol class="wq-list" [attr.aria-label]="listLabel">
+  @for (t of tasks(); track t.taskId) {
+    <li class="wq-cell">
+      <button
+        type="button"
+        class="wq-item"
+        [class.wq-active]="t.status === 'active'"
+        [class.wq-locked]="t.locked"
+        [disabled]="!t.selectable"
+        [attr.aria-current]="t.status === 'active' ? 'step' : null"
+        [attr.data-task-status]="t.status"
+        [attr.data-queue-task]="t.taskId"
+        [attr.data-queue-locked]="t.locked ? '' : null"
+        (click)="select.emit(t.taskId)"
+      >
+        <span class="wq-top">
+          <span class="wq-kind" data-queue-kind>{{ kindLabel(t.kind) }}</span>
+          <span class="wq-status" data-queue-status>{{ statusLabel(t) }}</span>
+        </span>
+        <span class="wq-name">{{ t.heading }}</span>
+        @if (t.total > 0) {
+          <span class="wq-amount font-mono" data-queue-amount>{{ t.processed }} / {{ t.total }} {{ unit(t.kind) }}</span>
+        }
+        @if (t.locked && t.waitingFor.length > 0) {
+          <span class="wq-wait" data-queue-waiting>{{ t.waitingFor.join('、') }}</span>
+        }
+      </button>
+    </li>
+  }
+</ol>

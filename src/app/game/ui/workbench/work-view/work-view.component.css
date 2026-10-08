@@ -1,0 +1,14 @@
+/*
+ * 工作視圖：佇列＋目前文件。以工作平台視窗本身的寬度（container query）決定並排或上下排，
+ * 不依瀏覽器寬度：視窗被縮小時也照樣可用。
+ */
+:host { display: block; container: work / inline-size; }
+.wv { display: grid; gap: 1rem; min-width: 0; }
+.wv-queue { display: grid; gap: .5rem; align-content: start; min-width: 0; }
+.wv-reset { justify-self: start; font-size: .8125rem; }
+.wv-case { min-width: 0; }
+
+@container work (min-width: 720px) {
+  .wv { grid-template-columns: 13.5rem minmax(0, 1fr); align-items: start; }
+  .wv-queue { position: sticky; top: 0; }
+}

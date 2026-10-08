@@ -1,15 +1,35 @@
-<app-task-stepper [tasks]="game.dayTasks()" />
-@switch (game.task()?.kind) {
-  @case ('archive') {
-    <app-archive-work />
-  }
-  @case ('reconcile') {
-    <app-day2-reconcile />
-  }
-  @case ('field-map') {
-    <app-field-mapping />
-  }
-  @case ('return-review') {
-    <app-return-review />
-  }
-}
+<div class="wv">
+  <aside class="wv-queue">
+    <app-work-queue [tasks]="game.dayTasks()" (select)="onSelect($event)" />
+    <button type="button" class="btn-ghost wv-reset" data-reset-windows (click)="resetWindows()">{{ ui.resetWindows }}</button>
+  </aside>
+  <section class="wv-case" [attr.aria-label]="ui.currentCase" data-current-case>
+    @if (handoff(); as h) {
+      <app-handoff-panel [view]="h" (confirm)="onConfirmHandoff()" (cancel)="onCancelHandoff()" />
+    } @else {
+      @switch (game.task()?.kind) {
+        @case ('archive') {
+          <app-archive-work />
+        }
+        @case ('reconcile') {
+          <app-day2-reconcile />
+        }
+        @case ('field-map') {
+          <app-field-mapping />
+        }
+        @case ('return-review') {
+          <app-return-review />
+        }
+        @case ('attachment') {
+          <app-attachment-work />
+        }
+        @case ('transform') {
+          <app-transform-work />
+        }
+        @case ('report') {
+          <app-report-work />
+        }
+      }
+    }
+  </section>
+</div>

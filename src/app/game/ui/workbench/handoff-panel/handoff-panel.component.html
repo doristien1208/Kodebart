@@ -1,1 +1,23 @@
-<p>handoff-panel works!</p>
+<section class="panel ho" aria-labelledby="handoff-heading" data-handoff-panel>
+  <h3 #heading id="handoff-heading" tabindex="-1" class="ho-heading">{{ ui.handoff }}</h3>
+  <ol class="ho-list" data-handoff-delivered>
+    @for (r of view().delivered; track r.taskId) {
+      <li class="ho-row" data-handoff-item>
+        <span class="min-w-0 [overflow-wrap:anywhere]">{{ r.heading }}</span>
+        <span class="text-sm text-muted whitespace-nowrap">{{ r.summary }}</span>
+      </li>
+    }
+  </ol>
+  @if (view().pending.length > 0) {
+    <h4 class="ho-sub">{{ ui.pendingHandoff }}</h4>
+    <ul class="ho-pending" data-handoff-pending>
+      @for (p of view().pending; track $index) {
+        <li>{{ p }}</li>
+      }
+    </ul>
+  }
+  <div class="ho-actions">
+    <button type="button" class="btn-primary" data-handoff-confirm (click)="confirm.emit()">{{ ui.signOff }}</button>
+    <button type="button" class="btn-ghost" data-handoff-cancel (click)="cancel.emit()">{{ back }}</button>
+  </div>
+</section>

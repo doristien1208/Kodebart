@@ -1,1 +1,64 @@
-<p>report-work works!</p>
+@if (text(); as t) {
+  <div class="panel rw">
+    <div>
+      <span class="eyebrow">{{ t.eyebrow }}</span>
+      <h3 class="m-0">{{ t.heading }}</h3>
+    </div>
+    <p class="text-muted m-0">{{ t.instruction }}</p>
+
+    @if (previous().length > 0) {
+      <div class="rw-tools" data-report-previous>
+        @for (p of previous(); track p.id) {
+          <button type="button" (click)="open(p.ref)">{{ p.label }}</button>
+        }
+      </div>
+    }
+
+    @if (report(); as r) {
+      <dl class="rw-counts" data-report-counts>
+        <div><dt>{{ ui.submissionCount }}</dt><dd class="font-mono" data-report-count="submission">{{ r.submissionCount }}</dd></div>
+        <div><dt>{{ ui.replyCount }}</dt><dd class="font-mono" data-report-count="reply">{{ r.replyCount }}</dd></div>
+        <div><dt>{{ ui.receiptCount }}</dt><dd class="font-mono" data-report-count="receipt">{{ r.receiptCount }}</dd></div>
+        <div><dt>{{ ui.pendingCount }}</dt><dd class="font-mono" data-report-count="pending">{{ r.pendingCount }}</dd></div>
+      </dl>
+      <div class="rw-scroll" tabindex="0">
+        <table class="rw-table" data-report-table>
+          <thead>
+            <tr>
+              <th scope="col">{{ ui.columns.code }}</th>
+              <th scope="col">{{ ui.columns.value }}</th>
+              <th scope="col">{{ ui.columns.origin }}</th>
+              <th scope="col">{{ ui.columns.status }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.id) {
+              <tr [class.rw-pending]="row.pending" [attr.data-report-row]="row.code">
+                <td class="font-mono">{{ row.code }}</td>
+                <td>{{ row.value }}</td>
+                <td>{{ row.evidence }}</td>
+                <td>{{ row.status }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    <div class="rw-tools">
+      @if (!generated()) {
+        <button type="button" data-report-generate (click)="onGenerate()">{{ ui.generateReport }}</button>
+      } @else if (!done()) {
+        <button type="button" data-report-execute [disabled]="busy()" (click)="onExecute()">{{ ui.execute }}</button>
+      }
+    </div>
+    @if (operation(); as op) {
+      <app-operation-status [operation]="op" (retry)="onRetry()" />
+    }
+  </div>
+
+  <div class="work-bar">
+    <p class="text-sm text-muted mb-0">{{ done() ? ui.statusSent : ui.statusTodo }}</p>
+    <button type="button" class="btn-primary ml-auto" data-deliver [disabled]="!done() || busy()" (click)="onDeliver()">{{ deliverText() }}</button>
+  </div>
+}

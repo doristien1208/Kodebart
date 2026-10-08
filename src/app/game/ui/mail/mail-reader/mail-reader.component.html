@@ -27,6 +27,29 @@
         }
       </div>
 
+      @if (m.table; as table) {
+        <div class="mail-table-scroll" tabindex="0" data-mail-table>
+          <table class="mail-table">
+            <thead>
+              <tr>
+                @for (c of table.columns; track $index) {
+                  <th scope="col">{{ c }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of table.rows; track $index) {
+                <tr data-mail-table-row>
+                  @for (cell of row; track $index) {
+                    <td>{{ cell }}</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
       @if (m.attachments.length > 0) {
         <section class="mail-attachments" [attr.aria-labelledby]="attachmentsId" data-mail-attachments>
           <h4 class="mail-attachments-title" [id]="attachmentsId">{{ t.attachments }}</h4>
@@ -35,7 +58,9 @@
               <li class="mail-attachment" [attr.data-attachment-state]="a.state">
                 <div class="min-w-0">
                   <p class="mail-attachment-label" [id]="attachmentsId + '-' + $index" data-attachment-label>{{ a.label }}</p>
-                  <p class="mail-attachment-state" data-attachment-state-text>{{ a.stateText }}</p>
+                  @if (a.stateText) {
+                    <p class="mail-attachment-state" data-attachment-state-text>{{ a.stateText }}</p>
+                  }
                 </div>
                 @if (a.state !== 'missing') {
                   <button

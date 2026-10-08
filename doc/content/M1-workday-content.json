@@ -1,0 +1,1276 @@
+{
+  "id": "content.m1-workday",
+  "status": "Codex 依 Human 2026-10-08 創作委任選定之 M1 內容；尚未實作／試玩／驗收",
+  "format": "交接 manifest，不是可整份塞進 DayContent 的 JSON。messages/replyPrompt 與 document 使用現有格式；其餘為需工程接線的內容規格。",
+  "sourceHead": "c44260cb8432aaa22b4d6911ac255aa3e41fc4a2",
+  "priorGameHead": "0962c3ebba757e6950f4c05b855206f575a8a69e",
+  "integration": {
+    "rules": [
+      "replaceMessages 依 id 替換該日原訊息；保留原 unlock、選項 ID、回應 ID 及跨日引用，不能刪其他訊息。",
+      "addMessages 加入各日 messages。新增一次性 prompt 不重開舊選項。舊存檔除既有 help 白名單外仍保留歷史快照。",
+      "documents[].document 是現有 case-source 格式，加入 documents 所屬日；相關任務須引用對應 recordIds/documentIds。",
+      "taskBriefs/mailOutcomes/interludes/ui 的 manifest 結構不是既有 runtime schema。請以專案慣例分流至正式 JSON 並補型別／驗證；字句原樣採用，不要求 Codex 再寫一次。",
+      "新增訊息按以下 deliveryGates 的工作時點開放，不在早晨把整天對話一次倒完。進度條件須保存／推導，不拿文字時間當真實送達時計。"
+    ],
+    "deliveryGates": [
+      {
+        "messageIds": [
+          "msg.day3.m1-find-version"
+        ],
+        "after": "Day 3 已開啟黃品蓉版本案件；可詢問，不強制"
+      },
+      {
+        "messageIds": [
+          "msg.day3.m1-printer",
+          "msg.day3.m1-printer-wu"
+        ],
+        "after": "Day 3 至少提交三筆歸檔"
+      },
+      {
+        "messageIds": [
+          "msg.day4.m1-window-receipt"
+        ],
+        "after": "Day 4 開啟 0314 附件工作"
+      },
+      {
+        "messageIds": [
+          "msg.day4.m1-desk-fan"
+        ],
+        "after": "Day 4 至少提交兩筆普通歸檔"
+      },
+      {
+        "messageIds": [
+          "msg.day5.m1-coffee"
+        ],
+        "after": "Day 5 至少提交兩筆普通歸檔"
+      },
+      {
+        "messageIds": [
+          "msg.day5.m1-default-question"
+        ],
+        "after": "Day 5 首次開啟批次預覽"
+      },
+      {
+        "messageIds": [
+          "msg.day6.m1-handoff-meaning"
+        ],
+        "after": "Day 6 已生成交接報告；回答不阻止收班"
+      }
+    ]
+  },
+  "ui": {
+    "workQueue": "工作佇列",
+    "currentCase": "目前文件",
+    "source": "來源資料",
+    "adopted": "採用資料",
+    "generated": "批次輸出",
+    "sourceVersion": "來源版本",
+    "compare": "並排查閱",
+    "resetWindows": "還原視窗位置",
+    "openSource": "開啟來源",
+    "openSnapshot": "開啟送件副本",
+    "chooseAttachment": "選擇引用附件",
+    "preserveMissing": "保留缺漏並送覆核",
+    "referenceAndSend": "引用附件並送件",
+    "referencedEvidence": "這份附件能證明什麼？",
+    "attachmentMissing": "目前沒有可引用的附件，可保留缺漏送覆核。",
+    "pendingDependency": "等待前一批交付",
+    "preview": "建立批次預覽",
+    "execute": "執行並交付",
+    "input": "原始輸入",
+    "rule": "處理規則",
+    "output": "預覽輸出",
+    "missingMeaning": "來源沒有回覆紀錄。套用預設會寫入部門預設值；保留缺漏則等待補件。兩者都不補造當事人的回覆。",
+    "submissionCount": "送件筆數",
+    "replyCount": "已附本人回覆",
+    "pendingCount": "待補項目",
+    "signOff": "完成本日交接",
+    "tomorrow": "交接至下個工作日",
+    "handoff": "本日交接",
+    "pendingHandoff": "留待下一工作日",
+    "logValidate": "驗證處理設定",
+    "logTransform": "建立批次輸出",
+    "logPersist": "保存送件副本",
+    "logEnqueue": "加入後續佇列",
+    "logFailure": "本次未完成保存，請保留草稿後重試。"
+  },
+  "dayOverlays": [
+    {
+      "dayId": "day.03",
+      "replaceMessages": [
+        {
+          "id": "msg.day3.dept-large-batch",
+          "channelId": "channel.department.data-ops",
+          "actorId": "actor.lin-yuan",
+          "time": "08:19",
+          "visibleFrom": "day.03",
+          "unlock": [],
+          "lines": [
+            "早，舊檔跟補件都到了。原表別刪，下午交接還會用。"
+          ]
+        },
+        {
+          "id": "msg.day3.dm-drafts",
+          "channelId": "channel.dm.lin-yuan",
+          "actorId": "actor.lin-yuan",
+          "time": "08:24",
+          "visibleFrom": "day.03",
+          "unlock": [],
+          "lines": [
+            "黃品蓉那筆有兩個版本。我先去回電話，你把自己用哪一份留在送件紀錄裡，免得窗口回問找不到。"
+          ]
+        },
+        {
+          "id": "msg.day3.lunch-ask-player",
+          "channelId": "channel.group.lunch-chat",
+          "actorId": "actor.wu-wan-ting",
+          "time": "11:45",
+          "visibleFrom": "day.03",
+          "unlock": [],
+          "unlockAfter": {
+            "archiveBatchId": "batch.day03.archive",
+            "archivedCount": 2
+          },
+          "lines": [
+            "你中午要不要一起訂？我差一份免運。"
+          ],
+          "replyPrompt": {
+            "id": "prompt.day3.lunch-plan",
+            "availableThrough": "day.03",
+            "choices": [
+              {
+                "id": "join",
+                "text": "都可以，我跟你們一起。",
+                "responses": [
+                  {
+                    "id": "msg.day3.reply.join-wu",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "11:46",
+                    "lines": [
+                      "好，我先幫你點不辣的。不要香菜的現在說。"
+                    ]
+                  },
+                  {
+                    "id": "msg.day3.reply.join-yang",
+                    "actorId": "actor.yang-zi-qian",
+                    "time": "11:47",
+                    "lines": [
+                      "我的不要。婉庭，上次妳說有記住。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "ask-floor",
+                "text": "七樓為什麼不收外送？",
+                "responses": [
+                  {
+                    "id": "msg.day3.reply.floor-yang",
+                    "actorId": "actor.yang-zi-qian",
+                    "time": "11:46",
+                    "lines": [
+                      "警衛說今天那邊在清點，先放一樓。"
+                    ]
+                  },
+                  {
+                    "id": "msg.day3.reply.floor-wu",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "11:47",
+                    "lines": [
+                      "那我先下去拿。再放下去湯都涼了。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "brought-own",
+                "text": "我自己帶了。",
+                "responses": [
+                  {
+                    "id": "msg.day3.reply.own-wu",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "11:46",
+                    "lines": [
+                      "好。下次要訂再跟我說，我每天都在湊免運。"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "addMessages": [
+        {
+          "id": "msg.day3.m1-find-version",
+          "channelId": "channel.dm.lin-yuan",
+          "actorId": "actor.lin-yuan",
+          "time": "10:12",
+          "visibleFrom": "day.03",
+          "unlock": [],
+          "lines": [
+            "送之前還有哪裡不清楚？"
+          ],
+          "replyPrompt": {
+            "id": "prompt.day3.m1-find-version",
+            "availableThrough": "day.03",
+            "choices": [
+              {
+                "id": "ask-receipt",
+                "text": "補件已收件，是指編號確認好了嗎？",
+                "responses": [
+                  {
+                    "id": "msg.day3.m1-reply-find-version-ask-receipt",
+                    "actorId": "actor.lin-yuan",
+                    "time": "10:13",
+                    "lines": [
+                      "不是，收件只表示窗口拿到補件。編號還得等他們回。你可以先選一份送，也可以留待查，依據要能找回來。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "know-location",
+                "text": "我先把兩份留著，有回覆再看。",
+                "responses": [
+                  {
+                    "id": "msg.day3.m1-reply-find-version-know-location",
+                    "actorId": "actor.lin-yuan",
+                    "time": "10:13",
+                    "lines": [
+                      "好，別只存最後一份。我上次就是找不到舊版，重問了半天。"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "msg.day3.m1-printer",
+          "channelId": "channel.group.lunch-chat",
+          "actorId": "actor.yang-zi-qian",
+          "time": "14:18",
+          "visibleFrom": "day.03",
+          "unlock": [],
+          "lines": [
+            "印表機又把我那張吃掉了。有人看到嗎？"
+          ]
+        },
+        {
+          "id": "msg.day3.m1-printer-wu",
+          "channelId": "channel.group.lunch-chat",
+          "actorId": "actor.wu-wan-ting",
+          "time": "14:19",
+          "visibleFrom": "day.03",
+          "unlock": [],
+          "lines": [
+            "旁邊那疊是不是你的？我怕拿錯，沒動。"
+          ]
+        }
+      ]
+    },
+    {
+      "dayId": "day.04",
+      "replaceMessages": [
+        {
+          "id": "msg.day4.dm-lunch-floor",
+          "channelId": "channel.dm.wu-wan-ting",
+          "actorId": "actor.wu-wan-ting",
+          "time": "09:07",
+          "visibleFrom": "day.04",
+          "unlock": [
+            "cond.chat.day3.lunch-plan.ask-floor"
+          ],
+          "lines": [
+            "七樓今天可以送上去了。昨天那袋我拿到時，醬汁已經漏一半。"
+          ]
+        },
+        {
+          "id": "msg.day4.green-number",
+          "channelId": "channel.group.lunch-chat",
+          "actorId": "actor.yang-zi-qian",
+          "time": "10:52",
+          "visibleFrom": "day.04",
+          "unlock": [
+            "cond.review.none.batch.day03.archive"
+          ],
+          "lines": [
+            "不過我昨天留的那幾筆待補還沒回。有人接到窗口電話嗎？"
+          ],
+          "replyPrompt": {
+            "id": "prompt.day4.quick-close",
+            "availableThrough": "day.04",
+            "choices": [
+              {
+                "id": "is-praise",
+                "text": "這算稱讚嗎？",
+                "responses": [
+                  {
+                    "id": "msg.day4.reply.praise-wu",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "10:53",
+                    "lines": [
+                      "算吧，至少沒叫我們留下來。我只希望今天別又補一批。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "ask-where",
+                "text": "那些資料後來去哪裡？",
+                "responses": [
+                  {
+                    "id": "msg.day4.reply.where-yang",
+                    "actorId": "actor.yang-zi-qian",
+                    "time": "10:53",
+                    "lines": [
+                      "送到窗口了。你要看回條的話，郵件裡應該有。"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "msg.day4.review-name",
+          "channelId": "channel.group.lunch-chat",
+          "actorId": "actor.yang-zi-qian",
+          "time": "10:52",
+          "visibleFrom": "day.04",
+          "unlock": [
+            "cond.review.any.batch.day03.archive"
+          ],
+          "lines": [
+            "我這邊也有兩筆。他們說要再找承辦拿附件。"
+          ]
+        },
+        {
+          "id": "msg.day4.review-mood",
+          "channelId": "channel.group.lunch-chat",
+          "actorId": "actor.wu-wan-ting",
+          "time": "10:53",
+          "visibleFrom": "day.04",
+          "unlock": [
+            "cond.review.any.batch.day03.archive"
+          ],
+          "lines": [
+            "所以今天先留著？我怕下午又要全部重送。"
+          ],
+          "replyPrompt": {
+            "id": "prompt.day4.review-returned",
+            "availableThrough": "day.04",
+            "choices": [
+              {
+                "id": "ask-useful",
+                "text": "那送覆核有用嗎？",
+                "responses": [
+                  {
+                    "id": "msg.day4.reply.useful-yang",
+                    "actorId": "actor.yang-zi-qian",
+                    "time": "10:54",
+                    "lines": [
+                      "至少空白還在，不會跟有回覆的那批混在一起。"
+                    ]
+                  },
+                  {
+                    "id": "msg.day4.reply.useful-lin",
+                    "actorId": "actor.lin-yuan",
+                    "time": "10:55",
+                    "lines": [
+                      "先留著。窗口還沒補回來，我也沒辦法替他們填。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "follow-rules",
+                "text": "我今天還是照規則做。",
+                "responses": [
+                  {
+                    "id": "msg.day4.reply.rules-lin",
+                    "actorId": "actor.lin-yuan",
+                    "time": "10:54",
+                    "lines": [
+                      "可以。沒回來的就留待補，交接時寫清楚是哪幾筆。"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "addMessages": [
+        {
+          "id": "msg.day4.m1-desk-fan",
+          "channelId": "channel.group.lunch-chat",
+          "actorId": "actor.wu-wan-ting",
+          "time": "11:51",
+          "visibleFrom": "day.04",
+          "unlock": [],
+          "lines": [
+            "你那邊會不會冷？我外套今天忘了帶。"
+          ],
+          "replyPrompt": {
+            "id": "prompt.day4.m1-desk-fan",
+            "availableThrough": "day.04",
+            "choices": [
+              {
+                "id": "cold",
+                "text": "有一點，風口剛好對著我。",
+                "responses": [
+                  {
+                    "id": "msg.day4.m1-reply-desk-fan-cold",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "11:52",
+                    "lines": [
+                      "那我不是錯覺。我等等去借個披肩，你要不要一起問？"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "fine",
+                "text": "我還好，妳要換個位置嗎？",
+                "responses": [
+                  {
+                    "id": "msg.day4.m1-reply-desk-fan-fine",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "11:52",
+                    "lines": [
+                      "先不用，插座都接好了。我去倒杯熱水。"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "msg.day4.m1-window-receipt",
+          "channelId": "channel.dm.lin-yuan",
+          "actorId": "actor.lin-yuan",
+          "time": "10:26",
+          "visibleFrom": "day.04",
+          "unlock": [],
+          "lines": [
+            "0314 的附件有兩種。窗口收件回條跟本人回覆不是同一份，你先看收件對象，別把旁邊那筆附上去。"
+          ],
+          "replyPrompt": {
+            "id": "prompt.day4.m1-window-receipt",
+            "availableThrough": "day.04",
+            "choices": [
+              {
+                "id": "ask-missing",
+                "text": "目前沒有本人的回覆，還能先送嗎？",
+                "responses": [
+                  {
+                    "id": "msg.day4.m1-reply-window-receipt-ask-missing",
+                    "actorId": "actor.lin-yuan",
+                    "time": "10:27",
+                    "lines": [
+                      "部門流程可以先送。你選預設會繼續往下走，留缺漏就等補件。兩邊都要留來源，回條不會替本人回答。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "check-first",
+                "text": "我先把附件看完。",
+                "responses": [
+                  {
+                    "id": "msg.day4.m1-reply-window-receipt-check-first",
+                    "actorId": "actor.lin-yuan",
+                    "time": "10:27",
+                    "lines": [
+                      "好，編號和日期都看一下。我先去開會。"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "dayId": "day.05",
+      "replaceMessages": [
+        {
+          "id": "msg.day5.box-is-box",
+          "channelId": "channel.group.lunch-chat",
+          "actorId": "actor.wu-wan-ting",
+          "time": "12:07",
+          "visibleFrom": "day.05",
+          "unlock": [],
+          "lines": [
+            "我知道回條到了。我剛剛找過，箱子沒放在那裡。"
+          ],
+          "replyPrompt": {
+            "id": "prompt.day5.missing-box",
+            "availableThrough": "day.05",
+            "choices": [
+              {
+                "id": "ask-signer",
+                "text": "簽收人是誰？",
+                "responses": [
+                  {
+                    "id": "msg.day5.reply.signer-yang",
+                    "actorId": "actor.yang-zi-qian",
+                    "time": "12:08",
+                    "lines": [
+                      "回條上只有窗口帳號，沒寫搬去哪裡。我把附件傳給你看。"
+                    ]
+                  },
+                  {
+                    "id": "msg.day5.reply.signer-wu",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "12:09",
+                    "lines": [
+                      "我再問一下值班的。不然下午換人又得重講。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "wait-slip",
+                "text": "先等移交單回來。",
+                "responses": [
+                  {
+                    "id": "msg.day5.reply.wait-wu",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "12:08",
+                    "lines": [
+                      "好，電話我先留著。"
+                    ]
+                  },
+                  {
+                    "id": "msg.day5.reply.wait-yang",
+                    "actorId": "actor.yang-zi-qian",
+                    "time": "12:09",
+                    "lines": [
+                      "有單再跟我說，我去接。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "ask-upstairs",
+                "text": "要不要直接問樓上？",
+                "responses": [
+                  {
+                    "id": "msg.day5.reply.upstairs-wu",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "12:08",
+                    "lines": [
+                      "剛打過。他們說還在等一樓送上去。"
+                    ]
+                  },
+                  {
+                    "id": "msg.day5.reply.upstairs-yang",
+                    "actorId": "actor.yang-zi-qian",
+                    "time": "12:09",
+                    "lines": [
+                      "那我問一樓看看，你先忙。"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "addMessages": [
+        {
+          "id": "msg.day5.m1-coffee",
+          "channelId": "channel.group.lunch-chat",
+          "actorId": "actor.yang-zi-qian",
+          "time": "11:36",
+          "visibleFrom": "day.05",
+          "unlock": [],
+          "lines": [
+            "樓下那台咖啡機修好了。今天終於不是溫水。"
+          ],
+          "replyPrompt": {
+            "id": "prompt.day5.m1-coffee",
+            "availableThrough": "day.05",
+            "choices": [
+              {
+                "id": "join",
+                "text": "等我這批送完一起下去。",
+                "responses": [
+                  {
+                    "id": "msg.day5.m1-reply-coffee-join",
+                    "actorId": "actor.yang-zi-qian",
+                    "time": "11:37",
+                    "lines": [
+                      "好，我先找杯子。你別又拿到沒洗的那個。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "later",
+                "text": "我晚點，現在還有退件。",
+                "responses": [
+                  {
+                    "id": "msg.day5.m1-reply-coffee-later",
+                    "actorId": "actor.yang-zi-qian",
+                    "time": "11:37",
+                    "lines": [
+                      "那我幫你留個杯子，回來叫你。"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "msg.day5.m1-paper-notice",
+          "channelId": "channel.department.data-ops",
+          "actorId": "actor.lin-yuan",
+          "time": "09:16",
+          "visibleFrom": "day.05",
+          "unlock": [],
+          "lines": [
+            "紙本交接的電子回條到了，實物位置還在補。請把引用的是回條還是移交單寫清楚。"
+          ]
+        },
+        {
+          "id": "msg.day5.m1-default-question",
+          "channelId": "channel.dm.lin-yuan",
+          "actorId": "actor.lin-yuan",
+          "time": "15:12",
+          "visibleFrom": "day.05",
+          "unlock": [],
+          "lines": [
+            "批次預覽那邊記得看一下變更列，不只有欄位名稱。"
+          ],
+          "replyPrompt": {
+            "id": "prompt.day5.m1-default-question",
+            "availableThrough": "day.05",
+            "choices": [
+              {
+                "id": "ask-default",
+                "text": "補預設之後，原本空白還看得到嗎？",
+                "responses": [
+                  {
+                    "id": "msg.day5.m1-reply-default-question-ask-default",
+                    "actorId": "actor.lin-yuan",
+                    "time": "15:13",
+                    "lines": [
+                      "原始附件還在，但下一段看到的是你的輸出。想查空白是從哪來，要開這批的來源紀錄。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "review-scope",
+                "text": "我再看一次這次套用哪些列。",
+                "responses": [
+                  {
+                    "id": "msg.day5.m1-reply-default-question-review-scope",
+                    "actorId": "actor.lin-yuan",
+                    "time": "15:13",
+                    "lines": [
+                      "嗯，別把上次的範圍也帶進去。我這邊剛收到一封問這件事的信。"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "dayId": "day.06",
+      "replaceMessages": [
+        {
+          "id": "msg.day6.box-system",
+          "channelId": "channel.group.lunch-chat",
+          "actorId": "actor.yang-zi-qian",
+          "time": "11:58",
+          "visibleFrom": "day.06",
+          "unlock": [],
+          "lines": [
+            "還沒找到。昨天收到的是電子回條，不是那張紙本移交單。"
+          ],
+          "replyPrompt": {
+            "id": "prompt.day6.closed-box",
+            "availableThrough": "day.06",
+            "choices": [
+              {
+                "id": "not-found",
+                "text": "那不算找到吧。",
+                "responses": [
+                  {
+                    "id": "msg.day6.reply.not-found-yang",
+                    "actorId": "actor.yang-zi-qian",
+                    "time": "11:59",
+                    "lines": [
+                      "嗯，我把待補那欄留著。下午再問一次。"
+                    ]
+                  },
+                  {
+                    "id": "msg.day6.reply.not-found-wu",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "12:00",
+                    "lines": [
+                      "問到放哪裡就好，別又只給我一張回條。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "no-more-calls",
+                "text": "至少不會再有人來問。",
+                "responses": [
+                  {
+                    "id": "msg.day6.reply.calls-wu",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "11:59",
+                    "lines": [
+                      "早上已經有人問了，我還是得找。"
+                    ]
+                  },
+                  {
+                    "id": "msg.day6.reply.calls-yang",
+                    "actorId": "actor.yang-zi-qian",
+                    "time": "12:00",
+                    "lines": [
+                      "我跟窗口說一聲，先別把這件結掉。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "ask-closer",
+                "text": "誰把單關掉的？",
+                "responses": [
+                  {
+                    "id": "msg.day6.reply.closer-yang",
+                    "actorId": "actor.yang-zi-qian",
+                    "time": "11:59",
+                    "lines": [
+                      "回條是窗口帳號發的。我還在問誰接到箱子。"
+                    ]
+                  },
+                  {
+                    "id": "msg.day6.reply.closer-wu",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "12:00",
+                    "lines": [
+                      "要是問到，你幫我留名字。我不想下週再找一次。"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "addMessages": [
+        {
+          "id": "msg.day6.m1-week-start",
+          "channelId": "channel.group.lunch-chat",
+          "actorId": "actor.wu-wan-ting",
+          "time": "08:41",
+          "visibleFrom": "day.06",
+          "unlock": [],
+          "lines": [
+            "我週末把外套放門口，今天還是忘了帶。"
+          ],
+          "replyPrompt": {
+            "id": "prompt.day6.m1-week-start",
+            "availableThrough": "day.06",
+            "choices": [
+              {
+                "id": "remind",
+                "text": "明天出門前先拿外套，再拿手機。",
+                "responses": [
+                  {
+                    "id": "msg.day6.m1-reply-week-start-remind",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "08:42",
+                    "lines": [
+                      "聽起來很簡單。明天再跟你報告我有沒有做到。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "spare",
+                "text": "我有一件放椅背，要先借妳嗎？",
+                "responses": [
+                  {
+                    "id": "msg.day6.m1-reply-week-start-spare",
+                    "actorId": "actor.wu-wan-ting",
+                    "time": "08:42",
+                    "lines": [
+                      "可以嗎？救急一下，我下午還你。"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "msg.day6.m1-handoff-meaning",
+          "channelId": "channel.dm.lin-yuan",
+          "actorId": "actor.lin-yuan",
+          "time": "15:08",
+          "visibleFrom": "day.06",
+          "unlock": [],
+          "lines": [
+            "你今天的交接報告有把待補分開嗎？窗口下午會拿那份用。"
+          ],
+          "replyPrompt": {
+            "id": "prompt.day6.m1-handoff-meaning",
+            "availableThrough": "day.06",
+            "choices": [
+              {
+                "id": "ask-count",
+                "text": "報表上完成的筆數，是送件還是本人回覆？",
+                "responses": [
+                  {
+                    "id": "msg.day6.m1-reply-handoff-meaning-ask-count",
+                    "actorId": "actor.lin-yuan",
+                    "time": "15:09",
+                    "lines": [
+                      "這份算的是送件，兩回事。本人回覆另有欄位，沒收到就別跟送件數混在一起。"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "separate",
+                "text": "有，我把送件跟待補分開列了。",
+                "responses": [
+                  {
+                    "id": "msg.day6.m1-reply-handoff-meaning-separate",
+                    "actorId": "actor.lin-yuan",
+                    "time": "15:09",
+                    "lines": [
+                      "好。交接附上批次副本，對方有問題才能找到你這次用的版本。"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "dayId": "day.04",
+      "document": {
+        "id": "doc.day4.m1-0314-window",
+        "kind": "case-source",
+        "recordIds": [
+          "record.day3-b314"
+        ],
+        "text": {
+          "heading": "窗口收件回條",
+          "fields": [
+            {
+              "label": "對象編號",
+              "value": "0314"
+            },
+            {
+              "label": "附件版本",
+              "value": "1"
+            },
+            {
+              "label": "文件種類",
+              "value": "電子收件回條"
+            },
+            {
+              "label": "回覆者",
+              "value": "服務窗口"
+            },
+            {
+              "label": "收件時間",
+              "value": "9 月 18 日 09:10"
+            },
+            {
+              "label": "範圍",
+              "value": "確認已收到送件資料；未附當事人回覆"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "dayId": "day.04",
+      "document": {
+        "id": "doc.day4.m1-0521-reply",
+        "kind": "case-source",
+        "recordIds": [
+          "record.day3-b521"
+        ],
+        "text": {
+          "heading": "0521 回覆附件",
+          "fields": [
+            {
+              "label": "對象編號",
+              "value": "0521"
+            },
+            {
+              "label": "附件版本",
+              "value": "1"
+            },
+            {
+              "label": "文件種類",
+              "value": "回覆紀錄"
+            },
+            {
+              "label": "回覆者",
+              "value": "當事人"
+            },
+            {
+              "label": "收件時間",
+              "value": "9 月 18 日 09:13"
+            },
+            {
+              "label": "異議回覆",
+              "value": "無"
+            },
+            {
+              "label": "範圍",
+              "value": "僅適用對象 0521"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "dayId": "day.05",
+      "document": {
+        "id": "doc.day5.m1-electronic-receipt",
+        "kind": "case-source",
+        "recordIds": [
+          "record.day5-h251"
+        ],
+        "text": {
+          "heading": "紙本交接電子回條",
+          "fields": [
+            {
+              "label": "交接參照",
+              "value": "OPS-0919-01"
+            },
+            {
+              "label": "對象編號",
+              "value": "H-251"
+            },
+            {
+              "label": "附件版本",
+              "value": "1"
+            },
+            {
+              "label": "文件種類",
+              "value": "電子收件回條"
+            },
+            {
+              "label": "回覆者",
+              "value": "服務窗口"
+            },
+            {
+              "label": "紀錄時間",
+              "value": "9 月 19 日 08:52"
+            },
+            {
+              "label": "實物位置",
+              "value": "未提供"
+            },
+            {
+              "label": "範圍",
+              "value": "電子資料已收件"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "dayId": "day.05",
+      "document": {
+        "id": "doc.day5.m1-handover-pending",
+        "kind": "case-source",
+        "recordIds": [
+          "record.day5-h251"
+        ],
+        "text": {
+          "heading": "紙本移交資料",
+          "fields": [
+            {
+              "label": "交接參照",
+              "value": "OPS-0919-01"
+            },
+            {
+              "label": "對象編號",
+              "value": "H-251"
+            },
+            {
+              "label": "附件版本",
+              "value": "1"
+            },
+            {
+              "label": "文件種類",
+              "value": "待補移交紀錄"
+            },
+            {
+              "label": "回覆者",
+              "value": "值班窗口"
+            },
+            {
+              "label": "紀錄時間",
+              "value": "9 月 19 日 09:02"
+            },
+            {
+              "label": "實物位置",
+              "value": "待回覆"
+            },
+            {
+              "label": "範圍",
+              "value": "尚未取得實物簽收資料"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "taskBriefs": [
+    {
+      "id": "task.day4.m1-attachment",
+      "dayId": "day.04",
+      "heading": "回覆附件關聯",
+      "instruction": "將附件關聯至 0314，並決定缺少本人回覆的資料如何送件。",
+      "subjectRecordId": "record.day3-b314",
+      "candidateDocumentIds": [
+        "doc.day4.m1-0314-window",
+        "doc.day4.m1-0521-reply"
+      ],
+      "choices": [
+        {
+          "id": "reference",
+          "label": "引用附件並送件"
+        },
+        {
+          "id": "review",
+          "label": "保留缺漏並送覆核"
+        }
+      ],
+      "invariant": "可引用存在但對象不符的附件；合法提交後隔日才收到關聯問題，不即刻標正解。窗口回條不代表本人已回覆。"
+    },
+    {
+      "id": "task.day4.m1-transform",
+      "dayId": "day.04",
+      "heading": "服務窗口小批次交付",
+      "instruction": "檢查前一階段保存的資料，選擇缺漏策略，預覽後交付。",
+      "sourceRecordIds": [
+        "record.day3-b314",
+        "record.day3-b521",
+        "record.day4-b716"
+      ],
+      "policies": [
+        {
+          "id": "departmentDefault",
+          "label": "套用部門預設並交付"
+        },
+        {
+          "id": "review",
+          "label": "保留缺漏並送覆核"
+        }
+      ],
+      "invariant": "來源沿實際歸檔／附件選擇的不可變快照，不以正確模板重建。來源未附回覆、玩家採用值與生成值分欄。"
+    },
+    {
+      "id": "task.day5.m1-attachment",
+      "dayId": "day.05",
+      "heading": "紙本交接附件核對",
+      "instruction": "選擇本次交接引用的附件。電子收件與實物簽收分開記錄。",
+      "subjectRecordId": "record.day5-h251",
+      "candidateDocumentIds": [
+        "doc.day5.m1-electronic-receipt",
+        "doc.day5.m1-handover-pending"
+      ],
+      "choices": [
+        {
+          "id": "reference",
+          "label": "引用附件並送件"
+        },
+        {
+          "id": "review",
+          "label": "保留缺漏並送覆核"
+        }
+      ],
+      "invariant": "引用電子回條只形成電子收件依據，不能自動補為實物已簽收。實物未確認可以交接待補，不是提交後揭露陰謀。"
+    },
+    {
+      "id": "task.day5.m1-transform",
+      "dayId": "day.05",
+      "heading": "補充批次交付",
+      "instruction": "確認本次範圍與前一批沒有重複，檢查有變更的資料列再交付。",
+      "sourceRecordIds": [
+        "record.day5-b1013",
+        "record.day5-b1108",
+        "record.day5-b1219"
+      ],
+      "policies": [
+        {
+          "id": "departmentDefault",
+          "label": "套用部門預設並交付"
+        },
+        {
+          "id": "review",
+          "label": "保留缺漏並送覆核"
+        }
+      ],
+      "invariant": "保存套用範圍與逐列輸出，Day 6 報告使用這份資料；不自動與 Day 4 混成相同結果。"
+    },
+    {
+      "id": "task.day6.m1-report",
+      "dayId": "day.06",
+      "heading": "交付結果核對",
+      "instruction": "比對前日送件副本與目前的交付清單，將送件、窗口收件、本人回覆、待補分開記錄。",
+      "invariant": "數量取實際已保存資料；窗口已收件不得計入已附本人回覆。合理流程選擇都能收班，未結項目仍存在。"
+    }
+  ],
+  "mailOutcomes": [
+    {
+      "id": "mail.day4.m1-version",
+      "fromDay": "day.03",
+      "toDay": "day.04",
+      "subject": "黃品蓉補件：本次引用版本",
+      "rule": "依據既有 case 決定與保存編號生成；信中附上玩家自己的副本與兩個來源。編號錯誤沿既有稽核，不隱藏它。",
+      "body": [
+        "已收到本次送件。所引用的來源版本請見附件。",
+        "原登記表與補件的人員編號不同，窗口仍在確認。這封信只確認收件，尚未確認應採用的編號。"
+      ]
+    },
+    {
+      "id": "mail.day5.m1-wrong-attachment",
+      "fromDay": "day.04",
+      "toDay": "day.05",
+      "subject": "附件關聯需修正：0314",
+      "rule": "僅當保存的附件對象不是保存案件對象；附原送件快照和不適用的附件。建立最新修訂入口，舊信附件唯讀。",
+      "body": [
+        "本次送件引用了另一個對象的附件，無法作為這筆資料的回覆依據。",
+        "請從本信附件開啟最新修訂。原送件版本留存，不會被覆蓋。"
+      ]
+    },
+    {
+      "id": "mail.day5.m1-window-only",
+      "fromDay": "day.04",
+      "toDay": "day.05",
+      "subject": "收件回條：服務窗口小批次",
+      "rule": "對象適用且繼續交付時；正文及動態表格從實際批次輸出產生，不稱已取得本人回覆。",
+      "body": [
+        "窗口已收到本批資料，送件副本見附件。",
+        "引用的電子回條只確認窗口收件。未附本人回覆的資料，來源狀態仍可在批次副本中查閱。"
+      ]
+    },
+    {
+      "id": "mail.day5.m1-awaiting",
+      "fromDay": "day.04",
+      "toDay": "day.05",
+      "subject": "待補清單：服務窗口小批次",
+      "rule": "保留缺漏時；只有實際保留缺漏的列，不固定寫三筆。",
+      "body": [
+        "以下項目仍等待回覆附件，本次交接保留原缺漏。",
+        "請保留本批紀錄；附件抵達後由最新待補項目續處理，不需要重新建立整批。"
+      ]
+    },
+    {
+      "id": "mail.day6.m1-paper",
+      "fromDay": "day.05",
+      "toDay": "day.06",
+      "subject": "紙本交接：補件進度",
+      "rule": "根據玩家引用附件與去向呈現電子回條／待補，不新增箱子已找到的事實。",
+      "body": [
+        "目前取得電子收件回條，實物簽收資料尚未補齊。",
+        "原交接資料與本次引用附件均留在信中。請不要以電子收件時間取代實物簽收時間。"
+      ]
+    },
+    {
+      "id": "mail.day6.m1-batch",
+      "fromDay": "day.05",
+      "toDay": "day.06",
+      "subject": "補充批次：交付結果",
+      "rule": "表格逐列引用實際輸出和缺漏策略；兩策略結果不同。",
+      "body": [
+        "補充批次已完成流程處理，逐列結果與來源見附件。",
+        "送件筆數、已附本人回覆與待補項目分別列示，不能互相取代。"
+      ]
+    }
+  ],
+  "interludes": [
+    {
+      "afterDay": "day.03",
+      "beforeDay": "day.04",
+      "leave": [
+        "同事開始收東西，印表機旁還留著一疊沒人拿的紙。",
+        "我把今天用過的版本留在交接紀錄，關掉工作視窗。"
+      ],
+      "arrive": [
+        "第二天到班，信箱多了一封窗口回條。",
+        "我先開了工作平台。"
+      ]
+    },
+    {
+      "afterDay": "day.04",
+      "beforeDay": "day.05",
+      "leave": [
+        "送件清單顯示完成，待補的幾筆留給下一個工作日。",
+        "予安還在接電話，我揮了下手，沒有打斷他。"
+      ],
+      "arrive": [
+        "早上有人正在找一箱紙本。",
+        "昨天的批次回條已經到信箱了。"
+      ]
+    },
+    {
+      "afterDay": "day.05",
+      "beforeDay": "day.06",
+      "leave": [
+        "最後一批資料送出。那箱紙本的位置，交接單上還是空白。",
+        "我把未完成的項目留下，和同事一起走到電梯口。"
+      ],
+      "arrive": [
+        "過了一個週末，工作平台仍停在熟悉的畫面。",
+        "窗口寄來新回條，也有幾筆還在等。"
+      ]
+    },
+    {
+      "afterDay": "day.06",
+      "beforeDay": null,
+      "leave": [
+        "今天送出了多少筆，報表列得很清楚。",
+        "我另外留了一份待補清單。下次窗口問起，至少能找到當時用的是哪一份。"
+      ],
+      "arrive": []
+    }
+  ],
+  "ordinaryTimingVariants": [
+    {
+      "id": "early",
+      "description": "一般窗口回條在次日首次到班後送達。"
+    },
+    {
+      "id": "after-first-task",
+      "description": "一般窗口回條在次日第一項普通工作交付後送達；仍在可完成回聲前到達。"
+    }
+  ],
+  "narrativeLimits": [
+    "前十日只形成落差與疑問，不等於完整陰謀證據。",
+    "姓名未登記與編號保持原意，不新增0102名字、巴特族同事、求救或實驗揭露。",
+    "公司正常友善，同事也有真正與陰謀無關的生活。",
+    "紙本失聯是普通流程落差，不宣告它就是人或實驗資料。"
+  ]
+}

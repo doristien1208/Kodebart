@@ -1,10 +1,10 @@
 import { dayDateLabel } from '../../../content/bundle';
 import { DOCUMENT_ISSUES_UI, MAIL_UI, RECORD_REVIEW_UI, issueStatusLabel, receiptLabel } from '../../../content/text';
 import { RETURN_RECEIPT_MAIL_PACK } from '../../../core/mail';
-import { MailRecord } from '../../../core/types';
+import { MailAttachment, MailRecord } from '../../../core/types';
 import { GameStateService } from '../../../state/game-state.service';
 import { onlyCase, receiptRef, resubmitNow, toFirstReturn, toNextDay } from '../testing/mail-play';
-import { attachmentDocument } from './attachment-view';
+import { AttachmentDocumentView, attachmentDocument } from './attachment-view';
 import { MailView, attachmentState, buildMailViews, latestMailOfCase, mailCounts, mailMatches, mailView } from './mail-view';
 
 /**
@@ -14,6 +14,11 @@ import { MailView, attachmentState, buildMailViews, latestMailOfCase, mailCounts
 
 function views(game: GameStateService): MailView[] {
   return buildMailViews(game.mailbox(), game.returns(), (id) => game.isMailRead(id));
+}
+
+/** 附件文件（姓名取自存檔批次的提交快照）。 */
+function documentOf(game: GameStateService, ref: MailAttachment): AttachmentDocumentView | null {
+  return attachmentDocument(game.returns(), game.save()?.batches ?? {}, ref);
 }
 
 /** 畫面文字（主旨、內文、附件名、狀態）。 */
@@ -77,8 +82,8 @@ describe('mail-view presenter（R12 郵件）', () => {
     expect(list.map((v) => v.pending)).toEqual([true, false]);
     expect(list[0]?.lines).toContain('核對版本：修訂 1');
 
-    const older = attachmentDocument(game.returns(), receiptRef(game, 0));
-    const newer = attachmentDocument(game.returns(), receiptRef(game, 1));
+    const older = documentOf(game, receiptRef(game, 0));
+    const newer = documentOf(game, receiptRef(game, 1));
     expect(older?.checkedCode).toBe('102');
     expect(older?.versions).toEqual([]);
     expect(older?.banner).toBe(MAIL_UI.historical);
@@ -100,7 +105,7 @@ describe('mail-view presenter（R12 郵件）', () => {
     expect(resolved?.pending).toBeFalse();
     expect(first?.attachments[0]?.state).toBe('historical');
 
-    const doc = attachmentDocument(game.returns(), receiptRef(game, 1));
+    const doc = documentOf(game, receiptRef(game, 1));
     expect(doc?.kind).toBe('resolved');
     expect(doc?.title).toBe(receiptLabel('resolved', 'RT-B102'));
     expect(doc?.checkedCode).toBe('0102');
@@ -137,7 +142,7 @@ describe('mail-view presenter（R12 郵件）', () => {
     expect(attachmentState(game.returns(), { ...ref, receiptId: 'return.x#9' })).toBe('missing');
     expect(attachmentState(game.returns(), { ...ref, caseId: 'return.none' })).toBe('missing');
     expect(attachmentState(game.returns(), { ...ref, versionIndex: 0 })).toBe('missing');
-    expect(attachmentDocument(game.returns(), { ...ref, versionIndex: 0 })).toBeNull();
+    expect(documentOf(game, { ...ref, versionIndex: 0 })).toBeNull();
     const mail: MailRecord = {
       id: 'mail.lost',
       packId: RETURN_RECEIPT_MAIL_PACK,

@@ -1468,3 +1468,139 @@ describe('MessagesComponent 向同事詢問（R12 §4）', () => {
     expect(game.isMessageRead('msg.help.refusal.meaning')).toBeFalse();
   });
 });
+
+/* ---------- R12 #7：舊存檔的拒絕紀錄說明回覆改用目前內容顯示 ---------- */
+
+describe('MessagesComponent 舊存檔的拒絕紀錄說明回覆（R12 #7）', () => {
+  let game: GameStateService;
+  const ASKED = new Date(2026, 8, 24, 14, 5);
+  /** #7 之前的 help JSON 保存下來的字句。 */
+  const OLD_ASK_BLANK = {
+    text: '可是沒寫拒絕，也不代表已經問過吧？',
+    lines: ['對，單看空白看不出來。', '「未拒絕」是這邊歸檔時用的預設值，不是另外問到的答案。你想等資料補齊再處理，就選「未確認」。'],
+  };
+  const OLD_ACK_TEXT = '懂了，我再看一下原表。';
+
+  beforeEach(() => {
+    localStorage.clear();
+    ({ game } = boot());
+    game.newGame();
+    playToDay2(game);
+    expect(game.skipPrompt(DAY2_PROMPT)).toBeTrue();
+    TestBed.inject(GameClock).random = () => 0;
+    jasmine.clock().install();
+    jasmine.clock().mockDate(ASKED);
+    expect(game.requestHelp(REFUSAL)).toBeTrue();
+    // 兩則說明各 3 秒後送達，追問才可回答
+    jasmine.clock().tick(6000);
+  });
+
+  afterEach(() => {
+    jasmine.clock().uninstall();
+    localStorage.clear();
+  });
+
+  function choiceOf(choiceId: string) {
+    const choice = promptEntry(REFUSAL_PROMPT).prompt.choices.find((c) => c.id === choiceId);
+    if (!choice) throw new Error(`內容缺少選項 ${choiceId}`);
+    return choice;
+  }
+
+  function rowText(fixture: ComponentFixture<MessagesComponent>, id: string): string {
+    return root(fixture).querySelector(`app-message-thread [data-message-id="${id}"]`)?.textContent ?? '';
+  }
+
+  /** 把已保存的存檔改成舊存檔的樣子（只動指定欄位），重新載入；回傳寫入的原始字串。 */
+  function rewriteSave(mutate: (save: Record<string, any>) => void): string {
+    const save = JSON.parse(localStorage.getItem(SAVE_KEY) ?? '{}') as Record<string, any>;
+    mutate(save);
+    const raw = JSON.stringify(save);
+    localStorage.setItem(SAVE_KEY, raw);
+    ({ game } = boot());
+    expect(game.save()?.chatReplies[REFUSAL_PROMPT]).toEqual(save['chatReplies'][REFUSAL_PROMPT]);
+    return raw;
+  }
+
+  it('已送達的舊 ask-blank 快照：對話串與頻道摘要都顯示目前文字；存檔原樣不動', async () => {
+    expect(game.answerPrompt(REFUSAL_PROMPT, 'ask-blank')).toBeTrue();
+    jasmine.clock().tick(3000);
+    const raw = rewriteSave((s) => {
+      s['chatReplies'][REFUSAL_PROMPT].playerText = OLD_ASK_BLANK.text;
+      s['chatReplies'][REFUSAL_PROMPT].responses[0].lines = OLD_ASK_BLANK.lines;
+    });
+    const choice = choiceOf('ask-blank');
+    // 通訊不作用中：畫面不寫入已讀，確認顯示本身不碰存檔
+    desktop.active.set(false);
+    const fixture = openPage();
+
+    const preview = root(fixture).querySelector(`[data-channel-id="${DM}"] [data-channel-preview]`)?.textContent?.trim();
+    expect(preview).toBe(choice.responses[0]?.lines.at(-1));
+
+    clickChannel(fixture, DM);
+    await settleView(fixture);
+    expect(threadIds(fixture).slice(-2)).toEqual([`${REFUSAL_PROMPT}:you`, 'msg.help.refusal.blank-response']);
+    expect(rowText(fixture, `${REFUSAL_PROMPT}:you`)).toContain(choice.text);
+    expect(rowText(fixture, `${REFUSAL_PROMPT}:you`)).not.toContain(OLD_ASK_BLANK.text);
+    const response = rowText(fixture, 'msg.help.refusal.blank-response');
+    for (const line of choice.responses[0]?.lines ?? []) expect(response).toContain(line);
+    for (const line of OLD_ASK_BLANK.lines) expect(response).not.toContain(line);
+    expect(localStorage.getItem(SAVE_KEY)).toBe(raw);
+  });
+
+  it('尚未送達的舊 ack 快照：依保存的送達時間顯示「正在輸入」，送達後才出現；送達時間與 ID 不變', () => {
+    expect(game.answerPrompt(REFUSAL_PROMPT, 'ack')).toBeTrue();
+    const before = answeredOf(game, REFUSAL_PROMPT).responses.map((r) => [r.id, r.deliverAt]);
+    rewriteSave((s) => {
+      s['chatReplies'][REFUSAL_PROMPT].playerText = OLD_ACK_TEXT;
+    });
+    const fixture = openPage();
+    clickChannel(fixture, DM);
+
+    expect(rowText(fixture, `${REFUSAL_PROMPT}:you`)).toContain(choiceOf('ack').text);
+    expect(rowText(fixture, `${REFUSAL_PROMPT}:you`)).not.toContain('原表');
+    expect(root(fixture).querySelector(`[data-typing="${REFUSAL_PROMPT}"]`)).not.toBeNull();
+    expect(threadIds(fixture)).not.toContain('msg.help.refusal.ack-response');
+
+    jasmine.clock().tick(3000);
+    fixture.detectChanges();
+    expect(root(fixture).querySelector('[data-typing]')).toBeNull();
+    expect(threadIds(fixture).at(-1)).toBe('msg.help.refusal.ack-response');
+    expect(answeredOf(game, REFUSAL_PROMPT).responses.map((r) => [r.id, r.deliverAt])).toEqual(before);
+  });
+
+  it('找不到回應或選項時沿用舊快照、列不消失；一般 prompt 的快照文字不被改寫', () => {
+    expect(game.answerPrompt(REFUSAL_PROMPT, 'ask-blank')).toBeTrue();
+    jasmine.clock().tick(3000);
+    const retired = 'msg.help.refusal.retired-response';
+    rewriteSave((s) => {
+      const reply = s['chatReplies'][REFUSAL_PROMPT];
+      reply.playerText = OLD_ASK_BLANK.text;
+      reply.responses[0].id = retired;
+      reply.responses[0].lines = OLD_ASK_BLANK.lines;
+      // 一般 prompt：保存的文字和目前內容不同，也照快照顯示
+      s['chatReplies'][DAY2_PROMPT] = {
+        kind: 'answered',
+        choiceId: 'complicated',
+        playerText: '（舊快照）一般回覆',
+        responses: [{ id: 'msg.day2.reply.complicated', actorId: 'actor.lin-yuan', time: '09:40', lines: ['（舊快照）一般回應'] }],
+      };
+    });
+    let fixture = openPage();
+    clickChannel(fixture, DM);
+    // 選項仍在：玩家列換成目前文字；回應 ID 已不在內容中：該列沿用舊字句
+    expect(rowText(fixture, `${REFUSAL_PROMPT}:you`)).toContain(choiceOf('ask-blank').text);
+    expect(threadIds(fixture)).toContain(retired);
+    expect(rowText(fixture, retired)).toContain(OLD_ASK_BLANK.lines[1] ?? '?');
+    expect(rowText(fixture, `${DAY2_PROMPT}:you`)).toContain('（舊快照）一般回覆');
+    expect(rowText(fixture, 'msg.day2.reply.complicated')).toContain('（舊快照）一般回應');
+
+    // 選項已不在內容中：整份沿用舊快照
+    rewriteSave((s) => {
+      s['chatReplies'][REFUSAL_PROMPT].choiceId = 'removed-choice';
+    });
+    fixture = openPage();
+    clickChannel(fixture, DM);
+    expect(rowText(fixture, `${REFUSAL_PROMPT}:you`)).toContain(OLD_ASK_BLANK.text);
+    expect(rowText(fixture, retired)).toContain(OLD_ASK_BLANK.lines[1] ?? '?');
+  });
+});

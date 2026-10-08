@@ -5,7 +5,9 @@ import { recordLabel } from '../../../content/records';
 import { ARCHIVE_UI, DOCUMENT_ISSUES_UI, SOURCE_CARD, TASKS_UI, WORKDAY_UI, taskKindLabel } from '../../../content/text';
 import { GameStateService } from '../../../state/game-state.service';
 import { WorkOperationsService } from '../../../state/work-operations.service';
-import { archiveAll, archiveOne, finishDay, instantOperations, playTo, reviewAll, settle } from '../../testing/play';
+import { M1_SAVE_A, M1_SAVE_B, archiveAll, archiveOne, finishDay, instantOperations, playM1Day, playM1To, playM1UntilKind, playTo, reviewAll, settle } from '../../testing/play';
+import { MailAttachmentService, attachmentWindowId } from '../../mail/services/mail-attachment.service';
+import { WindowManagerService } from '../../shared/services/window-manager.service';
 import { WorkViewComponent } from './work-view.component';
 
 /**
@@ -256,5 +258,97 @@ describe('WorkViewComponent（R8 同日多工作）', () => {
     fixture.detectChanges();
     expect(game.taskId()).toBe('task.day4.archive');
     expect(game.draft('H233')).toEqual({ value: 'H-23' });
+  });
+
+  it('M1 佇列狀態：交付後依保存結果顯示已送件／待補（保留缺漏的批次、有送覆核紀錄的歸檔）；已交付的不能切回', () => {
+    const { game } = h;
+    playM1To(game, 'day.05', M1_SAVE_B);
+    fixture = render();
+    const status = (taskId: string) => root(fixture!).querySelector(`[data-queue-task="${taskId}"] [data-queue-status]`)?.textContent?.trim();
+    expect(status('task.day5.m1-transform')).toBe(WORKDAY_UI.pendingDependency);
+    archiveAll(game, 'request_review');
+    expect(game.completeWork()).toBeTrue();
+    fixture.detectChanges();
+    expect(status('task.day5.archive')).toBe(WORKDAY_UI.statusPending);
+    expect(status('task.day5.m1-attachment')).toBe(TASKS_UI.statusActive);
+    expect(status('task.day5.m1-transform')).toBe(WORKDAY_UI.statusTodo);
+
+    // 自選順序：先做批次（保留缺漏）
+    queueItems(fixture).find((b) => b.getAttribute('data-queue-task') === 'task.day5.m1-transform')?.click();
+    fixture.detectChanges();
+    expect(game.taskId()).toBe('task.day5.m1-transform');
+    game.setTransformPolicy('review');
+    expect(game.previewTransform()).toBeTrue();
+    expect(game.submitTransformStrict()).toBe('ok');
+    expect(game.completeWork()).toBeTrue();
+    fixture.detectChanges();
+    expect(game.taskId()).toBe('task.day5.m1-attachment');
+    expect(status('task.day5.m1-transform')).toBe(WORKDAY_UI.statusPending);
+    expect(root(fixture).querySelector<HTMLButtonElement>('[data-queue-task="task.day5.archive"]')?.disabled).toBeTrue();
+    expect(root(fixture).querySelector<HTMLButtonElement>('[data-queue-task="task.day5.m1-transform"]')?.disabled).toBeTrue();
+  });
+
+  it('並排查閱：少於兩個開著的文件視窗時停用；並排只排未關閉的視窗；還原視窗位置回到預設', () => {
+    const { game } = h;
+    playM1To(game, 'day.05', M1_SAVE_A);
+    fixture = render();
+    const docs = TestBed.inject(MailAttachmentService);
+    const windows = TestBed.inject(WindowManagerService);
+    windows.setCompact(false);
+    windows.setBounds(1200, 700);
+    const tile = () => root(fixture!).querySelector<HTMLButtonElement>('[data-tile-windows]');
+    expect(tile()?.textContent?.trim()).toBe(WORKDAY_UI.compare);
+    expect(tile()?.disabled).toBeTrue();
+
+    const a = { kind: 'case-source', documentId: 'doc.day4.m1-0314-window' } as const;
+    const b = { kind: 'case-source', documentId: 'doc.day4.m1-0521-reply' } as const;
+    const c = { kind: 'batch-output', taskId: 'task.day4.m1-transform' } as const;
+    docs.open(a);
+    docs.open(b);
+    docs.open(c);
+    fixture.detectChanges();
+    expect(tile()?.disabled).toBeFalse();
+    const idOf = attachmentWindowId;
+    const closedId = idOf(c);
+    windows.close(closedId);
+    fixture.detectChanges();
+    expect(docs.shownRefs()).toEqual([a, b]);
+
+    tile()?.click();
+    fixture.detectChanges();
+    const shown = [idOf(a), idOf(b)].map((id) => windows.state(id)());
+    expect(shown.every((w) => w?.mode === 'normal')).toBeTrue();
+    expect(shown[0]?.x).not.toBe(shown[1]?.x);
+    expect(windows.state(closedId)()?.mode).toBe('closed');
+
+    root(fixture).querySelector<HTMLButtonElement>('[data-reset-windows]')?.click();
+    fixture.detectChanges();
+    expect(windows.state(closedId)()?.mode).toBe('closed');
+  });
+
+  it('版面：375px 與 1366px 寬都沒有橫向溢出（表格在自己的捲動區內）；處理列固定在捲動區底部', () => {
+    const { game } = h;
+    playM1To(game, 'day.05', M1_SAVE_B);
+    playM1UntilKind(game, 'transform', M1_SAVE_B);
+    game.setTransformPolicy('review');
+    game.previewTransform();
+    for (const width of [375, 1366]) {
+      fixture?.nativeElement.remove();
+      fixture?.destroy();
+      fixture = render();
+      const host = root(fixture);
+      host.style.display = 'block';
+      host.style.width = `${width}px`;
+      fixture.detectChanges();
+      expect(host.scrollWidth).withContext(`${width}px`).toBeLessThanOrEqual(width);
+      const bar = host.querySelector<HTMLElement>('.work-bar');
+      expect(bar).withContext(`${width}px`).not.toBeNull();
+      const style = getComputedStyle(bar as HTMLElement);
+      expect(style.position).toBe('sticky');
+      expect(style.bottom).toBe('0px');
+      const barRect = (bar as HTMLElement).getBoundingClientRect();
+      expect(barRect.right).withContext(`${width}px`).toBeLessThanOrEqual(host.getBoundingClientRect().right + 1);
+    }
+    playM1Day(game, M1_SAVE_B);
   });
 });

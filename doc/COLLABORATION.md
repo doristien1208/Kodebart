@@ -1,61 +1,53 @@
-# Claude 交辦單：R12 電腦桌面、郵件與入職流程
+# Claude 本機交辦：#7 舊存檔說明文案的顯示修正
 
-本檔只保留本輪交辦。保留工作樹既有修改；Codex 僅覆核原始碼與資料，操作驗收由使用者負責。以下是待實作規格，不代表已通過驗收。本輪不新增 Day 7–10 正式劇情、不改換日演出、不重製封面。依序完成資料正確性、通知／郵件、桌面與入職；完成後交使用者試玩，不自行推進下一輪。
+本檔只保留本輪交辦，不追加歷史或完成報告。Human 於 2026-10-08 指定：Action 任務讀 Issue，本機任務讀本檔；本輪採本機續做。若舊規則要求不修改本檔，以這次 Human 明確指示為準。完成後停下，由 Codex 覆核、Human 操作驗收，不自行開始新玩法。
 
-## 1. 舊退件附件必須鎖定版本（優先）
+## 1. 固定來源與工作位置
 
-- 修改 src/app/game/ui/issues/issue-receipts、document-issues、ui/return-review/presenters/issue-view.ts、issue-case、services/issue-handling.service.ts 及對應 core 提交入口。現有回條點擊只傳 caseId，導致舊回條開啟最新可編輯案件；不能只把按鈕換字。
-- 開啟上下文須包含 caseId、receiptId、versionIndex；原始送件使用既有 null 版本語意。附件固定呈現該回條引用的送件快照、當次核對結果與日期，不得偷偷換成最新資料。視窗識別亦須區分版本。
-- 僅「案件最新退回回條，且案件目前待修正」可建立新修訂；已送出、待核對、待窗口、已結案及歷史附件皆唯讀。新修訂不直接修改被退回版本。原件、第二輪審查與歷次送件快照保持不可變。
-- resubmit／送窗口的領域入口亦校驗預期版本與最新回條，不只由元件 disabled 防守。操作進行中若案件狀態改變，提交前再次確認；過期操作不得覆蓋新版本。成功後同步鎖定所有已開啟的同案舊表單。
-- 隔日再次退回時，從新回條／新郵件進入才能修改；舊視窗仍保留舊結果，不自動切成可編輯。過期草稿提示「此版本已不是目前待處理版本，請從最新郵件開啟文件。」並保留供查看，不自動套用新案。
-- 驗收：故意連續填錯三次，每次產生新回條；各封舊附件保留原值且不能提交，最新附件才能修訂。雙視窗不能重複提交或回寫舊版本。
+- 專案：`/Users/doris.tien/Documents/03_Highly_Confidentail/kodebart_webGame`；不是 FlexibleDesignWeb。
+- 原任務：[Issue #7](https://github.com/doristien1208/Kodebart/issues/7)。Remaining：[Codex 覆核留言](https://github.com/doristien1208/Kodebart/issues/7#issuecomment-6034439296)。
+- 沿固定成果 `d30ceb18e483443e5ee84af19ed913a06014ea39`，來源分支 `claude/issue-7-20261007-0804`。不能從 main／#5 重做，也不能丟掉 #6 唯一歡迎詞／歷史附件姓名修正。
+- 先核對 Git 狀態、head、其他 worktree／同任務執行狀態，保留 Human／其他 Claude 的未提交修改。不要切換或重設本 Work 的 #5 審查 checkout；使用合適的獨立 worktree，沒有才從固定來源建立本機續做分支。
+- 遠端名 `main`，不是 `origin`。缺來源、來源不同或有重疊執行先回報，不自行重寫。獨立 worktree 若仍有舊交辦檔，讀上述專案的本檔絕對路徑，不整批合併 #5 來取得文件。
 
-## 2. 修正延遲回覆未讀
+## 2. 只修這個問題
 
-- 修改 ui/messages/services/chat-pacing.service.ts、message-unread.service.ts、messages 與 presenters/timeline.ts。現有未讀只計一般 ContentMessage，排除了選項產生的 responses；改為所有實際送達的他人訊息均有穩定訊息 ID、送達狀態與已讀狀態。
-- 尚未送達的 responses 不算未讀；送達時若切到別的對話、其他應用、最小化通訊或瀏覽器頁籤在背景，對話列及通訊入口都亮紅點。自己送出的訊息不算未讀。
-- 只有該對話在可見且作用中的通訊視窗、實際呈現新訊息時才標已讀；不能只憑 selectedId、進入路由或開其他頻道清除。停在歷史訊息上方時，不強制捲到底或讀掉未看到的新訊息。
-- 回覆排程不依賴頁面元件存在；保存送達時間／狀態，重整／讀檔不遺失、不重播、不重抽等待時間。舊存檔中無送達狀態的既有 reply 快照可遷移為已送達的已讀歷史，不能把新回覆也一律標已讀。
-- 驗收：送出→立即換頻道→回覆送達後亮紅點→回到該對話看到訊息後消失。另涵蓋關閉／最小化通訊、切換應用與存讀檔。
+來源已完成新處理動作與 help JSON，但舊存檔的 `chatReplies` 仍保存舊文字。`src/app/game/ui/messages/presenters/timeline.ts` 的 `pushReply` 直接用 `reply.playerText`、`r.lines`，使已回答過的人仍看到「原表」及「未確認／未拒絕」等舊說明。新遊戲正確不代表舊存檔已修正。
 
-## 3. 通用郵件取代「文件問題」專用頁
+僅對 `prompt.help.refusal`，在**顯示層**依穩定 ID 解析已核准現行 help 內容：
 
-- 保留 R11 ReturnCase／版本／每日錯誤文件工作安排，替換其通知與入口，不刪領域資料。建立通用郵件模型：mailId、寄件者、主旨、內文、收到時間、已讀、附件／連結；附件採可辨識種類的資料，不把整封信型別綁死為 ReturnCase。
-- 依 doc/content/R12-mail.json 接入退回／結案郵件模板。每個回條產生一封固定 ID 郵件，避免刷新重複寄送；附件包含第 1 節版本引用。寄件者為「資料作業窗口」，不虛構真實 email 地址。
-- 郵件有收件清單與閱讀區，點附件以共用 WindowShell 開啟文件。可跨日重看；只有開啟該信才標已讀，不因開收件匣讀掉全部。郵件已讀與案件已解決獨立。可用待處理標記／篩選，不再保留第二套「文件問題」清單。
-- 舊路由及工作任務連結改導向對應郵件／附件；舊回條依穩定 ID 遷移為郵件，保留已讀狀態、版本與未解決案件。當日工作提前從郵件處理後仍同步，不重複處理。
-- 本輪只做本機遊戲收件與文件互動，不接真實郵件、不製作任意撰信／地址簿／垃圾桶。通用內文信可無附件，未來新增用途不必改退件規則。
+1. answered 且 choiceId 存在於該 help prompt：玩家列顯示該選項現行回覆文字。
+2. 同一選項下，保存的 response ID 仍存在：只換該列 lines，其餘仍取保存快照。
+3. 找不到 choice：整份回覆沿舊快照；找不到個別 response：該列沿舊快照，不刪列或替換成別列。
+4. skipped、未回答、一般 prompt：原行為與歷史快照不變，不全域更新聊天歷史。
 
-## 4. 欄位可向同事詢問
+用小型純 presenter／resolver 或現有 presenter 最小擴充，在 messages 協調層取得現行內容。core/state 不依賴 JSON；不靠舊文字字串比對辨識對話。
 
-- 在歸檔拒絕紀錄區旁新增「這個欄位是什麼？」入口，採 doc/content/R12-refusal-help.json，使用現有林予安私訊，不用強制教學彈窗。
-- 點擊後保留草稿、打開／置前私訊，自動送出指定提問一次，依訊息節奏回覆。再次點擊只定位既有說明，不重複灌訊息；已詢問狀態跨日與存讀檔保存。固定追問可不回答，不阻擋工作。
-- JSON 的 messages 沿用 ContentMessage／replyPrompt 格式；request／ui 為本輪新增接線規格，不能未接線就當完成。時間取實際詢問遊戲時間，不因模板放 Day 1 就顯示為過去事件。說明全程可重看；未來新增 Day 7–10 時延續追問有效範圍。
-- 只說明欄位與目前去向，不給正解、不提巴特族／0102 身分、不預告隔日結果。保留非空字串即可提交、編號手輸與前導零規則，不恢復相符性驗證或來源帶入。
+## 3. 必須保留／不得修改
 
-## 5. 桌面與視窗化介面
+- 不寫回或遷移存檔，不改 save schema／版本、kind、choiceId、response IDs、actorId、time、answeredAt、dayId、deliverAt、排序、未讀 IDs、已讀狀態、seed、草稿、fresh 判斷。原始快照不可變。
+- 未送達列依原 deliverAt 等待／顯示 typing，不提早送達、重送、重抽、重新開放回答或清除紅點。
+- help JSON 已核准，直接引用，不自行寫台詞。保留「套用部門預設並歸檔」「保留缺漏並送覆核」；內部 false/null、origin、去向與後果不變。
+- 不重做 #7 已完成修改；不改 onboarding、郵件、歸檔規則、day JSON、workflow 或規則文件。不重跑舊 Action、不提高 80 回合／60 分鐘、不改 repo 權限。
+- `doc/KodeBart-Gameplay-Replan-Proposal.md` 是研究提案，**本輪不得實作**。不新增劇情、新聞、美術或其他功能。
 
-- 依 doc/DESIGN.md 實作。公司平台是桌面中的應用；桌面有「工作平台、通訊、郵件」入口及共用視窗列，首次入職完成自動打開工作平台。重用現有頁面／服務，不複製業務邏輯。
-- 提升現有 WindowManager／window layer 生命週期至桌面層：切換工作、信件、聊天不銷毀其他視窗／排程／草稿。視窗列不再只在有 log 時存在。每個應用一個主視窗；文件、log 為獨立輔助視窗；不在主視窗裡另嵌可拖曳桌面。
-- WindowShell 用 CSS／本地 SVG 圖示顯示最小化、最大化、還原、關閉；保留繁中 accessible name、tooltip、鍵盤焦點與足夠點擊範圍。沿用拖移、置前、邊界限制；小螢幕採單一最大化視窗並從視窗列切換。
-- 工作平台左側取消「個人工作區／資料作業組」雙 group，只列功能；「資料作業組」放應用右上身分區，與玩家姓名區分。通訊、郵件捷徑開對應應用，不產生第二份內嵌頁面。
-- 返回開始頁改為主選單 icon；選單先有「返回開始頁、動態效果、重設視窗位置」。返回保存草稿，不清空／重開遊戲。桌面不擺無功能圖示。
-- 移除固定右欄／停靠保留空間。文件、terminal 可移至整個桌面可用範圍，不把正文擠窄。log 延續真實遊戲操作狀態，不用假 API、假錯誤或亂碼取代執行過程。
+## 4. 修改範圍與驗收
 
-## 6. 新遊戲入職前情與簽名
+預期僅 `src/app/game/ui/messages/presenters/` 的解析與測試，以及 `src/app/game/ui/messages/messages/messages.component.ts` 必要接線及測試。先核對來源實際路徑；擴大範圍先說明必要性，不趁機重構。維持 Angular 元件與外部 HTML／CSS 結構。
 
-- 用 doc/content/R12-onboarding.json，接於封面開始遊戲的覆蓋確認之後、Day 1 桌面之前。新增對應內容讀取／型別，旁白不可塞 TS；保留已核准封面與動態設定。
-- 黑底白字逐段呈現，每字約 40ms；點擊／Enter／Space：打字中先完整顯示當段，下一次才換段。提供可見繼續提示；reduced-motion 或關閉動態時當段直接完整顯示，仍由玩家逐段前進。
-- 合約標題、三條內容、署名欄一次一起顯示，不逐字。簽名需明確按「同意並簽名」，不能由背景點擊提交；輸入按鍵不推進，中文 IME 組字不誤送。短螢幕條款與提交均可捲動到達。
-- 姓名去除首尾空白後必填，最多 24 個使用者可見字元；允許中文及一般名字，不套編號格式。安全文字呈現、不當 HTML。這是角色名，不讀帳戶或作業系統真名。
-- 保存前情進度與簽名；刷新可續接，不重建 seed／工作或重複簽名。完成最後歡迎段後進登入狀態，載入完成才開桌面與 Day 1。姓名用於右上身分、登入提示及自己的聊天署名，不改同事名。
-- 繼續遊戲恢復原進度；舊存檔無姓名者暫顯示「員工」，不強迫補簽或重跑 Day 1。新遊戲覆蓋確認保留，不能先毀掉存檔再詢問。
+Claude 補測試：
 
-## 7. 工程與驗收交付
+- 舊 ask-blank／ack 快照使用現行文字；真正 messages timeline／頻道預覽亦不繞過解析顯示旧文案。
+- 已送達／等待 responses：送達時間、typing、ID、作者、順序與時間不變。
+- skipped、未知 choice／response、一般 prompt 沿舊快照；未知 response 不消失。
+- 深凍結輸入可解析，reply／responses／狀態不被修改，不觸發保存、重送或已讀重設。
 
-- 一元件一資料夾、外部 HTML／CSS；資料／規則／presenter／視窗職責分開。沿用現有服務與元件，不把桌面、郵件、對話、前情全塞 workbench。
-- doc/content/R12-*.json 為待接線內容包；依 content loader／validate-content 模式放正式目錄，納入型別與資料驗證。可調整 schema 接線，不自行改故事含義；通用 UI 文案集中 UI JSON。
-- 以實際 SAVE_VERSION（R11 為 10）確認遷移起點；新增郵件、通知送達、profile／onboarding 所需升版，延續 v2 起既有存檔支援。不丟案件、草稿、已讀、選項回覆或 seed。
-- 字型只載入 DESIGN 指定 Saira／Chocolate Classical Sans 與必要字重；失敗保留 fallback、不阻塞登入。圖示與像素邊框以 code 完成，本輪不生成圖像。
-- Claude 自驗後回報使用者：各項完成位置、未完成項、遷移結果，以及桌面視窗、附件鎖定、回覆紅點、郵件／工作同步、前情與中文簽名試玩方式。不要把回報或歷史附回本檔。Codex 下輪按程式碼覆核，不把實作完成當使用者驗收。
+完成程式與測試修改後固定候選 head，再於同一 head 執行 app／spec TypeScript 檢查、`npm run build`、既有 ChromeHeadless 測試與 `git diff --check`。從 package／既有設定確認實際指令；保存原始輸出末段與 exit code，不能只寫 PASS。提交後再改程式／測試，舊結果不能冒稱新 head 已驗證。
+
+Codex 不跑操作測試；375px、通訊切換、舊存檔實際顯示由 Human 試玩。不占現有 4200、不重設 localStorage。舊 Action 失敗仍是歷史事實，本機驗證不等於獨立 CI 通過。
+
+## 5. 完成或阻礙時回報 Codex
+
+回報：`Source / Branch / Head / 修改檔案 / Completed / Remaining / 驗證指令、原始輸出末段與 exit code / 未確認項目 / 停止原因 / PR（若有）`。
+
+可在原 Issue #7 留報告；無認證則交 Human 轉貼給本 Work。缺來源、規格偏離、驗證失敗、權限問題必須明說，不自行把未完成項判為不阻擋。不追加回報到本檔，不自行 approved、merge、關閉 Issue 或啟動新 Action。

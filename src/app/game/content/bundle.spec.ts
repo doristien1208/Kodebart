@@ -167,7 +167,7 @@ describe('內容 ID', () => {
         if (t.kind === 'archive') expect(t.batchId.startsWith(ID_PREFIX.batch)).toBeTrue();
         else if (t.kind === 'reconcile') expect(t.sourceBatchId.startsWith(ID_PREFIX.batch)).toBeTrue();
         else if (t.kind === 'field-map') for (const row of t.rows) expect(row.id.startsWith(ID_PREFIX.row)).toBeTrue();
-        else if (t.auditId !== undefined) expect(t.auditId).not.toContain('.');
+        else if (t.kind === 'return-review' && t.auditId !== undefined) expect(t.auditId).not.toContain('.');
       }
       for (const x of d.documents) expect(x.id.startsWith(ID_PREFIX.document)).toBeTrue();
     }

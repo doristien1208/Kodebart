@@ -1,0 +1,64 @@
+<dl class="bv-counts" data-batch-counts>
+  @for (c of counts(); track c.label) {
+    <div class="bv-count">
+      <dt>{{ c.label }}</dt>
+      <dd class="font-mono" [attr.data-batch-count]="$index">{{ c.value }}</dd>
+    </div>
+  }
+</dl>
+
+<div class="bv-scroll" tabindex="0" [attr.aria-label]="ui.output" data-batch-table>
+  <table class="bv-table">
+    <thead>
+      <tr>
+        <th scope="col">{{ ui.columns.row }}</th>
+        <th scope="col">{{ ui.columns.code }}</th>
+        <th scope="col">{{ ui.source }}</th>
+        <th scope="col">{{ ui.adopted }}</th>
+        <th scope="col">{{ ui.generated }}</th>
+        <th scope="col">{{ ui.columns.origin }}</th>
+        <th scope="col">{{ ui.columns.attachment }}</th>
+        <th scope="col">{{ ui.columns.status }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (r of rows(); track r.id) {
+        <tr [attr.data-batch-row]="r.code" [class.bv-pending]="r.pending">
+          <td class="font-mono text-muted">{{ $index + 1 }}</td>
+          <td class="font-mono">
+            {{ r.code }}
+            @if (r.codeDiffers) {
+              <span class="bv-diff" data-batch-code-source>{{ ui.source }} {{ r.sourceCode }}</span>
+            }
+          </td>
+          <td>{{ r.source }}</td>
+          <td>{{ r.adopted }}</td>
+          <td [class.bv-changed]="r.changed" data-batch-output>{{ r.output }}</td>
+          <td>{{ r.origin }}</td>
+          <td>{{ r.attachment }}</td>
+          <td data-batch-status>{{ r.status }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+<div class="bv-json" data-batch-json>
+  <section class="bv-pane">
+    <h5 class="bv-pane-title">{{ ui.input }}</h5>
+    <pre class="bv-pre" tabindex="0" data-batch-json-input>{{ json().input }}</pre>
+  </section>
+  <section class="bv-pane">
+    <h5 class="bv-pane-title">{{ ui.rule }}</h5>
+    <pre class="bv-pre" tabindex="0" data-batch-json-rule>{{ json().rule }}</pre>
+    <ul class="bv-legend" data-batch-legend>
+      @for (l of legend(); track l) {
+        <li>{{ l }}</li>
+      }
+    </ul>
+  </section>
+  <section class="bv-pane">
+    <h5 class="bv-pane-title">{{ ui.output }}</h5>
+    <pre class="bv-pre" tabindex="0" data-batch-json-output>{{ json().output }}</pre>
+  </section>
+</div>

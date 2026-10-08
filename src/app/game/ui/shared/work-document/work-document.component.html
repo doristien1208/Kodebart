@@ -1,0 +1,74 @@
+@if (view(); as v) {
+  <article class="wd" [attr.data-work-document]="v.kind">
+    @switch (v.kind) {
+      @case ('source') {
+        <h4 class="wd-heading" data-wd-heading>{{ v.heading }}</h4>
+        <dl class="wd-fields" data-wd-fields>
+          @for (f of v.fields; track f.label) {
+            <dt>{{ f.label }}</dt>
+            <dd>{{ f.value }}</dd>
+          }
+        </dl>
+      }
+      @case ('copy') {
+        <h4 class="wd-heading" data-wd-heading>{{ v.heading }}</h4>
+        <dl class="wd-fields" data-wd-fields>
+          @for (f of v.fields; track f.label) {
+            <dt>{{ f.label }}</dt>
+            <dd>{{ f.value }}</dd>
+          }
+        </dl>
+      }
+      @case ('link') {
+        @if (v.stateText) {
+          <p class="wd-banner" [class.wd-current]="v.editable" data-wd-state>{{ v.stateText }}</p>
+        }
+        <header class="wd-head">
+          <h4 class="wd-heading" data-wd-heading>{{ v.heading }}</h4>
+          <span class="tag" data-wd-version>{{ v.versionLabel }}</span>
+        </header>
+        <dl class="wd-fields" data-wd-fields>
+          @for (f of v.fields; track f.label) {
+            <dt>{{ f.label }}</dt>
+            <dd>{{ f.value }}</dd>
+          }
+        </dl>
+        @if (v.document; as d) {
+          <section class="wd-section" data-wd-attached>
+            <h5 class="wd-section-title">{{ d.heading }}</h5>
+            <dl class="wd-fields">
+              @for (f of d.fields; track f.label) {
+                <dt>{{ f.label }}</dt>
+                <dd>{{ f.value }}</dd>
+              }
+            </dl>
+          </section>
+        }
+        @if (revision(); as r) {
+          <section class="wd-section" data-wd-revision>
+            <app-attachment-form
+              [candidates]="r.candidates"
+              [labels]="r.labels"
+              [selected]="r.selected"
+              [error]="error()"
+              [busy]="busy()"
+              [operation]="operation()"
+              (pick)="onPick($event)"
+              (open)="onOpen($event)"
+              (compare)="onCompare()"
+              (submit)="onSubmit($event)"
+              (retry)="onRetry()"
+            />
+          </section>
+        }
+      }
+      @case ('batch') {
+        <h4 class="wd-heading" data-wd-heading>{{ v.heading }}</h4>
+        <app-batch-view [rows]="v.rows" [json]="v.json" [legend]="v.legend" [counts]="v.counts" />
+      }
+      @case ('missing') {
+        <p class="wd-missing" role="alert" data-wd-missing>{{ v.heading }}</p>
+      }
+    }
+  </article>
+}

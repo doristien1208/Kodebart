@@ -28,6 +28,10 @@ import {
   TasksUi,
   WindowShellUi,
   WindowsUi,
+  ContentInterlude,
+  ContentWorkday,
+  ContentWorkdayTemplate,
+  WorkdayUi,
 } from './schema';
 
 /**
@@ -401,6 +405,7 @@ export const MAIL_UI: MailUi = requiredMailPack(RETURN_RECEIPT_MAIL_PACK_ID).ui;
 
 /** 郵件的寄件者名稱（例如「資料作業窗口」）；未知郵件包回傳 undefined（舊存檔的包可能已移除）。 */
 export function mailSenderName(packId: string): string | undefined {
+  if (CONTENT.workday?.mail.packId === packId) return CONTENT.workday.mail.sender.name;
   return mailPack(packId)?.sender.name;
 }
 
@@ -453,4 +458,44 @@ export function onboardingLoggingIn(name: string): string {
 /** 詢問入口的文字（第一次「這個欄位是什麼？」、之後「查看予安的說明」）；未知提問回傳 undefined。 */
 export function helpUi(requestId: string): HelpUi | undefined {
   return helpPackOf(requestId)?.ui;
+}
+
+/* ---------- M1 工作日（data/workday/） ---------- */
+
+function requiredWorkday(): ContentWorkday {
+  if (CONTENT.workday === null) throw new Error('content: 找不到 M1 工作日內容包（data/workday/）');
+  return CONTENT.workday;
+}
+
+/** 工作佇列、文件、批次與交接的介面字（M1 內容包 ui）。 */
+export const WORKDAY_UI: WorkdayUi = requiredWorkday().ui;
+
+/** M1 延後回條的郵件包 ID。 */
+export const WORKDAY_MAIL_PACK: string = requiredWorkday().mail.packId;
+
+/** 延後回條的模板（主旨與內文）；未知模板回傳 undefined（舊存檔的模板可能已移除）。 */
+export function workdayMailTemplate(packId: string, templateId: string): ContentWorkdayTemplate | undefined {
+  const mail = CONTENT.workday?.mail;
+  if (!mail || mail.packId !== packId) return undefined;
+  return (mail.templates as Readonly<Record<string, ContentWorkdayTemplate | undefined>>)[templateId];
+}
+
+/** 某日結束後的離班／到班短文；沒有為 undefined。 */
+export function interludeAfter(dayId: string): ContentInterlude | undefined {
+  return CONTENT.workday?.interludes.find((i) => i.afterDay === dayId);
+}
+
+/** 進入某日時的到班短文（前一日的 interlude.arrive）；沒有為空陣列。 */
+export function arriveLines(dayId: string): readonly string[] {
+  return CONTENT.workday?.interludes.find((i) => i.beforeDay === dayId)?.arrive ?? [];
+}
+
+/** JSON 值的領域意義對照（例如「false＝未拒絕」）。 */
+export function legendText(value: string, meaning: string): string {
+  return format(WORKDAY_UI.legendTemplate, { value, meaning });
+}
+
+/** 附件關聯版本名稱：0＝原始送件；之後為「修訂 n」。 */
+export function attachmentVersionLabel(index: number): string {
+  return index === 0 ? MAIL_UI.initialVersion : format(MAIL_UI.revisionTemplate, { revision: index });
 }

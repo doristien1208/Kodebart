@@ -1,6 +1,15 @@
-import { ALL_DOCUMENTS, reconcileTask } from '../../../content/bundle';
-import { DOCUMENT_ISSUES_UI, EXECUTION_LOG_UI, OPERATION_UI, RECORD_REVIEW_UI, RETURNED_REVIEW_UI, caseNumber } from '../../../content/text';
+import { ALL_DOCUMENTS, ALL_TASKS, reconcileTask } from '../../../content/bundle';
+import {
+  DOCUMENT_ISSUES_UI,
+  EXECUTION_LOG_UI,
+  OPERATION_UI,
+  RECORD_REVIEW_UI,
+  RETURNED_REVIEW_UI,
+  WORKDAY_UI,
+  caseNumber,
+} from '../../../content/text';
 import { EVENT_KINDS } from '../../../core/rules';
+import { attachmentProgressOf, reportProgressOf, transformProgressOf } from '../../../core/workday';
 import { GameEvent, MissingPolicy, Reply, ReviewDisposition, Save } from '../../../core/types';
 import type { DayTaskItem } from '../../../state/game-state.service';
 import type { OperationKind, OperationStage, OperationView } from '../../../state/work-operations.service';
@@ -226,6 +235,57 @@ function receiptCheckEntry(event: GameEvent, save: Save, text: LogText): LogEntr
   };
 }
 
+/** M1 附件關聯送件／修訂：值取保存的送件版本（採用編號、引用附件標題、證明範圍、去向）。 */
+function attachmentEntry(event: GameEvent, save: Save, text: LogText): LogEntry | null {
+  const p = record(event.payload);
+  const taskId = stringOf(p, 'taskId');
+  if (!taskId) return null;
+  const progress = attachmentProgressOf(save, taskId);
+  const index = numberOf(p, 'versionIndex') ?? 0;
+  const v = progress.versions.find((x) => x.index === index);
+  if (!v) return null;
+  const fields: LogField[] = [str(text.key.check, text.check.pass), str(text.key.personnelId, v.subjectCode)];
+  if (v.document) {
+    fields.push(str(text.key.attachment, v.document.heading));
+    if (v.evidence) fields.push(str(text.key.evidence, WORKDAY_UI.evidence[v.evidence]));
+  }
+  fields.push(str(text.key.destination, text.caseDestination[v.destination]));
+  return { id: event.id, command: text.command.attachment, arg: v.subjectCode, fields };
+}
+
+/** M1 批次執行：列數、交付與待補數、策略取保存的輸出快照。 */
+function transformEntry(event: GameEvent, save: Save, text: LogText): LogEntry | null {
+  const taskId = stringOf(record(event.payload), 'taskId');
+  const out = taskId ? transformProgressOf(save, taskId).submitted : undefined;
+  if (!taskId || !out) return null;
+  const fields: LogField[] = [
+    num(text.key.rows, out.rows.length),
+    num(text.key.delivered, out.deliveredCount),
+    num(text.key.pending, out.pendingCount),
+  ];
+  const task = ALL_TASKS.find((t) => t.id === taskId);
+  if (out.policy && task?.kind === 'transform') fields.push(str(text.key.blankPolicy, task.text[out.policy]));
+  return { id: event.id, command: text.command.transform, arg: null, fields };
+}
+
+/** M1 交付報告：送件、本人回覆、窗口收件、待補分開列（取保存的報告快照）。 */
+function reportEntry(event: GameEvent, save: Save, text: LogText): LogEntry | null {
+  const taskId = stringOf(record(event.payload), 'taskId');
+  const report = taskId ? reportProgressOf(save, taskId).submitted : undefined;
+  if (!report) return null;
+  return {
+    id: event.id,
+    command: text.command.report,
+    arg: null,
+    fields: [
+      num(text.key.delivered, report.submissionCount),
+      num(text.key.replies, report.replyCount),
+      num(text.key.receipts, report.receiptCount),
+      num(text.key.pending, report.pendingCount),
+    ],
+  };
+}
+
 function handoffEntry(event: GameEvent, tasks: readonly DayTaskItem[], text: LogText): LogEntry | null {
   const taskId = stringOf(record(event.payload), 'taskId');
   const task = tasks.find((t) => t.taskId === taskId);
@@ -271,6 +331,16 @@ export function buildExecutionLog(input: ExecutionLogInput, text: LogText = EXEC
       case EVENT_KINDS.taskComplete:
         entry = handoffEntry(event, input.tasks, text);
         break;
+      case EVENT_KINDS.attachmentSubmit:
+      case EVENT_KINDS.attachmentRevise:
+        entry = attachmentEntry(event, input.save, text);
+        break;
+      case EVENT_KINDS.transformSubmit:
+        entry = transformEntry(event, input.save, text);
+        break;
+      case EVENT_KINDS.reportSubmit:
+        entry = reportEntry(event, input.save, text);
+        break;
       default:
         // help.request 等非業務事件與未知種類：不產生紀錄
         break;
@@ -297,6 +367,13 @@ function operationCommand(kind: OperationKind, text: LogText): string {
     case 'return-resubmit':
     case 'return-window':
       return text.command.returnReview;
+    case 'attachment':
+    case 'attachment-revise':
+      return text.command.attachment;
+    case 'transform':
+      return text.command.transform;
+    case 'report':
+      return text.command.report;
   }
 }
 
@@ -306,7 +383,15 @@ function operationArg(op: OperationView): string | null {
 }
 
 /** 一個階段 → 一行 JSON：過程是 status，結束是 result（已保存／保存失敗）。 */
-function stageField(stage: OperationStage, text: LogText, op: OperationText): LogField {
+function stageField(stage: OperationStage, text: LogText, op: OperationText, kind?: OperationKind): LogField {
+  // M1 批次：驗證處理設定 → 建立批次輸出 → 保存送件副本 → 加入後續佇列（只描述本機實際發生的步驟）
+  if (kind === 'transform') {
+    if (stage === 'validating') return str(text.key.status, WORKDAY_UI.logValidate);
+    if (stage === 'processing') return str(text.key.status, WORKDAY_UI.logTransform);
+    if (stage === 'saving') return str(text.key.status, WORKDAY_UI.logPersist);
+    if (stage === 'done') return str(text.key.result, WORKDAY_UI.logEnqueue);
+    if (stage === 'failed') return str(text.key.result, WORKDAY_UI.logFailure);
+  }
   if (stage === 'done') return str(text.key.result, op.done);
   if (stage === 'failed') return str(text.key.result, op.failed);
   return str(text.key.status, op[stage]);
@@ -329,7 +414,7 @@ export function withOperation(
   const out = [...entries];
   if (!op || !tasks.some((t) => t.taskId === op.taskId)) return out;
   const command = operationCommand(op.kind, text);
-  const trail = op.trail.map((s) => stageField(s, text, opText));
+  const trail = op.trail.map((s) => stageField(s, text, opText, op.kind));
   if (op.stage === 'done') {
     for (let i = out.length - 1; i >= 0; i--) {
       const e = out[i]!;
@@ -345,7 +430,7 @@ export function withOperation(
     command,
     arg: operationArg(op),
     trail: failed ? trail.slice(0, -1) : trail,
-    fields: failed ? [stageField('failed', text, opText)] : [],
+    fields: failed ? [stageField('failed', text, opText, op.kind)] : [],
     pending: failed ? 'failed' : 'running',
     ...(failed ? { retryable: op.failure === 'storage' } : {}),
   });

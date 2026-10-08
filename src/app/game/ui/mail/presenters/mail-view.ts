@@ -12,7 +12,11 @@ import {
 } from '../../../content/text';
 import { RETURN_RECEIPT_MAIL_PACK } from '../../../core/mail';
 import { editableReceiptOf } from '../../../core/rules';
-import { MailAttachment, MailRecord, ReturnCase, ReturnReceipt } from '../../../core/types';
+import { MailAttachment, MailRecord, ReturnCase, ReturnReceipt, ReturnReceiptAttachment, Save } from '../../../core/types';
+import { attachmentProgressOf, editableLinkIndex, transformProgressOf } from '../../../core/workday';
+import { DAY_DIRECTORY } from '../../../state/day-directory';
+import { refusalText } from '../../shared/presenters/work-document';
+import { WORKDAY_UI, workdayMailTemplate } from '../../../content/text';
 
 /**
  * 郵件（R12 §3）的純函式 presenter：由存檔的郵件（MailRecord）與退件案件（ReturnCase）組出畫面資料。
@@ -24,8 +28,11 @@ import { MailAttachment, MailRecord, ReturnCase, ReturnReceipt } from '../../../
  * - 不輸出案件、回條、郵件或日別 ID，也不輸出布林字樣。
  */
 
-/** 附件狀態：current＝目前可修訂；awaiting＝已從這份送出、等待結果；historical＝舊版本；resolved＝結案回條；missing＝找不到。 */
-export type AttachmentState = 'current' | 'awaiting' | 'historical' | 'resolved' | 'missing';
+/**
+ * 附件狀態：current＝目前可修訂；awaiting＝已從這份送出、等待結果；historical＝舊版本；resolved＝結案回條；missing＝找不到；
+ * reference＝參考文件（來源、送件副本、批次副本；M1），沒有狀態文字。
+ */
+export type AttachmentState = 'current' | 'awaiting' | 'historical' | 'resolved' | 'missing' | 'reference';
 
 export interface MailAttachmentView {
   /** 附件引用（開啟文件用）；不顯示。 */
@@ -51,6 +58,14 @@ export interface MailView {
   pending: boolean;
   /** 郵件包或模板已不存在（舊存檔、內容移除）：畫面顯示讀取失敗與重試。 */
   failed: boolean;
+  /** M1 批次回條的逐列表格（取自保存的批次輸出）；沒有為 null。 */
+  table: MailTableView | null;
+}
+
+/** 郵件內的逐列表格（M1）：欄名與每列文字。 */
+export interface MailTableView {
+  columns: readonly string[];
+  rows: readonly (readonly string[])[];
 }
 
 export type MailFilter = 'all' | 'unread' | 'pending';
@@ -100,11 +115,14 @@ export function attachmentStateText(state: AttachmentState, item: ReturnCase | n
       return MAIL_UI.resolved;
     case 'missing':
       return MAIL_UI.missingAttachment;
+    case 'reference':
+      return '';
   }
 }
 
 /** 模板代入值：案號、版本名稱、退件原因；案件找不到時只代入附件上的版本名稱。 */
 function paramsOf(returns: readonly ReturnCase[], ref: MailAttachment): MailTemplateParams {
+  if (ref.kind !== 'return-receipt') return {};
   const found = resolveReceipt(returns, ref);
   if (!found) {
     const item = returns.find((r) => r.id === ref.caseId);
@@ -136,19 +154,79 @@ function receivedLabel(dayId: string): string {
 }
 
 /** 附件文件視窗的標題（退件回條包的附件名）；找不到案件時退回「附件」。 */
-export function attachmentWindowTitle(returns: readonly ReturnCase[], ref: MailAttachment): string {
+export function attachmentWindowTitle(returns: readonly ReturnCase[], ref: ReturnReceiptAttachment): string {
   const found = resolveReceipt(returns, ref);
   const template = found ? templateOf(RETURN_RECEIPT_MAIL_PACK, found.receipt.kind) : undefined;
   return template ? renderMailTemplate(template.attachmentLabel, paramsOf(returns, ref)) : MAIL_UI.attachments;
 }
 
-/** 一封郵件的畫面資料。 */
-export function mailView(mail: MailRecord, returns: readonly ReturnCase[], read: boolean): MailView {
+/** M1 延後回條的附件：附件名（文件標題）與狀態（只有附件關聯版本有可修訂／歷史等狀態）。 */
+function workdayAttachment(ref: MailAttachment, save: Save | null, label: (ref: MailAttachment) => string): MailAttachmentView {
+  if (ref.kind === 'attachment-link' && save) {
+    const p = attachmentProgressOf(save, ref.taskId);
+    if (!p.versions.some((v) => v.index === ref.versionIndex)) {
+      return { ref, label: label(ref), state: 'missing', stateText: MAIL_UI.missingAttachment };
+    }
+    const latest = p.versions[p.versions.length - 1];
+    const state: AttachmentState =
+      editableLinkIndex(p) === ref.versionIndex ? 'current' : latest?.index !== ref.versionIndex ? 'historical' : 'reference';
+    return { ref, label: label(ref), state, stateText: state === 'current' ? MAIL_UI.current : state === 'historical' ? MAIL_UI.historical : '' };
+  }
+  return { ref, label: label(ref), state: 'reference', stateText: '' };
+}
+
+/** 批次回條的逐列表格：缺漏待補清單只列實際保留缺漏的列，其他列出全部輸出。 */
+function workdayTable(mail: MailRecord, save: Save | null): MailTableView | null {
+  const batch = mail.attachments.find((a) => a.kind === 'batch-output');
+  if (!save || batch?.kind !== 'batch-output') return null;
+  const out = transformProgressOf(save, batch.taskId).submitted;
+  if (!out) return null;
+  const plan = (DAY_DIRECTORY.mails ?? []).find((p) => mail.id === p.id || mail.id.startsWith(`${p.id}.r`));
+  const rows = plan?.trigger.kind === 'batch-pending' ? out.rows.filter((r) => r.status === 'pending') : out.rows;
+  const c = WORKDAY_UI.columns;
+  return {
+    columns: [c.code, c.value, c.origin, c.status],
+    rows: rows.map((r) => [r.adoptedCode ?? '', refusalText(r.value), WORKDAY_UI.valueOrigin[r.valueOrigin], WORKDAY_UI.rowStatus[r.status]]),
+  };
+}
+
+/**
+ * 一封郵件的畫面資料。退件回條依案件推導；M1 延後回條（`save` 提供時）依保存的附件版本與批次輸出推導，
+ * 附件名由 attachmentLabel 給（文件視窗標題；呼叫端注入，避免 presenter 互相依賴）。
+ */
+export function mailView(
+  mail: MailRecord,
+  returns: readonly ReturnCase[],
+  read: boolean,
+  save: Save | null = null,
+  attachmentLabel: (ref: MailAttachment) => string = () => MAIL_UI.attachments,
+): MailView {
+  if (mail.packId !== RETURN_RECEIPT_MAIL_PACK) {
+    const sender = mailSenderName(mail.packId);
+    const template = workdayMailTemplate(mail.packId, mail.templateId);
+    const received = receivedLabel(mail.dayId);
+    if (sender === undefined || template === undefined) {
+      return { id: mail.id, sender: '', subject: '', lines: [], received, read, attachments: [], pending: false, failed: true, table: null };
+    }
+    const attachments = mail.attachments.map((ref) => workdayAttachment(ref, save, attachmentLabel));
+    return {
+      id: mail.id,
+      sender,
+      subject: template.subject,
+      lines: [...template.lines],
+      received,
+      read,
+      attachments,
+      pending: attachments.some((a) => a.state === 'current'),
+      failed: false,
+      table: workdayTable(mail, save),
+    };
+  }
   const sender = mailSenderName(mail.packId);
   const template = templateOf(mail.packId, mail.templateId);
   const received = receivedLabel(mail.dayId);
   if (sender === undefined || template === undefined) {
-    return { id: mail.id, sender: '', subject: '', lines: [], received, read, attachments: [], pending: false, failed: true };
+    return { id: mail.id, sender: '', subject: '', lines: [], received, read, attachments: [], pending: false, failed: true, table: null };
   }
   // 主旨與內文以第一份附件代入（沒有附件時 placeholder 代入空字串）
   const first = mail.attachments[0];
@@ -159,7 +237,7 @@ export function mailView(mail: MailRecord, returns: readonly ReturnCase[], read:
       ref,
       label: renderMailTemplate(template.attachmentLabel, paramsOf(returns, ref)),
       state,
-      stateText: attachmentStateText(state, returns.find((r) => r.id === ref.caseId) ?? null),
+      stateText: attachmentStateText(state, ref.kind === 'return-receipt' ? (returns.find((r) => r.id === ref.caseId) ?? null) : null),
     };
   });
   return {
@@ -172,6 +250,7 @@ export function mailView(mail: MailRecord, returns: readonly ReturnCase[], read:
     attachments,
     pending: attachments.some((a) => a.state === 'current'),
     failed: false,
+    table: null,
   };
 }
 
@@ -183,11 +262,13 @@ export function buildMailViews(
   mailbox: readonly MailRecord[],
   returns: readonly ReturnCase[],
   isRead: (mailId: string) => boolean,
+  save: Save | null = null,
+  attachmentLabel?: (ref: MailAttachment) => string,
 ): MailView[] {
   return mailbox
     .map((mail, i) => ({ mail, i, order: dayOrder(mail.dayId) || 0 }))
     .sort((a, b) => b.order - a.order || b.i - a.i)
-    .map(({ mail }) => mailView(mail, returns, isRead(mail.id)));
+    .map(({ mail }) => mailView(mail, returns, isRead(mail.id), save, attachmentLabel));
 }
 
 export function mailMatches(view: MailView, filter: MailFilter): boolean {
@@ -215,13 +296,15 @@ export function latestMailOfCase(
   mailbox: readonly MailRecord[],
   returns: readonly ReturnCase[],
   caseId: string,
-): { mail: MailRecord; ref: MailAttachment } | null {
+): { mail: MailRecord; ref: ReturnReceiptAttachment } | null {
   const item = returns.find((r) => r.id === caseId);
   const latest = item?.receipts[item.receipts.length - 1];
   if (!latest) return null;
   for (let i = mailbox.length - 1; i >= 0; i--) {
     const mail = mailbox[i] as MailRecord;
-    const ref = mail.attachments.find((a) => a.kind === 'return-receipt' && a.caseId === caseId && a.receiptId === latest.id);
+    const ref = mail.attachments.find(
+      (a): a is ReturnReceiptAttachment => a.kind === 'return-receipt' && a.caseId === caseId && a.receiptId === latest.id,
+    );
     if (ref) return { mail, ref };
   }
   return null;

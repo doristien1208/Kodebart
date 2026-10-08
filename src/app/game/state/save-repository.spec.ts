@@ -52,6 +52,7 @@ import {
   SourceRecord,
 } from '../core/types';
 import { validateRecord } from '../core/validate';
+import { generateReport, previewTransform, setTransformPolicy, submitAttachment, submitReport, submitTransform } from '../core/workday';
 import { DAY_DIRECTORY } from './day-directory';
 import { SAVE_KEY, SaveRepository } from './save-repository';
 
@@ -189,6 +190,13 @@ function finishTask(save: Save, dir: DayDirectory, decision: CaseChoice = 'regis
       s = submitFieldMap(previewFieldMap(s, dir), dir);
       return completeWork(s, dir);
     }
+    // M1：附件關聯引用第一份候選附件；批次保留缺漏送覆核；報告建立後交付
+    case 'attachment':
+      return completeWork(submitAttachment(save, dir, { choiceId: 'reference', documentId: task.candidates[0]?.documentId }), dir);
+    case 'transform':
+      return completeWork(submitTransform(previewTransform(setTransformPolicy(save, dir, 'review'), dir), dir), dir);
+    case 'report':
+      return completeWork(submitReport(generateReport(save, dir), dir), dir);
   }
 }
 
@@ -457,7 +465,7 @@ describe('SaveRepository', () => {
       expect(loaded.migratedFrom).toBe(11);
       expect(loaded.save).toEqual(save);
       expect(loaded.save).not.toBe(save);
-      expect(loaded.save!.version).toBe(11);
+      expect(loaded.save!.version).toBe(12);
       expect(loaded.save!.waivedTasks).toEqual([]);
       expect(loaded.save!.caseReviews).toEqual({});
       expect(loaded.save!.chatReplies).toEqual({});
@@ -974,7 +982,7 @@ describe('SaveRepository', () => {
         expect(loaded.issue).toBe('');
         expect(loaded.migratedFrom).toBe(6);
         const save = loaded.save!;
-        expect(save.version).toBe(11);
+        expect(save.version).toBe(12);
         expect(save.waivedTasks).toEqual(c.waived);
         // 舊回覆快照（沒有送達時間）的回應 ID 視為已讀歷史（R12）；其餘欄位逐字保留
         const readMessages = legacyReadMessages(v6.readMessages, v6.chatReplies);
@@ -1121,7 +1129,7 @@ describe('SaveRepository', () => {
       expect(loaded.issue).toBe('');
       expect(loaded.migratedFrom).toBe(5);
       const save = loaded.save!;
-      expect(save.version).toBe(11);
+      expect(save.version).toBe(12);
       expect(save.chatReplies).toEqual({});
       expect(save.caseReviews).toEqual({});
       expect(save.waivedTasks).toEqual(WAIVED_THROUGH_DAY2);
@@ -1146,7 +1154,7 @@ describe('SaveRepository', () => {
       localStorage.setItem(SAVE_KEY, JSON.stringify(v5));
       const loaded = repo.load();
       expect(loaded.migratedFrom).toBe(5);
-      expect(loaded.save).toEqual({ ...v6, version: 11, caseReviews: {}, returns: [], issueSchedule: {}, ...V11_MIGRATED_EMPTY, chatReplies: {}, waivedTasks: WAIVED_THROUGH_DAY4 });
+      expect(loaded.save).toEqual({ ...v6, version: 12, caseReviews: {}, returns: [], issueSchedule: {}, ...V11_MIGRATED_EMPTY, chatReplies: {}, waivedTasks: WAIVED_THROUGH_DAY4 });
       expect(loaded.save!.stage).toBe('end');
     });
 
@@ -1181,7 +1189,7 @@ describe('SaveRepository', () => {
       expect(loaded.issue).toBe('');
       expect(loaded.migratedFrom).toBe(4);
       const save = loaded.save!;
-      expect(save.version).toBe(11);
+      expect(save.version).toBe(12);
       expect(save.returns).toEqual([]);
       expect(save.issueSchedule).toEqual({});
       expect(save.mailbox).toEqual([]);
@@ -1224,7 +1232,7 @@ describe('SaveRepository', () => {
       const loaded = repo.load();
       expect(loaded.migratedFrom).toBe(4);
       const save = loaded.save!;
-      expect(save.version).toBe(11);
+      expect(save.version).toBe(12);
       expect(save.chatReplies).toEqual({});
       expect(save.caseReviews).toEqual({});
       expect(save.waivedTasks).toEqual([]);
@@ -1302,7 +1310,7 @@ describe('SaveRepository', () => {
       expect(loaded.issue).toBe('');
       expect(loaded.migratedFrom).toBe(3);
       const save = loaded.save!;
-      expect(save.version).toBe(11);
+      expect(save.version).toBe(12);
       expect(save.chatReplies).toEqual({});
       expect(save.caseReviews).toEqual({});
       expect(save.waivedTasks).toEqual([TASK_DAY1_FOLLOWUP]);
@@ -1325,7 +1333,7 @@ describe('SaveRepository', () => {
       const loaded = repo.load();
       expect(loaded.migratedFrom).toBe(3);
       const save = loaded.save!;
-      expect(save.version).toBe(11);
+      expect(save.version).toBe(12);
       expect(save.chatReplies).toEqual({});
       expect(save.caseReviews).toEqual({});
       expect(save.waivedTasks).toEqual(WAIVED_THROUGH_DAY2);
@@ -1360,7 +1368,7 @@ describe('SaveRepository', () => {
         const loaded = repo.load();
         expect(loaded.issue).toBe('');
         expect(loaded.migratedFrom).toBe(3);
-        expect(loaded.save!.version).toBe(11);
+        expect(loaded.save!.version).toBe(12);
         expect(loaded.save!.batches[BATCH_DAY01]!.archived['B102']!.archiveCode).toBe('102');
         for (const bad of [102, ' ']) {
           const raw = withCode(bad);
@@ -1393,7 +1401,7 @@ describe('SaveRepository', () => {
       expect(loaded.migratedFrom).toBe(2);
       expect(loaded.save).not.toBeNull();
       const save = loaded.save!;
-      expect(save.version).toBe(11);
+      expect(save.version).toBe(12);
       expect(save.chatReplies).toEqual({});
       expect(save.caseReviews).toEqual({});
       expect(save.waivedTasks).toEqual([TASK_DAY1_FOLLOWUP]);
@@ -1429,7 +1437,7 @@ describe('SaveRepository', () => {
       localStorage.setItem(SAVE_KEY, JSON.stringify(legacyV2Day1));
       const loaded = repo.load();
       expect(loaded.migratedFrom).toBe(2);
-      expect(loaded.save!.version).toBe(11);
+      expect(loaded.save!.version).toBe(12);
       expect(loaded.save!.chatReplies).toEqual({});
       expect(loaded.save!.caseReviews).toEqual({});
       expect(loaded.save!.waivedTasks).toEqual([]);
@@ -1466,7 +1474,7 @@ describe('SaveRepository', () => {
       const loaded = repo.load();
       expect(loaded.issue).toBe('');
       expect(loaded.migratedFrom).toBe(2);
-      expect(loaded.save!.version).toBe(11);
+      expect(loaded.save!.version).toBe(12);
       expect(loaded.save!.batches[BATCH_DAY01]!.archived['B102']).toEqual({
         archiveCode: '102',
         refusal: false,
@@ -1576,7 +1584,7 @@ describe('SaveRepository', () => {
         const loaded = repo.load();
         expect(loaded.issue).withContext(`v${from}`).toBe('');
         expect(loaded.migratedFrom).withContext(`v${from}`).toBe(from as never);
-        expect(loaded.save!.version).withContext(`v${from}`).toBe(11);
+        expect(loaded.save!.version).withContext(`v${from}`).toBe(12);
         expect(loaded.save!.returns).withContext(`v${from}`).toEqual([]);
         expect(loaded.save!.issueSchedule).withContext(`v${from}`).toEqual({});
         expect(loaded.save!.mailbox).withContext(`v${from}`).toEqual([]);
@@ -1760,7 +1768,7 @@ describe('SaveRepository', () => {
       expect(loaded.issue).toBe('');
       expect(loaded.migratedFrom).toBe(10);
       const save = loaded.save!;
-      expect(save.version).toBe(11);
+      expect(save.version).toBe(12);
       expect(save).toEqual({ ...read, onboarding: { step: 0, complete: true } });
       expect(save.mailbox).toEqual(native.mailbox);
       expect(save.mailbox).toEqual([
@@ -2040,7 +2048,7 @@ describe('SaveRepository', () => {
       expect(loaded.issue).toBe('');
       expect(loaded.migratedFrom).toBe(9);
       const save = loaded.save!;
-      expect(save.version).toBe(11);
+      expect(save.version).toBe(12);
       expect(isValidSave(save, DAY_DIRECTORY)).toBeTrue();
       // 舊事件與進度逐字保留；只有第一張退件回條（已讀），不偽造之後的回條或放行
       expect(save.events).toEqual(v9.events);

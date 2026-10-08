@@ -78,7 +78,96 @@
       "refusalApplies": true
     }
   ],
-  "documents": [],
+  "documents": [
+    {
+      "id": "doc.day5.m1-electronic-receipt",
+      "kind": "case-source",
+      "recordIds": [
+        "record.day5-h251"
+      ],
+      "text": {
+        "heading": "紙本交接電子回條",
+        "fields": [
+          {
+            "label": "交接參照",
+            "value": "OPS-0919-01"
+          },
+          {
+            "label": "對象編號",
+            "value": "H-251"
+          },
+          {
+            "label": "附件版本",
+            "value": "1"
+          },
+          {
+            "label": "文件種類",
+            "value": "電子收件回條"
+          },
+          {
+            "label": "回覆者",
+            "value": "服務窗口"
+          },
+          {
+            "label": "紀錄時間",
+            "value": "9 月 19 日 08:52"
+          },
+          {
+            "label": "實物位置",
+            "value": "未提供"
+          },
+          {
+            "label": "範圍",
+            "value": "電子資料已收件"
+          }
+        ]
+      }
+    },
+    {
+      "id": "doc.day5.m1-handover-pending",
+      "kind": "case-source",
+      "recordIds": [
+        "record.day5-h251"
+      ],
+      "text": {
+        "heading": "紙本移交資料",
+        "fields": [
+          {
+            "label": "交接參照",
+            "value": "OPS-0919-01"
+          },
+          {
+            "label": "對象編號",
+            "value": "H-251"
+          },
+          {
+            "label": "附件版本",
+            "value": "1"
+          },
+          {
+            "label": "文件種類",
+            "value": "待補移交紀錄"
+          },
+          {
+            "label": "回覆者",
+            "value": "值班窗口"
+          },
+          {
+            "label": "紀錄時間",
+            "value": "9 月 19 日 09:02"
+          },
+          {
+            "label": "實物位置",
+            "value": "待回覆"
+          },
+          {
+            "label": "範圍",
+            "value": "尚未取得實物簽收資料"
+          }
+        ]
+      }
+    }
+  ],
   "tasks": [
     {
       "id": "task.day5.archive",
@@ -100,6 +189,72 @@
         "heading": "週末批次歸檔",
         "instruction": "請依來源逐筆完成核對；已提交的紀錄將鎖定。"
       }
+    },
+    {
+      "id": "task.day5.m1-attachment",
+      "kind": "attachment",
+      "dependsOn": [
+        "task.day5.archive"
+      ],
+      "recordIds": [
+        "record.day5-h251"
+      ],
+      "documentIds": [
+        "doc.day5.m1-electronic-receipt",
+        "doc.day5.m1-handover-pending"
+      ],
+      "subjectRecordId": "record.day5-h251",
+      "candidates": [
+        {
+          "documentId": "doc.day5.m1-electronic-receipt",
+          "evidence": "receipt"
+        },
+        {
+          "documentId": "doc.day5.m1-handover-pending",
+          "evidence": "pending"
+        }
+      ],
+      "text": {
+        "eyebrow": "ATTACHMENT / LINK 05",
+        "heading": "紙本交接附件核對",
+        "instruction": "選擇本次交接引用的附件。電子收件與實物簽收分開記錄。",
+        "reference": "引用附件並送件",
+        "review": "保留缺漏並送覆核"
+      }
+    },
+    {
+      "id": "task.day5.m1-transform",
+      "kind": "transform",
+      "dependsOn": [
+        "task.day5.archive"
+      ],
+      "recordIds": [
+        "record.day5-b1013",
+        "record.day5-b1108",
+        "record.day5-b1219"
+      ],
+      "documentIds": [],
+      "rows": [
+        {
+          "id": "row.1013",
+          "recordId": "record.day5-b1013"
+        },
+        {
+          "id": "row.1108",
+          "recordId": "record.day5-b1108"
+        },
+        {
+          "id": "row.1219",
+          "recordId": "record.day5-b1219"
+        }
+      ],
+      "text": {
+        "eyebrow": "BATCH / TRANSFORM 05",
+        "heading": "補充批次交付",
+        "instruction": "確認本次範圍與前一批沒有重複，檢查有變更的資料列再交付。",
+        "departmentDefault": "套用部門預設並交付",
+        "review": "保留缺漏並送覆核"
+      }
     }
   ],
   "messages": [
@@ -113,6 +268,55 @@
       "lines": [
         "下午會做例行維護，請在下班前完成交接。"
       ]
+    },
+    {
+      "id": "msg.day5.m1-coffee",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.yang-zi-qian",
+      "time": "11:36",
+      "visibleFrom": "day.05",
+      "unlock": [],
+      "unlockAfter": {
+        "archiveBatchId": "batch.day05.archive",
+        "archivedCount": 2
+      },
+      "lines": [
+        "樓下那台咖啡機修好了。今天終於不是溫水。"
+      ],
+      "replyPrompt": {
+        "id": "prompt.day5.m1-coffee",
+        "availableThrough": "day.05",
+        "choices": [
+          {
+            "id": "join",
+            "text": "等我這批送完一起下去。",
+            "responses": [
+              {
+                "id": "msg.day5.m1-reply-coffee-join",
+                "actorId": "actor.yang-zi-qian",
+                "time": "11:37",
+                "lines": [
+                  "好，我先找杯子。你別又拿到沒洗的那個。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "later",
+            "text": "我晚點，現在還有退件。",
+            "responses": [
+              {
+                "id": "msg.day5.m1-reply-coffee-later",
+                "actorId": "actor.yang-zi-qian",
+                "time": "11:37",
+                "lines": [
+                  "那我幫你留個杯子，回來叫你。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "id": "msg.day5.box-question",
@@ -144,7 +348,7 @@
       "visibleFrom": "day.05",
       "unlock": [],
       "lines": [
-        "我知道系統有寫。我是問箱子。"
+        "我知道回條到了。我剛剛找過，箱子沒放在那裡。"
       ],
       "replyPrompt": {
         "id": "prompt.day5.missing-box",
@@ -159,7 +363,7 @@
                 "actorId": "actor.yang-zi-qian",
                 "time": "12:08",
                 "lines": [
-                  "那欄空著。其他欄倒是都很完整。"
+                  "回條上只有窗口帳號，沒寫搬去哪裡。我把附件傳給你看。"
                 ]
               },
               {
@@ -167,7 +371,7 @@
                 "actorId": "actor.wu-wan-ting",
                 "time": "12:09",
                 "lines": [
-                  "好喔，完整地找不到人。"
+                  "我再問一下值班的。不然下午換人又得重講。"
                 ]
               }
             ]
@@ -181,7 +385,7 @@
                 "actorId": "actor.wu-wan-ting",
                 "time": "12:08",
                 "lines": [
-                  "好，我把電話留給下午班。"
+                  "好，電話我先留著。"
                 ]
               },
               {
@@ -189,7 +393,7 @@
                 "actorId": "actor.yang-zi-qian",
                 "time": "12:09",
                 "lines": [
-                  "非常標準的交接。"
+                  "有單再跟我說，我去接。"
                 ]
               }
             ]
@@ -203,7 +407,7 @@
                 "actorId": "actor.wu-wan-ting",
                 "time": "12:08",
                 "lines": [
-                  "我剛問了。他們叫我問窗口。"
+                  "剛打過。他們說還在等一樓送上去。"
                 ]
               },
               {
@@ -211,7 +415,66 @@
                 "actorId": "actor.yang-zi-qian",
                 "time": "12:09",
                 "lines": [
-                  "流程閉環。"
+                  "那我問一樓看看，你先忙。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "msg.day5.m1-paper-notice",
+      "channelId": "channel.department.data-ops",
+      "actorId": "actor.lin-yuan",
+      "time": "09:16",
+      "visibleFrom": "day.05",
+      "unlock": [],
+      "lines": [
+        "紙本交接的電子回條到了，實物位置還在補。請把引用的是回條還是移交單寫清楚。"
+      ]
+    },
+    {
+      "id": "msg.day5.m1-default-question",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "15:12",
+      "visibleFrom": "day.05",
+      "unlock": [],
+      "unlockAfter": {
+        "taskPreviewed": "task.day5.m1-transform"
+      },
+      "lines": [
+        "批次預覽那邊記得看一下變更列，不只有欄位名稱。"
+      ],
+      "replyPrompt": {
+        "id": "prompt.day5.m1-default-question",
+        "availableThrough": "day.05",
+        "choices": [
+          {
+            "id": "ask-default",
+            "text": "補預設之後，原本空白還看得到嗎？",
+            "responses": [
+              {
+                "id": "msg.day5.m1-reply-default-question-ask-default",
+                "actorId": "actor.lin-yuan",
+                "time": "15:13",
+                "lines": [
+                  "原始附件還在，但下一段看到的是你的輸出。想查空白是從哪來，要開這批的來源紀錄。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "review-scope",
+            "text": "我再看一次這次套用哪些列。",
+            "responses": [
+              {
+                "id": "msg.day5.m1-reply-default-question-review-scope",
+                "actorId": "actor.lin-yuan",
+                "time": "15:13",
+                "lines": [
+                  "嗯，別把上次的範圍也帶進去。我這邊剛收到一封問這件事的信。"
                 ]
               }
             ]

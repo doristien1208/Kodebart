@@ -42,6 +42,7 @@ import {
   ReturnReceipt,
   ReturnVersion,
   SourceRecord,
+  ReturnReceiptAttachment,
 } from './types';
 
 /**
@@ -164,7 +165,7 @@ function makeBatch(archived: BatchState['archived'] = {}, drafts: BatchState['dr
 /** 合法的 v11 存檔 fixture（day.01／work、入職已完成）；只覆寫需要的欄位。 */
 function makeSave(overrides: Partial<Save> = {}): Save {
   return {
-    version: 11,
+    version: 12,
     seed: 42,
     dayId: DAY_01,
     stage: 'work',
@@ -1362,7 +1363,7 @@ describe('isValidLegacySaveV7（R9）／v7 → v8', () => {
     const result = migrateToCurrent(toV7(c3With({ ...legacyH204, archiveCode: 'H-205' })), CDIR)!;
     expect(result).not.toBeNull();
     expect(result.from).toBe(7);
-    expect(result.save.version).toBe(11);
+    expect(result.save.version).toBe(12);
     expect(result.save.returns).toEqual([]);
     expect(result.save.issueSchedule).toEqual({});
     expect(result.save.mailbox).toEqual([]);
@@ -2016,7 +2017,7 @@ describe('isValidSave（R12）：郵件——每份回條恰有一封、欄位�
       dayId: DAY_03,
       attachments: [{ kind: 'return-receipt', caseId: R_ID, receiptId: `${R_ID}#0`, versionIndex: null }],
     });
-    expect(mailR5Early.mailbox.map((m) => [m.id, m.templateId, m.dayId, m.attachments[0]!.versionIndex])).toEqual([
+    expect(mailR5Early.mailbox.map((m) => [m.id, m.templateId, m.dayId, (m.attachments[0] as ReturnReceiptAttachment).versionIndex])).toEqual([
       [`mail.${R_ID}#0`, 'returned', DAY_03, null],
       [`mail.${R_ID}#1`, 'returned', DAY_04, 0],
       [`mail.${R_ID}#2`, 'returned', DAY_05, 1],

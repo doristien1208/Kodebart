@@ -137,6 +137,9 @@
     {
       "id": "task.day2.archive",
       "kind": "archive",
+      "dependsOn": [
+        "task.day2.reconcile"
+      ],
       "batchId": "batch.day02.archive",
       "recordIds": [
         "record.day2-h31",

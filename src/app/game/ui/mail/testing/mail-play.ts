@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { MailAttachment, ReturnCase } from '../../../core/types';
+import { ReturnCase, ReturnReceiptAttachment } from '../../../core/types';
 import { GameStateService } from '../../../state/game-state.service';
 import { WorkOperationsService } from '../../../state/work-operations.service';
 import { archiveWith, finishDay, instantOperations, reviewAll } from '../../testing/play';
@@ -47,7 +47,7 @@ export function onlyCase(game: GameStateService): ReturnCase {
 }
 
 /** 某份回條（依序，0 起算）對應的郵件附件引用。 */
-export function receiptRef(game: GameStateService, index: number): MailAttachment {
+export function receiptRef(game: GameStateService, index: number): ReturnReceiptAttachment {
   const item = onlyCase(game);
   const receipt = item.receipts[index];
   if (!receipt) throw new Error(`沒有第 ${index + 1} 份回條`);

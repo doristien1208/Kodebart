@@ -8,6 +8,7 @@ import day06 from './days/day-06.json';
 import refusalRecordHelp from './help/refusal-record.json';
 import returnReceiptsMail from './mail/return-receipts.json';
 import firstArrival from './onboarding/first-arrival.json';
+import m1Workday from './workday/m1-workday.json';
 
 /**
  * game/content/data/manifest：每日內容檔的唯一清單（R6-03）。
@@ -35,3 +36,6 @@ export const MAIL_SOURCES: readonly ContentSource[] = [{ file: 'data/mail/return
 export const ONBOARDING_SOURCE: ContentSource = { file: 'data/onboarding/first-arrival.json', data: firstArrival };
 
 export const HELP_SOURCES: readonly ContentSource[] = [{ file: 'data/help/refusal-record.json', data: refusalRecordHelp }];
+
+/** M1 工作日內容包（data/workday/）：延後回條郵件、離班／到班短文與工作介面字。 */
+export const WORKDAY_SOURCE: ContentSource = { file: 'data/workday/m1-workday.json', data: m1Workday };

@@ -62,7 +62,84 @@
       "refusalApplies": true
     }
   ],
-  "documents": [],
+  "documents": [
+    {
+      "id": "doc.day4.m1-0314-window",
+      "kind": "case-source",
+      "recordIds": [
+        "record.day3-b314"
+      ],
+      "text": {
+        "heading": "窗口收件回條",
+        "fields": [
+          {
+            "label": "對象編號",
+            "value": "0314"
+          },
+          {
+            "label": "附件版本",
+            "value": "1"
+          },
+          {
+            "label": "文件種類",
+            "value": "電子收件回條"
+          },
+          {
+            "label": "回覆者",
+            "value": "服務窗口"
+          },
+          {
+            "label": "收件時間",
+            "value": "9 月 18 日 09:10"
+          },
+          {
+            "label": "範圍",
+            "value": "確認已收到送件資料；未附當事人回覆"
+          }
+        ]
+      }
+    },
+    {
+      "id": "doc.day4.m1-0521-reply",
+      "kind": "case-source",
+      "recordIds": [
+        "record.day3-b521"
+      ],
+      "text": {
+        "heading": "0521 回覆附件",
+        "fields": [
+          {
+            "label": "對象編號",
+            "value": "0521"
+          },
+          {
+            "label": "附件版本",
+            "value": "1"
+          },
+          {
+            "label": "文件種類",
+            "value": "回覆紀錄"
+          },
+          {
+            "label": "回覆者",
+            "value": "當事人"
+          },
+          {
+            "label": "收件時間",
+            "value": "9 月 18 日 09:13"
+          },
+          {
+            "label": "異議回覆",
+            "value": "無"
+          },
+          {
+            "label": "範圍",
+            "value": "僅適用對象 0521"
+          }
+        ]
+      }
+    }
+  ],
   "tasks": [
     {
       "id": "task.day4.archive",
@@ -91,6 +168,80 @@
       "documentIds": [],
       "text": {
         "eyebrow": "RETURN / REVIEW 04"
+      }
+    },
+    {
+      "id": "task.day4.m1-attachment",
+      "kind": "attachment",
+      "dependsOn": [],
+      "recordIds": [
+        "record.day3-b314"
+      ],
+      "documentIds": [
+        "doc.day4.m1-0314-window",
+        "doc.day4.m1-0521-reply"
+      ],
+      "subjectRecordId": "record.day3-b314",
+      "candidates": [
+        {
+          "documentId": "doc.day4.m1-0314-window",
+          "evidence": "receipt"
+        },
+        {
+          "documentId": "doc.day4.m1-0521-reply",
+          "evidence": "reply",
+          "objection": false
+        }
+      ],
+      "text": {
+        "eyebrow": "ATTACHMENT / LINK 04",
+        "heading": "回覆附件關聯",
+        "instruction": "將附件關聯至 0314，並決定缺少本人回覆的資料如何送件。",
+        "reference": "引用附件並送件",
+        "review": "保留缺漏並送覆核"
+      }
+    },
+    {
+      "id": "task.day4.m1-transform",
+      "kind": "transform",
+      "dependsOn": [
+        "task.day4.archive",
+        "task.day4.m1-attachment"
+      ],
+      "recordIds": [
+        "record.day3-b314",
+        "record.day3-b521",
+        "record.day4-b716"
+      ],
+      "documentIds": [
+        "doc.day4.m1-0521-reply"
+      ],
+      "rows": [
+        {
+          "id": "row.0314",
+          "recordId": "record.day3-b314",
+          "attachmentTaskId": "task.day4.m1-attachment"
+        },
+        {
+          "id": "row.0521",
+          "recordId": "record.day3-b521",
+          "attachment": {
+            "documentId": "doc.day4.m1-0521-reply",
+            "evidence": "reply",
+            "objection": false
+          }
+        },
+        {
+          "id": "row.0716",
+          "recordId": "record.day4-b716"
+        }
+      ],
+      "text": {
+        "eyebrow": "BATCH / TRANSFORM 04",
+        "heading": "服務窗口小批次交付",
+        "instruction": "檢查前一階段保存的資料，選擇缺漏策略，預覽後交付。",
+        "departmentDefault": "套用部門預設並交付",
+        "review": "保留缺漏並送覆核"
       }
     }
   ],
@@ -129,7 +280,7 @@
         "cond.chat.day3.lunch-plan.ask-floor"
       ],
       "lines": [
-        "七樓今天恢復收外送了。楊子謙說這不構成反證。"
+        "七樓今天可以送上去了。昨天那袋我拿到時，醬汁已經漏一半。"
       ]
     },
     {
@@ -168,7 +319,7 @@
         "cond.review.any.batch.day03.archive"
       ],
       "lines": [
-        "窗口說這叫「等待補件」，不是退件。"
+        "我這邊也有兩筆。他們說要再找承辦拿附件。"
       ]
     },
     {
@@ -181,7 +332,7 @@
         "cond.review.any.batch.day03.archive"
       ],
       "lines": [
-        "換個名字，心情有比較好嗎？"
+        "所以今天先留著？我怕下午又要全部重送。"
       ],
       "replyPrompt": {
         "id": "prompt.day4.review-returned",
@@ -196,7 +347,7 @@
                 "actorId": "actor.yang-zi-qian",
                 "time": "10:54",
                 "lines": [
-                  "有。至少原欄位還留著。"
+                  "至少空白還在，不會跟有回覆的那批混在一起。"
                 ]
               },
               {
@@ -204,7 +355,7 @@
                 "actorId": "actor.lin-yuan",
                 "time": "10:55",
                 "lines": [
-                  "把你看到的來源留在紀錄裡就好。窗口怎麼處理是下一段流程。"
+                  "先留著。窗口還沒補回來，我也沒辦法替他們填。"
                 ]
               }
             ]
@@ -218,7 +369,7 @@
                 "actorId": "actor.lin-yuan",
                 "time": "10:54",
                 "lines": [
-                  "嗯。今天的批次照來源做，退回來的由窗口再整理。"
+                  "可以。沒回來的就留待補，交接時寫清楚是哪幾筆。"
                 ]
               }
             ]
@@ -249,7 +400,7 @@
         "cond.review.none.batch.day03.archive"
       ],
       "lines": [
-        "恭喜，你現在是報表上的綠色數字。"
+        "不過我昨天留的那幾筆待補還沒回。有人接到窗口電話嗎？"
       ],
       "replyPrompt": {
         "id": "prompt.day4.quick-close",
@@ -264,7 +415,7 @@
                 "actorId": "actor.wu-wan-ting",
                 "time": "10:53",
                 "lines": [
-                  "在這裡，綠色通常都算。"
+                  "算吧，至少沒叫我們留下來。我只希望今天別又補一批。"
                 ]
               }
             ]
@@ -278,7 +429,7 @@
                 "actorId": "actor.yang-zi-qian",
                 "time": "10:53",
                 "lines": [
-                  "下一個系統。名字常換，資料不太會消失。"
+                  "送到窗口了。你要看回條的話，郵件裡應該有。"
                 ]
               }
             ]
@@ -324,6 +475,103 @@
       "lines": [
         "昨天那筆待查件窗口收到了，還沒回哪個編號要用。先放著，我有消息再跟你說。"
       ]
+    },
+    {
+      "id": "msg.day4.m1-desk-fan",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.wu-wan-ting",
+      "time": "11:51",
+      "visibleFrom": "day.04",
+      "unlock": [],
+      "unlockAfter": {
+        "archiveBatchId": "batch.day04.archive",
+        "archivedCount": 2
+      },
+      "lines": [
+        "你那邊會不會冷？我外套今天忘了帶。"
+      ],
+      "replyPrompt": {
+        "id": "prompt.day4.m1-desk-fan",
+        "availableThrough": "day.04",
+        "choices": [
+          {
+            "id": "cold",
+            "text": "有一點，風口剛好對著我。",
+            "responses": [
+              {
+                "id": "msg.day4.m1-reply-desk-fan-cold",
+                "actorId": "actor.wu-wan-ting",
+                "time": "11:52",
+                "lines": [
+                  "那我不是錯覺。我等等去借個披肩，你要不要一起問？"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "fine",
+            "text": "我還好，妳要換個位置嗎？",
+            "responses": [
+              {
+                "id": "msg.day4.m1-reply-desk-fan-fine",
+                "actorId": "actor.wu-wan-ting",
+                "time": "11:52",
+                "lines": [
+                  "先不用，插座都接好了。我去倒杯熱水。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "msg.day4.m1-window-receipt",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "10:26",
+      "visibleFrom": "day.04",
+      "unlock": [],
+      "unlockAfter": {
+        "taskOpened": "task.day4.m1-attachment"
+      },
+      "lines": [
+        "0314 的附件有兩種。窗口收件回條跟本人回覆不是同一份，你先看收件對象，別把旁邊那筆附上去。"
+      ],
+      "replyPrompt": {
+        "id": "prompt.day4.m1-window-receipt",
+        "availableThrough": "day.04",
+        "choices": [
+          {
+            "id": "ask-missing",
+            "text": "目前沒有本人的回覆，還能先送嗎？",
+            "responses": [
+              {
+                "id": "msg.day4.m1-reply-window-receipt-ask-missing",
+                "actorId": "actor.lin-yuan",
+                "time": "10:27",
+                "lines": [
+                  "部門流程可以先送。你選預設會繼續往下走，留缺漏就等補件。兩邊都要留來源，回條不會替本人回答。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "check-first",
+            "text": "我先把附件看完。",
+            "responses": [
+              {
+                "id": "msg.day4.m1-reply-window-receipt-check-first",
+                "actorId": "actor.lin-yuan",
+                "time": "10:27",
+                "lines": [
+                  "好，編號和日期都看一下。我先去開會。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "transition": {

@@ -234,6 +234,25 @@ export class WindowManagerService {
     else this.focus(id);
   }
 
+  /**
+   * 並排（M1「並排查閱」）：依序把每個視窗放到指定位置與尺寸、恢復顯示並依序置前；
+   * 小螢幕不改桌面幾何，只單窗顯示第一個。不記為「玩家動過」，「還原視窗位置」照常回到預設。
+   */
+  tile(placements: readonly { id: string; rect: Rect }[]): void {
+    const known = placements.filter((p) => this.find(p.id));
+    if (known.length === 0) return;
+    if (this._compact()) {
+      const first = known[0];
+      if (first) this.open(first.id);
+      return;
+    }
+    for (const p of known) {
+      const g = this.fit(p.rect.x, p.rect.y, p.rect.width, p.rect.height);
+      this.beforeMinimize.delete(p.id);
+      this.patch(p.id, { ...g, mode: 'normal', z: ++this.topZ });
+    }
+  }
+
   /* ---------- 幾何 ---------- */
 
   move(id: string, x: number, y: number): void {

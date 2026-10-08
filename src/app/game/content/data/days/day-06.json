@@ -140,12 +140,89 @@
           }
         }
       ],
+      "dynamic": {
+        "codeFieldId": "legacy-id",
+        "replyFieldId": "objection-reply",
+        "rows": [
+          {
+            "rowId": "row.0102",
+            "recordId": "record.b102",
+            "transformTaskIds": []
+          },
+          {
+            "rowId": "row.0314",
+            "recordId": "record.day3-b314",
+            "transformTaskIds": [
+              "task.day4.m1-transform"
+            ]
+          },
+          {
+            "rowId": "row.0521",
+            "recordId": "record.day3-b521",
+            "transformTaskIds": [
+              "task.day4.m1-transform"
+            ]
+          },
+          {
+            "rowId": "row.0716",
+            "recordId": "record.day4-b716",
+            "transformTaskIds": [
+              "task.day4.m1-transform"
+            ]
+          },
+          {
+            "rowId": "row.0905",
+            "recordId": "record.day4-b905",
+            "transformTaskIds": []
+          },
+          {
+            "rowId": "row.1013",
+            "recordId": "record.day5-b1013",
+            "transformTaskIds": [
+              "task.day5.m1-transform"
+            ]
+          },
+          {
+            "rowId": "row.1108",
+            "recordId": "record.day5-b1108",
+            "transformTaskIds": [
+              "task.day5.m1-transform"
+            ]
+          },
+          {
+            "rowId": "row.1219",
+            "recordId": "record.day5-b1219",
+            "transformTaskIds": [
+              "task.day5.m1-transform"
+            ]
+          }
+        ]
+      },
       "text": {
         "eyebrow": "IMPORT / MAPPING 06",
         "heading": "服務銜接表欄位轉換",
         "instruction": "將來源欄位對應到目標格式，驗證預覽後完成匯入。",
         "policyDefault": "空白視為「未排除」，繼續匯入",
         "policyReview": "空白保留為「待確認」，送資料覆核"
+      }
+    },
+    {
+      "id": "task.day6.m1-report",
+      "kind": "report",
+      "dependsOn": [
+        "task.day6.field-map"
+      ],
+      "recordIds": [],
+      "documentIds": [],
+      "fieldMapTaskId": "task.day6.field-map",
+      "transformTaskIds": [
+        "task.day4.m1-transform",
+        "task.day5.m1-transform"
+      ],
+      "text": {
+        "eyebrow": "REPORT / HANDOFF 06",
+        "heading": "交付結果核對",
+        "instruction": "比對前日送件副本與目前的交付清單，將送件、窗口收件、本人回覆、待補分開記錄。"
       }
     }
   ],
@@ -171,6 +248,51 @@
       "lines": [
         "舊表的欄位順序每批不一樣，照欄位說明核對，不要只看畫面左右位置。"
       ]
+    },
+    {
+      "id": "msg.day6.m1-week-start",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.wu-wan-ting",
+      "time": "08:41",
+      "visibleFrom": "day.06",
+      "unlock": [],
+      "lines": [
+        "我週末把外套放門口，今天還是忘了帶。"
+      ],
+      "replyPrompt": {
+        "id": "prompt.day6.m1-week-start",
+        "availableThrough": "day.06",
+        "choices": [
+          {
+            "id": "remind",
+            "text": "明天出門前先拿外套，再拿手機。",
+            "responses": [
+              {
+                "id": "msg.day6.m1-reply-week-start-remind",
+                "actorId": "actor.wu-wan-ting",
+                "time": "08:42",
+                "lines": [
+                  "聽起來很簡單。明天再跟你報告我有沒有做到。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "spare",
+            "text": "我有一件放椅背，要先借妳嗎？",
+            "responses": [
+              {
+                "id": "msg.day6.m1-reply-week-start-spare",
+                "actorId": "actor.wu-wan-ting",
+                "time": "08:42",
+                "lines": [
+                  "可以嗎？救急一下，我下午還你。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "id": "msg.day6.box-stop",
@@ -213,7 +335,7 @@
       "visibleFrom": "day.06",
       "unlock": [],
       "lines": [
-        "沒有。系統裡結案了。"
+        "還沒找到。昨天收到的是電子回條，不是那張紙本移交單。"
       ],
       "replyPrompt": {
         "id": "prompt.day6.closed-box",
@@ -228,7 +350,7 @@
                 "actorId": "actor.yang-zi-qian",
                 "time": "11:59",
                 "lines": [
-                  "在紙上算。"
+                  "嗯，我把待補那欄留著。下午再問一次。"
                 ]
               },
               {
@@ -236,7 +358,7 @@
                 "actorId": "actor.wu-wan-ting",
                 "time": "12:00",
                 "lines": [
-                  "紙不見了，紙上倒是很清楚。"
+                  "問到放哪裡就好，別又只給我一張回條。"
                 ]
               }
             ]
@@ -250,7 +372,7 @@
                 "actorId": "actor.wu-wan-ting",
                 "time": "11:59",
                 "lines": [
-                  "你適應得好快。"
+                  "早上已經有人問了，我還是得找。"
                 ]
               },
               {
@@ -258,7 +380,7 @@
                 "actorId": "actor.yang-zi-qian",
                 "time": "12:00",
                 "lines": [
-                  "這句也可以放進新人評語。"
+                  "我跟窗口說一聲，先別把這件結掉。"
                 ]
               }
             ]
@@ -272,7 +394,7 @@
                 "actorId": "actor.yang-zi-qian",
                 "time": "11:59",
                 "lines": [
-                  "承辦欄是共用帳號。"
+                  "回條是窗口帳號發的。我還在問誰接到箱子。"
                 ]
               },
               {
@@ -280,7 +402,55 @@
                 "actorId": "actor.wu-wan-ting",
                 "time": "12:00",
                 "lines": [
-                  "你看，又是一個很完整的答案。"
+                  "要是問到，你幫我留名字。我不想下週再找一次。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "msg.day6.m1-handoff-meaning",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "15:08",
+      "visibleFrom": "day.06",
+      "unlock": [],
+      "unlockAfter": {
+        "taskPreviewed": "task.day6.m1-report"
+      },
+      "lines": [
+        "你今天的交接報告有把待補分開嗎？窗口下午會拿那份用。"
+      ],
+      "replyPrompt": {
+        "id": "prompt.day6.m1-handoff-meaning",
+        "availableThrough": "day.06",
+        "choices": [
+          {
+            "id": "ask-count",
+            "text": "報表上完成的筆數，是送件還是本人回覆？",
+            "responses": [
+              {
+                "id": "msg.day6.m1-reply-handoff-meaning-ask-count",
+                "actorId": "actor.lin-yuan",
+                "time": "15:09",
+                "lines": [
+                  "這份算的是送件，兩回事。本人回覆另有欄位，沒收到就別跟送件數混在一起。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "separate",
+            "text": "有，我把送件跟待補分開列了。",
+            "responses": [
+              {
+                "id": "msg.day6.m1-reply-handoff-meaning-separate",
+                "actorId": "actor.lin-yuan",
+                "time": "15:09",
+                "lines": [
+                  "好。交接附上批次副本，對方有問題才能找到你這次用的版本。"
                 ]
               }
             ]

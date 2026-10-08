@@ -115,9 +115,33 @@ export function completeTask(
       game.submitFieldMap();
       return game.completeWork();
     }
+    // M1 新增的工作種類（既有種類的行為不變）：附件引用第一份候選附件；
+    // 批次的缺漏策略跟著歸檔的缺值處理（補登＝套用部門預設、送覆核＝保留缺漏）；報告建立後交付
+    case 'attachment':
+      game.markTaskOpened();
+      if (game.submitAttachmentStrict({ choiceId: 'reference', documentId: task.candidates[0]?.documentId }) !== 'ok') return false;
+      return game.completeWork();
+    case 'transform':
+      game.setTransformPolicy(policy === 'default_false' ? 'departmentDefault' : 'review');
+      game.previewTransform();
+      if (game.submitTransformStrict() !== 'ok') return false;
+      return game.completeWork();
+    case 'report':
+      game.generateReport();
+      if (game.submitReportStrict() !== 'ok') return false;
+      return game.completeWork();
     default:
       throw new Error('completeTask：目前沒有工作');
   }
+}
+
+/**
+ * M1 新增的工作種類（附件關聯、批次轉換、交付報告）用固定的處理方式完成並交付；
+ * 目前工作不是這三種時回傳 null（呼叫端照原本的方式處理）。新增 helper，不改既有 helper 的行為。
+ */
+export function completeWorkdayTask(game: GameStateService, policy: MissingPolicy = 'default_false'): boolean | null {
+  const kind = game.task()?.kind;
+  return kind === 'attachment' || kind === 'transform' || kind === 'report' ? completeTask(game, policy) : null;
 }
 
 /** 完成當日全部工作（停在 wrap／end，不跨日）。 */

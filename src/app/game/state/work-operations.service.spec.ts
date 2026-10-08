@@ -1,3 +1,4 @@
+import { completeWorkdayTask } from '../ui/testing/play';
 import { TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 import { STORAGE } from '../content/text';
 import { isValidSave } from '../core/save-schema';
@@ -121,6 +122,10 @@ function finishToday(game: GameStateService, codes: Partial<Record<RecordKey, st
         // 錯誤文件處理：當天排入且仍待修正的案件送窗口待查（已從文件問題頁處理的不再送）
         for (const r of game.activeReturns()) if (r.status === 'pending') expect(game.sendReturnToWindowStrict(r.id, game.editableReceiptId(r.id)!)).toBe('ok');
         expect(game.completeWork()).toBeTrue();
+        break;
+      default:
+        // M1：附件關聯、批次轉換、交付報告
+        expect(completeWorkdayTask(game)).toBeTrue();
         break;
     }
   }

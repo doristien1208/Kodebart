@@ -94,6 +94,7 @@ import {
   Save,
   SourceRecord,
   ValidationOk,
+  ReturnReceiptAttachment,
 } from './types';
 import { PLAYER_NAME_MAX, validateRecord } from './validate';
 
@@ -465,6 +466,11 @@ describe('dayId、stage、taskId 與批次識別', () => {
       returnWindow: 'return.window',
       returnChecked: 'return.checked',
       helpRequest: 'help.request',
+      attachmentSubmit: 'attachment.submit',
+      attachmentRevise: 'attachment.revise',
+      attachmentChecked: 'attachment.checked',
+      transformSubmit: 'transform.submit',
+      reportSubmit: 'report.submit',
     });
     for (const kind of Object.values(EVENT_KINDS)) expect(kind).not.toMatch(/day[0-9]/);
   });
@@ -2090,7 +2096,7 @@ describe('完整流程可重現', () => {
           expect(JSON.stringify(a)).toBe(JSON.stringify(b));
           expect(a.stage).toBe('end');
           expect(a.dayId).toBe(DAY_02);
-          expect(a.version).toBe(11);
+          expect(a.version).toBe(12);
           expect(isValidSave(JSON.parse(JSON.stringify(a)), DIR)).toBeTrue();
         }
       }
@@ -4125,7 +4131,7 @@ describe('R12：每份回條在建立當下寄出恰好一封郵件', () => {
 
   it('兩案同一天建立：兩封郵件，依案件建立順序', () => {
     const day3 = issDay3Morning({ B102: '102', B607: '607' });
-    expect(day3.mailbox.map((m) => [m.id, m.attachments[0]!.caseId])).toEqual([
+    expect(day3.mailbox.map((m) => [m.id, (m.attachments[0] as ReturnReceiptAttachment).caseId])).toEqual([
       [`mail.${RET_B102}#0`, RET_B102],
       [`mail.${RET_B607}#0`, RET_B607],
     ]);
@@ -4152,7 +4158,7 @@ describe('R12：每份回條在建立當下寄出恰好一封郵件', () => {
   it('再次退回：下一工作日核對仍錯 → 回條 #1 與郵件（模板 returned、版本 0、Day 4）一起出現', () => {
     let s = resubmitReturn(startDay(issDay3Morning()), DIR_ISS, RET_B102, '0l02', `${RET_B102}#0`);
     s = advanceDay(issFinishDay(s), DIR_ISS);
-    expect(s.mailbox.map((m) => [m.id, m.templateId, m.dayId, m.attachments[0]!.versionIndex])).toEqual([
+    expect(s.mailbox.map((m) => [m.id, m.templateId, m.dayId, (m.attachments[0] as ReturnReceiptAttachment).versionIndex])).toEqual([
       [`mail.${RET_B102}#0`, 'returned', DAY_03, null],
       [`mail.${RET_B102}#1`, 'returned', DAY_04, 0],
     ]);
@@ -4164,7 +4170,7 @@ describe('R12：每份回條在建立當下寄出恰好一封郵件', () => {
     let s = resubmitReturn(issDay4Slot(), DIR_ISS, RET_B102, '0102', `${RET_B102}#0`);
     s = advanceDay(completeWork(s, DIR_ISS), DIR_ISS);
     expect(s.returns[0]!.status).toBe('resolved');
-    expect(s.mailbox.map((m) => [m.id, m.templateId, m.dayId, m.attachments[0]!.versionIndex])).toEqual([
+    expect(s.mailbox.map((m) => [m.id, m.templateId, m.dayId, (m.attachments[0] as ReturnReceiptAttachment).versionIndex])).toEqual([
       [`mail.${RET_B102}#0`, 'returned', DAY_03, null],
       [`mail.${RET_B102}#1`, 'resolved', DAY_05, 0],
     ]);
@@ -4188,7 +4194,7 @@ describe('R12：每份回條在建立當下寄出恰好一封郵件', () => {
       expect(reloadValid(s)).withContext(`第 ${i + 1} 次`).toBeTrue();
     }
     expect(s.dayId).toBe(DAY_06);
-    expect(s.mailbox.map((m) => [m.id, m.templateId, m.dayId, m.attachments[0]!.versionIndex])).toEqual([
+    expect(s.mailbox.map((m) => [m.id, m.templateId, m.dayId, (m.attachments[0] as ReturnReceiptAttachment).versionIndex])).toEqual([
       [`mail.${RET_B102}#0`, 'returned', DAY_03, null],
       [`mail.${RET_B102}#1`, 'returned', DAY_04, 0],
       [`mail.${RET_B102}#2`, 'returned', DAY_05, 1],

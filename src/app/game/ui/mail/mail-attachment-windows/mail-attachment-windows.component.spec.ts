@@ -9,7 +9,7 @@ import {
   receiptLabel,
 } from '../../../content/text';
 import { EVENT_KINDS } from '../../../core/rules';
-import { MailAttachment } from '../../../core/types';
+import { MailAttachment, ReturnReceiptAttachment } from '../../../core/types';
 import { VALIDATION_MESSAGES } from '../../../core/validate';
 import { SettingsService } from '../../../platform/settings.service';
 import { GameStateService } from '../../../state/game-state.service';
@@ -46,7 +46,7 @@ function open(ref: MailAttachment): void {
 }
 
 /** 某份回條的附件視窗。 */
-function win(f: ComponentFixture<unknown>, ref: MailAttachment): HTMLElement {
+function win(f: ComponentFixture<unknown>, ref: ReturnReceiptAttachment): HTMLElement {
   const w = el(f).querySelector<HTMLElement>(`[data-window-id="${attachmentWindowId(ref)}"]`);
   if (!w) throw new Error(`沒有 ${ref.receiptId} 的視窗`);
   return w;
@@ -305,8 +305,8 @@ describe('MailAttachmentWindowsComponent（R12 版本鎖定附件）', () => {
   it('找不到附件（回條不存在或版本對不上）：只顯示找不到的說明，不改開最新版本', () => {
     const game = toFirstReturn();
     const ref = receiptRef(game, 0);
-    const lost: MailAttachment = { ...ref, receiptId: `${ref.caseId}#9` };
-    const wrongVersion: MailAttachment = { ...ref, versionIndex: 0 };
+    const lost: ReturnReceiptAttachment = { ...ref, receiptId: `${ref.caseId}#9` };
+    const wrongVersion: ReturnReceiptAttachment = { ...ref, versionIndex: 0 };
     open(lost);
     const f = render();
     const w = win(f, lost);

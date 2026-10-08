@@ -1,3 +1,4 @@
+import { completeWorkdayTask } from '../ui/testing/play';
 import { TestBed } from '@angular/core/testing';
 import {
   ALL_PROMPTS,
@@ -38,6 +39,7 @@ import {
   ReturnReceipt,
   ReviewDisposition,
   ValidationOk,
+  ReturnReceiptAttachment,
 } from '../core/types';
 import { VALIDATION_MESSAGES } from '../core/validate';
 import { DAY_DIRECTORY } from './day-directory';
@@ -175,6 +177,10 @@ function finishTask(game: GameStateService, policy: MissingPolicy = 'default_fal
       // 錯誤文件處理：當天排入且仍待修正的案件送窗口待查（不改編號），之後交付
       for (const r of game.activeReturns()) if (r.status === 'pending') expect(game.sendReturnToWindowStrict(r.id, game.editableReceiptId(r.id)!)).toBe('ok');
       expect(game.completeWork()).toBeTrue();
+      return;
+    default:
+      // M1：附件關聯、批次轉換、交付報告
+      expect(completeWorkdayTask(game, policy)).toBeTrue();
       return;
   }
 }
@@ -716,7 +722,7 @@ describe('GameStateService', () => {
       const persisted = stored();
       expect(persisted).not.toBeNull();
       expect(persisted).toEqual(game.save()!);
-      expect(persisted!.version).toBe(11);
+      expect(persisted!.version).toBe(12);
       expect(persisted!.returns).toEqual([]);
       expect(persisted!.issueSchedule).toEqual({});
       expect(persisted!.mailbox).toEqual([]);
@@ -890,7 +896,19 @@ describe('GameStateService', () => {
       expect(game.taskId()).toBe(TASK_DAY1);
       expect(game.isLastTask()).toBeFalse();
       expect(game.dayTasks()).toEqual([
-        { taskId: TASK_DAY1, kind: 'archive', index: 1, heading: h1, status: 'active', total: 3, processed: 0 },
+        {
+          taskId: TASK_DAY1,
+          kind: 'archive',
+          index: 1,
+          heading: h1,
+          status: 'active',
+          total: 3,
+          processed: 0,
+          locked: false,
+          selectable: false,
+          awaiting: false,
+          waitingFor: [],
+        },
         {
           taskId: TASK_DAY1_FOLLOWUP,
           kind: 'archive',
@@ -899,6 +917,11 @@ describe('GameStateService', () => {
           status: 'pending',
           total: 3,
           processed: 0,
+          // M1：Day 1 的補入批次依賴第 1 件（保留原本的先後順序）
+          locked: true,
+          selectable: false,
+          awaiting: false,
+          waitingFor: [h1],
         },
       ]);
       expect(game.dayEvents()).toEqual([]);
@@ -1785,7 +1808,7 @@ describe('GameStateService', () => {
         expect(new SaveRepository().load().migratedFrom).toBe(7);
         const g = freshService();
         expect(g.storageIssue()).toBe('');
-        expect(stored()!.version).toBe(11);
+        expect(stored()!.version).toBe(12);
         expect(stored()!.caseReviews).toEqual({});
         expect(stored()!.returns).toEqual([]);
         expect(stored()!.issueSchedule).toEqual({});
@@ -2194,7 +2217,7 @@ describe('GameStateService', () => {
       expect(g.hasSave()).toBeTrue();
       expect(g.storageIssue()).toBe('');
       const s = stored()!;
-      expect(s.version).toBe(11);
+      expect(s.version).toBe(12);
       expect(s.waivedTasks).toEqual(waived);
       expect(s).toEqual({ ...JSON.parse(raw), version: 11, caseReviews: {}, returns: [], issueSchedule: {}, ...V11_MIGRATED_EMPTY, waivedTasks: waived });
       expect(s.events).toEqual(v6.events);
@@ -2336,7 +2359,7 @@ describe('GameStateService', () => {
       expect(g.isMessageRead('msg.day4.dept-report')).toBeTrue();
 
       const s = stored()!;
-      expect(s.version).toBe(11);
+      expect(s.version).toBe(12);
       expect(s.chatReplies).toEqual({});
       expect(s.waivedTasks).toEqual(WAIVED_THROUGH_DAY2);
       expect(s).toEqual({ ...JSON.parse(raw), version: 11, caseReviews: {}, returns: [], issueSchedule: {}, ...V11_MIGRATED_EMPTY, chatReplies: {}, waivedTasks: WAIVED_THROUGH_DAY2 });
@@ -2375,7 +2398,7 @@ describe('GameStateService', () => {
 
       // 已寫回 v11
       const s = stored()!;
-      expect(s.version).toBe(11);
+      expect(s.version).toBe(12);
       expect(s.returns).toEqual([]);
       expect(s.issueSchedule).toEqual({});
       expect(s.mailbox).toEqual([]);
@@ -2439,7 +2462,7 @@ describe('GameStateService', () => {
       expect(g.arranged()).toBeTrue();
       expect(g.save()!.events).toEqual(legacyV2Day2.events);
 
-      expect(stored()!.version).toBe(11);
+      expect(stored()!.version).toBe(12);
       expect(stored()!.returns).toEqual([]);
       expect(stored()!.issueSchedule).toEqual({});
       expect(stored()!.mailbox).toEqual([]);
@@ -2476,7 +2499,7 @@ describe('GameStateService', () => {
       expect(g.stage()).toBe('work');
       expect(g.archivedCount()).toBe(1);
       expect(g.draft('H17')).toEqual({ value: 'H-1' });
-      expect(stored()!.version).toBe(11);
+      expect(stored()!.version).toBe(12);
       expect(stored()!.chatReplies).toEqual({});
       expect(stored()!.waivedTasks).toEqual([]);
 
@@ -2528,7 +2551,7 @@ describe('GameStateService', () => {
       expect(g.isMessageRead('msg.a')).toBeTrue();
       expect(g.night()).toBeNull();
 
-      expect(stored()!.version).toBe(11);
+      expect(stored()!.version).toBe(12);
       expect(stored()!.waivedTasks).toEqual([TASK_DAY1_FOLLOWUP]);
       expect(taskRows(g)).toEqual([row(TASK_DAY1, 'done', 3, 3), row(TASK_DAY1_FOLLOWUP, 'waived', 3, 0)]);
       expect(stored()!.chatReplies).toEqual({});
@@ -3614,7 +3637,7 @@ describe('GameStateService', () => {
       expect(game.save()!.events.find((e) => e.kind === 'return.notified')!.payload).toEqual({ dayId: DAY_03, auditId: AUDIT_ID, count: 2 });
       expect(game.pendingIssueCount()).toBe(2);
       expect(unreadMail(game)).toEqual([mailId(0), `mail.${RETURN_B607}#0`]);
-      expect(game.mailbox().map((m) => m.attachments[0].caseId)).toEqual([RETURN_B102, RETURN_B607]);
+      expect(game.mailbox().map((m) => (m.attachments[0] as ReturnReceiptAttachment).caseId)).toEqual([RETURN_B102, RETURN_B607]);
       finishToday(game);
       nextDay(game);
       expect(game.save()!.issueSchedule).toEqual({ [DAY_04]: [RETURN_B102, RETURN_B607] });
@@ -3767,7 +3790,7 @@ describe('GameStateService', () => {
       const g = freshService();
       expect(g.storageIssue()).toBe('');
       const s = stored()!;
-      expect(s.version).toBe(11);
+      expect(s.version).toBe(12);
       expect(s).toEqual(JSON.parse(JSON.stringify(g.save()!)));
       expect(g.save()).toEqual({ ...native, onboarding: { step: 0, complete: true } });
       expect(s.mailbox).toEqual([receiptMailOf(RECEIPT0)]);
@@ -3859,7 +3882,7 @@ describe('GameStateService', () => {
       expect(new SaveRepository().load().migratedFrom).toBe(8);
       const g = freshService();
       expect(g.storageIssue()).toBe('');
-      expect(stored()!.version).toBe(11);
+      expect(stored()!.version).toBe(12);
       expect(stored()!.returns).toEqual([]);
       expect(stored()!.issueSchedule).toEqual({});
       expect(stored()!.mailbox).toEqual([]);
@@ -3913,7 +3936,7 @@ describe('GameStateService', () => {
         const g = freshService();
         expect(g.hasSave()).toBeTrue();
         expect(g.storageIssue()).toBe('');
-        expect(stored()!.version).toBe(11);
+        expect(stored()!.version).toBe(12);
         expect(stored()).toEqual(JSON.parse(JSON.stringify(g.save()!)));
         expect(new SaveRepository().load().migratedFrom).toBe(11);
         // 舊檔已跨過入職：不補簽、直接進桌面

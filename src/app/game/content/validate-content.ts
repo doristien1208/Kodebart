@@ -18,12 +18,19 @@ import { ANY_BRACE_PATTERN, placeholders } from './format';
 import {
   ARCHIVE_TASK_TEXT_SHAPE,
   ARCHIVE_UI_SHAPE,
+  ATTACHMENT_EVIDENCE_KINDS,
+  ATTACHMENT_TASK_TEXT_SHAPE,
+  REPORT_TASK_TEXT_SHAPE,
+  TRANSFORM_TASK_TEXT_SHAPE,
+  WORKDAY_TRIGGER_KINDS,
+  WORKDAY_UI_SHAPE,
   AUDIT_ID_PATTERN,
   CASE_DECISION_DESTINATIONS,
   CASE_REVIEW_UI_SHAPE,
   CHOICE_ID_PATTERN,
   CONTENT_PACK_SCHEMA_VERSION,
   ContentHelpPack,
+  ContentWorkday,
   ContentMailPack,
   ContentOnboarding,
   DESKTOP_UI_SHAPE,
@@ -165,7 +172,8 @@ export function parseContent(input: ContentInput): ContentBundle {
   const mail = input.mail.map((m) => m.data as ContentMailPack);
   const onboarding = input.onboarding.data as ContentOnboarding;
   const help = input.help.map((h) => h.data as ContentHelpPack);
-  return { ui, actors, channels, bulletins, days, mail, onboarding, help };
+  const workday = input.workday ? (input.workday.data as ContentWorkday) : null;
+  return { ui, actors, channels, bulletins, days, mail, onboarding, help, workday };
 }
 
 /* ---------- 不得出現在資料檔的內容 ---------- */
@@ -316,6 +324,29 @@ const LOGGING_IN_RULE: PlaceholderRule = {
   required: ONBOARDING_LOGGING_IN_PLACEHOLDERS,
 };
 
+/** M1 工作日 ui.legendTemplate：必須且只能用 `{value}`、`{meaning}`。 */
+const LEGEND_RULE: PlaceholderRule = { allowed: ['value', 'meaning'], required: ['value', 'meaning'] };
+
+const WORKDAY_KEYS = ['id', 'schemaVersion', 'mail', 'interludes', 'ui', 'integration'] as const;
+const WORKDAY_MAIL_KEYS = ['packId', 'sender', 'templates', 'outcomes'] as const;
+const WORKDAY_OUTCOME_KEYS = ['id', 'templateId', 'dayId', 'ordinary', 'trigger'] as const;
+const WORKDAY_INTERLUDE_KEYS = ['afterDay', 'beforeDay', 'leave', 'arrive'] as const;
+const ATTACHMENT_CANDIDATE_KEYS = ['documentId', 'evidence', 'objection'] as const;
+const TRANSFORM_ROW_KEYS = ['id', 'recordId', 'attachmentTaskId', 'attachment'] as const;
+const FIELD_MAP_DYNAMIC_KEYS = ['codeFieldId', 'replyFieldId', 'rows'] as const;
+const FIELD_MAP_DYNAMIC_ROW_KEYS = ['rowId', 'recordId', 'transformTaskIds'] as const;
+
+/** 附件任務的候選附件與批次列隨附的附件（case-source 文件可以掛在這些任務的 documentIds）。 */
+function workdayDocuments(raw: Record<string, unknown>): Set<string> {
+  const out = new Set<string>();
+  const take = (c: unknown) => {
+    if (isObj(c) && typeof c['documentId'] === 'string') out.add(c['documentId']);
+  };
+  if (Array.isArray(raw['candidates'])) raw['candidates'].forEach(take);
+  if (Array.isArray(raw['rows'])) for (const row of raw['rows']) if (isObj(row)) take(row['attachment']);
+  return out;
+}
+
 /* R12 內容包的欄位白名單（`note` 另外允許）。 */
 const MAIL_PACK_KEYS = ['id', 'schemaVersion', 'sender', 'templates', 'ui', 'integration'] as const;
 const MAIL_TEMPLATE_KEYS = ['subject', 'lines', 'attachmentLabel'] as const;
@@ -450,6 +481,23 @@ export function validateContent(input: ContentInput): ContentIssue[] {
   const mailPackIds = new Set<string>();
   /** 寄件者 ID → 第一個出現時的名稱與檔案；同一寄件者在不同包的名稱必須一致。 */
   const mailSenders = new Map<string, { name: unknown; file: string }>();
+  /* ---- M1 工作日 ---- */
+  /** 紀錄 ID → 歸檔它的 archive 任務、批次與日序；附件／批次／動態欄位映射的對象必須已由某個 archive 任務歸檔。 */
+  const recordArchive = new Map<string, { taskId: string | null; batchId: string; day: number | null }>();
+  /** field-map 任務 → 來源欄位、boolean 目標的預設來源、資料列與是否有 dynamic。 */
+  const fieldMapInfo = new Map<string, { day: number | null; sourceIds: ReadonlySet<string>; booleanSources: ReadonlySet<string>; rowIds: ReadonlySet<string>; dynamic: boolean }>();
+  /** 新任務種類的後段檢查（需要全部日檔登記完文件、紀錄與任務）。 */
+  const workdayTaskRefs: {
+    file: string;
+    id: string | null;
+    field: string;
+    kind: 'attachment' | 'transform' | 'report' | 'field-map';
+    day: number | null;
+    raw: Record<string, unknown>;
+    dependsOn: ReadonlySet<string>;
+  }[] = [];
+  /** M1 工作進度解鎖（caseOpened／taskOpened／taskPreviewed）。 */
+  const progressUnlockRefs: { file: string; id: string | null; base: string; key: 'caseOpened' | 'taskOpened' | 'taskPreviewed'; target: string; visibleFrom: unknown }[] = [];
 
   const add: AddIssue = (file, id, field, message) => {
     issues.push({ file, id, field, message });
@@ -691,6 +739,20 @@ export function validateContent(input: ContentInput): ContentIssue[] {
     const base = `${field}.unlockAfter`;
     if (!isObj(value)) {
       add(source.file, messageId, base, `需要物件，得到 ${typeName(value)}`);
+      return;
+    }
+    // M1：工作進度解鎖（擇一）：案件已開啟／任務已開啟／批次或報告已建立預覽
+    const progressKey = (['caseOpened', 'taskOpened', 'taskPreviewed'] as const).find((k) => k in value);
+    if (progressKey !== undefined) {
+      for (const [, path] of extraKeys(value, base, [progressKey], false)) {
+        add(source.file, messageId, path, `不在 unlockAfter 內的欄位（${progressKey} 只能單獨使用）`);
+      }
+      const target = value[progressKey];
+      if (typeof target !== 'string' || target === '') {
+        add(source.file, messageId, `${base}.${progressKey}`, `${progressKey} 必須是非空字串，得到 ${typeName(target)}`);
+        return;
+      }
+      progressUnlockRefs.push({ file: source.file, id: messageId, base, key: progressKey, target, visibleFrom });
       return;
     }
     for (const [, path] of extraKeys(value, base, ['archiveBatchId', 'archivedCount'], false)) {
@@ -1280,6 +1342,152 @@ export function validateContent(input: ContentInput): ContentIssue[] {
   };
 
   /**
+   * M1 工作日內容包（data/workday/*.json）：延後回條（寄件者、模板只有主旨與內文、計畫的觸發條件引用存在的
+   * 案件／任務且送達日晚於工作所屬日）、每日離班／到班短文、介面字（WORKDAY_UI_SHAPE）。
+   * 需要日檔的任務與案件登記，因此在日檔之後檢查。
+   */
+  const checkWorkday = (source: ContentSource): void => {
+    const data = source.data;
+    if (!isObj(data)) {
+      add(source.file, null, '(root)', `內容必須是物件，得到 ${typeName(data)}`);
+      return;
+    }
+    scanStrings(source, data, '', null, (path) => (path === 'ui.legendTemplate' ? LEGEND_RULE : undefined));
+    const packId = takeId(source, data['id'], 'id', ID_PREFIX.workday);
+    checkPackHeader(source, packId, data, WORKDAY_KEYS, '工作日內容包');
+
+    const mail = data['mail'];
+    if (!isObj(mail)) add(source.file, packId, 'mail', `需要物件，得到 ${typeName(mail)}`);
+    else {
+      onlyKeys(source, packId, mail, 'mail', WORKDAY_MAIL_KEYS, '回條設定', false);
+      const mailPackId = textAt(source, packId, mail['packId'], 'mail.packId');
+      if (mailPackId !== null) {
+        if (!mailPackId.startsWith(ID_PREFIX.mail)) add(source.file, packId, 'mail.packId', `ID 必須以 \`${ID_PREFIX.mail}\` 開頭`);
+        if (mailPackIds.has(mailPackId)) add(source.file, packId, 'mail.packId', `${mailPackId} 已是 data/mail/ 的郵件包`);
+      }
+      const sender = mail['sender'];
+      if (!isObj(sender)) add(source.file, packId, 'mail.sender', `需要物件，得到 ${typeName(sender)}`);
+      else {
+        onlyKeys(source, packId, sender, 'mail.sender', ['id', 'name'], '寄件者', false);
+        const senderId = textAt(source, packId, sender['id'], 'mail.sender.id');
+        const name = textAt(source, packId, sender['name'], 'mail.sender.name');
+        if (senderId !== null) {
+          if (!senderId.startsWith(ID_PREFIX.sender)) add(source.file, packId, 'mail.sender.id', `ID 必須以 \`${ID_PREFIX.sender}\` 開頭`);
+          const previous = mailSenders.get(senderId);
+          if (previous === undefined) mailSenders.set(senderId, { name, file: source.file });
+          else if (name !== null && previous.name !== null && previous.name !== name) {
+            add(source.file, packId, 'mail.sender.name', `寄件者 ${senderId} 在 ${previous.file} 的名稱是 ${String(previous.name)}；同一寄件者名稱必須一致`);
+          }
+        }
+      }
+      const templates = mail['templates'];
+      const templateIds = new Set<string>();
+      if (!isObj(templates)) add(source.file, packId, 'mail.templates', `需要物件，得到 ${typeName(templates)}`);
+      else {
+        for (const [key, template] of Object.entries(templates)) {
+          const base = `mail.templates.${key}`;
+          if (!CHOICE_ID_PATTERN.test(key)) add(source.file, packId, base, '模板 ID 只能使用小寫英數與 `-`');
+          if (!isObj(template)) {
+            add(source.file, packId, base, `需要物件，得到 ${typeName(template)}`);
+            continue;
+          }
+          templateIds.add(key);
+          onlyKeys(source, packId, template, base, ['subject', 'lines'], '回條模板', false);
+          textAt(source, packId, template['subject'], `${base}.subject`);
+          requireStringArray(source, packId, `${base}.lines`, template['lines'], add);
+        }
+      }
+      const outcomes = mail['outcomes'];
+      if (!Array.isArray(outcomes) || outcomes.length === 0) add(source.file, packId, 'mail.outcomes', `需要非空陣列，得到 ${typeName(outcomes)}`);
+      else {
+        outcomes.forEach((raw, i) => {
+          const base = `mail.outcomes[${i}]`;
+          if (!isObj(raw)) {
+            add(source.file, packId, base, `需要物件，得到 ${typeName(raw)}`);
+            return;
+          }
+          onlyKeys(source, packId, raw, base, WORKDAY_OUTCOME_KEYS, '回條計畫');
+          const id = takeId(source, raw['id'], `${base}.id`, ID_PREFIX.mail);
+          const templateId = raw['templateId'];
+          if (typeof templateId !== 'string' || !templateIds.has(templateId)) add(source.file, id, `${base}.templateId`, `找不到模板 ${String(templateId)}`);
+          const dayId = raw['dayId'];
+          const day = typeof dayId === 'string' ? dayNumberOf.get(dayId) : undefined;
+          if (day === undefined) add(source.file, id, `${base}.dayId`, `找不到日別 ${String(dayId)}`);
+          else requireDayToken(source, id, `${base}.id`, day);
+          if (typeof raw['ordinary'] !== 'boolean') add(source.file, id, `${base}.ordinary`, `需要 boolean，得到 ${typeName(raw['ordinary'])}`);
+          const trigger = raw['trigger'];
+          if (!isObj(trigger)) {
+            add(source.file, id, `${base}.trigger`, `需要物件，得到 ${typeName(trigger)}`);
+            return;
+          }
+          const kind = trigger['kind'];
+          if (!WORKDAY_TRIGGER_KINDS.includes(kind as never)) {
+            add(source.file, id, `${base}.trigger.kind`, `kind 必須是 ${WORKDAY_TRIGGER_KINDS.join('／')}，得到 ${String(kind)}`);
+            return;
+          }
+          const targetKey = kind === 'case-decided' ? 'caseId' : 'taskId';
+          const allowed = kind === 'batch-delivered' ? ['kind', 'taskId', 'attachmentTaskId'] : ['kind', targetKey];
+          onlyKeys(source, id, trigger, `${base}.trigger`, allowed, '觸發條件', false);
+          const target = trigger[targetKey];
+          const wantKind = kind === 'attachment-mismatch' || kind === 'attachment-submitted' ? 'attachment' : 'transform';
+          let targetDay: number | null | undefined;
+          if (kind === 'case-decided') {
+            const c = typeof target === 'string' ? cases.get(target) : undefined;
+            if (!c) add(source.file, id, `${base}.trigger.caseId`, `找不到案件 ${String(target)}`);
+            targetDay = c?.day;
+          } else {
+            const info = typeof target === 'string' ? taskInfo.get(target) : undefined;
+            if (info?.kind !== wantKind) add(source.file, id, `${base}.trigger.taskId`, `必須是 ${wantKind} 任務，得到 ${String(target)}`);
+            targetDay = info?.day;
+          }
+          if (kind === 'batch-delivered' && trigger['attachmentTaskId'] !== undefined) {
+            const att = trigger['attachmentTaskId'];
+            if (typeof att !== 'string' || taskInfo.get(att)?.kind !== 'attachment') {
+              add(source.file, id, `${base}.trigger.attachmentTaskId`, `必須是 attachment 任務，得到 ${String(att)}`);
+            }
+          }
+          if (day !== undefined && targetDay !== undefined && targetDay !== null && targetDay >= day) {
+            add(source.file, id, `${base}.dayId`, `回條送達日必須晚於工作所屬日（第 ${targetDay} 日）`);
+          }
+        });
+      }
+    }
+
+    const interludes = data['interludes'];
+    if (!Array.isArray(interludes)) add(source.file, packId, 'interludes', `需要陣列，得到 ${typeName(interludes)}`);
+    else {
+      const seen = new Set<string>();
+      interludes.forEach((raw, i) => {
+        const base = `interludes[${i}]`;
+        if (!isObj(raw)) {
+          add(source.file, packId, base, `需要物件，得到 ${typeName(raw)}`);
+          return;
+        }
+        onlyKeys(source, packId, raw, base, WORKDAY_INTERLUDE_KEYS, '離班／到班短文');
+        const after = raw['afterDay'];
+        if (typeof after !== 'string' || !dayNumberOf.has(after)) add(source.file, packId, `${base}.afterDay`, `找不到日別 ${String(after)}`);
+        else if (seen.has(after)) add(source.file, packId, `${base}.afterDay`, `${after} 重複`);
+        else {
+          seen.add(after);
+          // beforeDay＝null 表示沒有到班短文（最後一日，或新增日別尚未補上）；有填時必須是下一日
+          const expected = nextDayOf.get(after) ?? null;
+          if (raw['beforeDay'] !== null && raw['beforeDay'] !== expected) {
+            add(source.file, packId, `${base}.beforeDay`, `必須是 ${after} 的下一日（${String(expected)}）或 null`);
+          }
+        }
+        requireStringArray(source, packId, `${base}.leave`, raw['leave'], add);
+        if (raw['beforeDay'] === null) {
+          if (!Array.isArray(raw['arrive']) || raw['arrive'].some((x) => typeof x !== 'string' || x === '')) {
+            add(source.file, packId, `${base}.arrive`, '最後一日的 arrive 需要字串陣列（可為空）');
+          }
+        } else requireStringArray(source, packId, `${base}.arrive`, raw['arrive'], add);
+      });
+    }
+
+    checkShape(source, packId, data['ui'], 'ui', WORKDAY_UI_SHAPE, true);
+  };
+
+  /**
    * 入職前情包（data/onboarding/*.json）：呈現設定、段落（ID 唯一、剛好一個合約且不在頭尾、簽名上限＝PLAYER_NAME_MAX）
    * 與介面字（loggingIn 必須且只能用 {playerName}）。
    */
@@ -1769,6 +1977,8 @@ export function validateContent(input: ContentInput): ContentIssue[] {
       /** 當日第一個 return-review 任務的位置；錯誤文件處理每天只有一個位置（R11）。 */
       let issueTaskIndex: number | null = null;
       const reconcileSources: { index: number; id: string | null; batchId: string }[] = [];
+      /** 當日已出現的任務 ID（依陣列順序）；dependsOn 只能指向排在前面的任務（M1）。 */
+      const earlierTasks = new Set<string>();
       tasks.forEach((raw, i) => {
         const field = `tasks[${i}]`;
         if (!isObj(raw)) {
@@ -1778,11 +1988,32 @@ export function validateContent(input: ContentInput): ContentIssue[] {
         const id = takeId(source, raw['id'], `${field}.id`, ID_PREFIX.task);
         requireDayToken(source, id, `${field}.id`, dayNumber);
         const kind = raw['kind'];
+        /* dependsOn（M1）：可省略；同日、排在前面、不重複 */
+        const dependsOn = new Set<string>();
+        if (raw['dependsOn'] !== undefined) {
+          if (!Array.isArray(raw['dependsOn'])) {
+            add(source.file, id, `${field}.dependsOn`, `需要任務 ID 陣列，得到 ${typeName(raw['dependsOn'])}`);
+          } else {
+            raw['dependsOn'].forEach((dep, d) => {
+              const path = `${field}.dependsOn[${d}]`;
+              if (typeof dep !== 'string' || dep === '') add(source.file, id, path, `需要任務 ID，得到 ${typeName(dep)}`);
+              else if (dependsOn.has(dep)) add(source.file, id, path, `重複的依賴 ${dep}`);
+              else if (!earlierTasks.has(dep)) add(source.file, id, path, `依賴 ${dep} 必須是同一天、排在這項之前的任務`);
+              else dependsOn.add(dep);
+            });
+          }
+        }
+        if (id !== null) earlierTasks.add(id);
         checkActions(source, id, `${field}.actions`, raw['actions'], add);
         if (kind !== 'archive' && raw['caseReview'] !== undefined) {
           add(source.file, id, `${field}.caseReview`, `只有 archive 任務可以有 caseReview（此任務是 ${String(kind)}）`);
         }
-        const caseDocs = kind === 'archive' ? checkCaseReview(source, dayNumber, id, field, raw) : new Set<string>();
+        const caseDocs =
+          kind === 'archive'
+            ? checkCaseReview(source, dayNumber, id, field, raw)
+            : kind === 'attachment' || kind === 'transform'
+              ? workdayDocuments(raw)
+              : new Set<string>();
         if (id !== null && !taskInfo.has(id)) taskInfo.set(id, { kind, day: dayNumber, auditId: raw['auditId'] });
         if (kind !== 'reconcile' && raw['returnAudit'] !== undefined) {
           add(source.file, id, `${field}.returnAudit`, `只有 reconcile 任務可以有 returnAudit（此任務是 ${String(kind)}）`);
@@ -1809,6 +2040,11 @@ export function validateContent(input: ContentInput): ContentIssue[] {
             if (batchId !== null && !archiveIndex.has(batchId)) archiveIndex.set(batchId, i);
             if (batchId !== null && dayNumber !== null) batchDay.set(batchId, dayNumber);
             if (batchId !== null && Array.isArray(raw['recordIds'])) batchSize.set(batchId, raw['recordIds'].length);
+            if (batchId !== null && Array.isArray(raw['recordIds'])) {
+              for (const r of raw['recordIds']) {
+                if (typeof r === 'string' && !recordArchive.has(r)) recordArchive.set(r, { taskId: id, batchId, day: dayNumber });
+              }
+            }
             if (raw['sourceBatchId'] !== undefined) {
               add(source.file, id, `${field}.sourceBatchId`, 'archive 任務定義自己的 batchId，不使用 sourceBatchId');
             }
@@ -1851,7 +2087,38 @@ export function validateContent(input: ContentInput): ContentIssue[] {
             refList(source, id, `${field}.documentIds`, 'document', raw['documentIds'], false);
             checkFieldMap(source, id, field, raw, add);
             checkShape(source, id, raw['text'], `${field}.text`, FIELD_MAP_TASK_TEXT_SHAPE, true);
+            if (id !== null) {
+              const sourceFields = Array.isArray(raw['sourceFields']) ? raw['sourceFields'].filter(isObj) : [];
+              const targetFields = Array.isArray(raw['targetFields']) ? raw['targetFields'].filter(isObj) : [];
+              const rows = Array.isArray(raw['rows']) ? raw['rows'].filter(isObj) : [];
+              fieldMapInfo.set(id, {
+                day: dayNumber,
+                sourceIds: new Set(sourceFields.map((f) => f['id']).filter((x): x is string => typeof x === 'string')),
+                booleanSources: new Set(
+                  targetFields.filter((t) => t['convert'] === 'boolean').map((t) => t['sourceId']).filter((x): x is string => typeof x === 'string'),
+                ),
+                rowIds: new Set(rows.map((r) => r['id']).filter((x): x is string => typeof x === 'string')),
+                dynamic: raw['dynamic'] !== undefined,
+              });
+            }
+            if (raw['dynamic'] !== undefined) {
+              workdayTaskRefs.push({ file: source.file, id, field, kind: 'field-map', day: dayNumber, raw, dependsOn });
+            }
             break;
+          case 'attachment':
+          case 'transform':
+          case 'report': {
+            for (const key of ['batchId', 'sourceBatchId'] as const) {
+              if (raw[key] !== undefined) add(source.file, id, `${field}.${key}`, `${kind} 任務不定義也不核對批次，不使用 ${key}`);
+            }
+            refList(source, id, `${field}.recordIds`, 'record', raw['recordIds'], kind === 'attachment');
+            refList(source, id, `${field}.documentIds`, 'document', raw['documentIds'], kind === 'attachment');
+            const shape =
+              kind === 'attachment' ? ATTACHMENT_TASK_TEXT_SHAPE : kind === 'transform' ? TRANSFORM_TASK_TEXT_SHAPE : REPORT_TASK_TEXT_SHAPE;
+            checkShape(source, id, raw['text'], `${field}.text`, shape, true);
+            workdayTaskRefs.push({ file: source.file, id, field, kind, day: dayNumber, raw, dependsOn });
+            break;
+          }
           case 'return-review': {
             for (const key of ['batchId', 'sourceBatchId'] as const) {
               if (raw[key] !== undefined) {
@@ -2205,6 +2472,219 @@ export function validateContent(input: ContentInput): ContentIssue[] {
       add(r.file, r.id, r.field, `詢問條件 ${r.cond} 只能用在提問 ${r.requestId} 自己的說明訊息（data/help 包的 messages）`);
     }
   }
+
+  /* ---- M1：附件關聯、批次轉換、交付報告、欄位映射 dynamic（全部日檔登記完文件、紀錄與任務之後） ---- */
+  type WorkdayRef = (typeof workdayTaskRefs)[number];
+  const attachmentSubject = new Map<string, string>();
+  for (const r of workdayTaskRefs) {
+    if (r.kind === 'attachment' && r.id !== null && typeof r.raw['subjectRecordId'] === 'string') attachmentSubject.set(r.id, r.raw['subjectRecordId']);
+  }
+  const listed = (raw: Record<string, unknown>, key: 'recordIds' | 'documentIds', value: string) =>
+    Array.isArray(raw[key]) && (raw[key] as unknown[]).includes(value);
+  /** 紀錄必須由 archive 任務歸檔，且不晚於這項任務；同日歸檔時須列入 dependsOn。 */
+  const checkArchivedRecord = (r: WorkdayRef, path: string, recordId: string): void => {
+    const owner = recordArchive.get(recordId);
+    if (!owner) {
+      add(r.file, r.id, path, `紀錄 ${recordId} 沒有由任何 archive 任務歸檔，無法取得採用的人員編號`);
+      return;
+    }
+    if (r.day !== null && owner.day !== null && owner.day > r.day) {
+      add(r.file, r.id, path, `紀錄 ${recordId} 在第 ${owner.day} 日才歸檔，晚於這項任務（第 ${r.day} 日）`);
+    } else if (owner.day === r.day && owner.taskId !== null && !r.dependsOn.has(owner.taskId)) {
+      add(r.file, r.id, path, `紀錄 ${recordId} 由同日的 ${owner.taskId} 歸檔，請把它列入 dependsOn`);
+    }
+  };
+  /** 候選附件／隨附附件：case-source 文件、證明範圍、reply 才有 objection。回傳文件 ID。 */
+  const checkCandidate = (r: WorkdayRef, path: string, value: unknown): string | null => {
+    if (!isObj(value)) {
+      add(r.file, r.id, path, `需要物件，得到 ${typeName(value)}`);
+      return null;
+    }
+    for (const [, p] of extraKeys(value, path, ATTACHMENT_CANDIDATE_KEYS, false)) {
+      add(r.file, r.id, p, `不在附件內的欄位（只允許 ${ATTACHMENT_CANDIDATE_KEYS.join('、')}）`);
+    }
+    const evidence = value['evidence'];
+    if (!ATTACHMENT_EVIDENCE_KINDS.includes(evidence as never)) {
+      add(r.file, r.id, `${path}.evidence`, `evidence 必須是 ${ATTACHMENT_EVIDENCE_KINDS.join('／')}，得到 ${String(evidence)}`);
+    }
+    const objection = value['objection'];
+    if (evidence === 'reply' && typeof objection !== 'boolean') {
+      add(r.file, r.id, `${path}.objection`, `本人回覆附件必須以 boolean 寫出異議回覆，得到 ${typeName(objection)}`);
+    } else if (evidence !== 'reply' && objection !== undefined) {
+      add(r.file, r.id, `${path}.objection`, '只有 reply 附件使用 objection');
+    }
+    const doc = value['documentId'];
+    if (typeof doc !== 'string' || doc === '') {
+      add(r.file, r.id, `${path}.documentId`, `需要文件 ID，得到 ${typeName(doc)}`);
+      return null;
+    }
+    const kind = documentKind.get(doc);
+    if (kind === undefined) add(r.file, r.id, `${path}.documentId`, `找不到文件 ${doc}`);
+    else if (kind !== 'case-source') add(r.file, r.id, `${path}.documentId`, `附件必須是 case-source 文件（${doc} 是 ${kind}）`);
+    else if ((documentRecords.get(doc)?.length ?? 0) === 0) add(r.file, r.id, `${path}.documentId`, `附件 ${doc} 沒有所屬紀錄（recordIds）`);
+    if (!listed(r.raw, 'documentIds', doc)) add(r.file, r.id, `${path}.documentId`, `附件 ${doc} 必須列在任務的 documentIds`);
+    return doc;
+  };
+  /** transform 任務 ID 清單：存在、kind 為 transform、所屬日不晚於這項任務。 */
+  const checkTransformList = (r: WorkdayRef, path: string, value: unknown): void => {
+    if (!Array.isArray(value)) {
+      add(r.file, r.id, path, `需要 transform 任務 ID 陣列，得到 ${typeName(value)}`);
+      return;
+    }
+    value.forEach((t, j) => {
+      const info = typeof t === 'string' ? taskInfo.get(t) : undefined;
+      if (info?.kind !== 'transform') add(r.file, r.id, `${path}[${j}]`, `必須是 transform 任務，得到 ${String(t)}`);
+      else if (r.day !== null && info.day !== null && info.day > r.day) add(r.file, r.id, `${path}[${j}]`, `${String(t)} 晚於這項任務`);
+      else if (info.day === r.day && typeof t === 'string' && !r.dependsOn.has(t)) add(r.file, r.id, `${path}[${j}]`, `同日的 ${t} 必須列入 dependsOn`);
+    });
+  };
+  for (const r of workdayTaskRefs) {
+    const raw = r.raw;
+    switch (r.kind) {
+      case 'attachment': {
+        const subject = raw['subjectRecordId'];
+        if (typeof subject !== 'string' || subject === '') {
+          add(r.file, r.id, `${r.field}.subjectRecordId`, `需要紀錄 ID，得到 ${typeName(subject)}`);
+        } else {
+          if (!listed(raw, 'recordIds', subject)) add(r.file, r.id, `${r.field}.subjectRecordId`, 'subjectRecordId 必須在 recordIds 內');
+          checkArchivedRecord(r, `${r.field}.subjectRecordId`, subject);
+        }
+        const candidates = raw['candidates'];
+        if (!Array.isArray(candidates) || candidates.length === 0) {
+          add(r.file, r.id, `${r.field}.candidates`, `需要非空的附件陣列，得到 ${typeName(candidates)}`);
+          break;
+        }
+        const seen = new Set<string>();
+        candidates.forEach((c, j) => {
+          const doc = checkCandidate(r, `${r.field}.candidates[${j}]`, c);
+          if (doc === null) return;
+          if (seen.has(doc)) add(r.file, r.id, `${r.field}.candidates[${j}].documentId`, `重複的附件 ${doc}`);
+          seen.add(doc);
+        });
+        break;
+      }
+      case 'transform': {
+        const rows = raw['rows'];
+        if (!Array.isArray(rows) || rows.length === 0) {
+          add(r.file, r.id, `${r.field}.rows`, `需要非空的資料列陣列，得到 ${typeName(rows)}`);
+          break;
+        }
+        const ids = new Set<string>();
+        rows.forEach((row, j) => {
+          const path = `${r.field}.rows[${j}]`;
+          if (!isObj(row)) {
+            add(r.file, r.id, path, `需要物件，得到 ${typeName(row)}`);
+            return;
+          }
+          for (const [, p] of extraKeys(row, path, TRANSFORM_ROW_KEYS, false)) {
+            add(r.file, r.id, p, `不在資料列內的欄位（只允許 ${TRANSFORM_ROW_KEYS.join('、')}）`);
+          }
+          const rowId = row['id'];
+          if (typeof rowId !== 'string' || !rowId.startsWith(ID_PREFIX.row) || !ID_PATTERN.test(rowId)) {
+            add(r.file, r.id, `${path}.id`, `資料列 ID 必須以 \`${ID_PREFIX.row}\` 開頭、只用小寫英數、\`-\` 與 \`.\``);
+          } else if (ids.has(rowId)) add(r.file, r.id, `${path}.id`, `重複的資料列 ${rowId}`);
+          else ids.add(rowId);
+          const recordId = row['recordId'];
+          if (typeof recordId !== 'string' || recordId === '') {
+            add(r.file, r.id, `${path}.recordId`, `需要紀錄 ID，得到 ${typeName(recordId)}`);
+          } else {
+            if (!listed(raw, 'recordIds', recordId)) add(r.file, r.id, `${path}.recordId`, '資料列的紀錄必須在 recordIds 內');
+            checkArchivedRecord(r, `${path}.recordId`, recordId);
+          }
+          const attTask = row['attachmentTaskId'];
+          if (attTask !== undefined && row['attachment'] !== undefined) {
+            add(r.file, r.id, path, 'attachmentTaskId 與 attachment 只能擇一');
+          }
+          if (attTask !== undefined) {
+            const info = typeof attTask === 'string' ? taskInfo.get(attTask) : undefined;
+            if (info?.kind !== 'attachment') add(r.file, r.id, `${path}.attachmentTaskId`, `必須是 attachment 任務，得到 ${String(attTask)}`);
+            else if (r.day !== null && info.day !== null && info.day > r.day) add(r.file, r.id, `${path}.attachmentTaskId`, `${String(attTask)} 晚於這項任務`);
+            else if (info.day === r.day && !r.dependsOn.has(attTask as string)) add(r.file, r.id, `${path}.attachmentTaskId`, `同日的 ${String(attTask)} 必須列入 dependsOn`);
+            else if (attachmentSubject.get(attTask as string) !== recordId) add(r.file, r.id, `${path}.attachmentTaskId`, `${String(attTask)} 的對象不是這一列的紀錄`);
+          }
+          if (row['attachment'] !== undefined) checkCandidate(r, `${path}.attachment`, row['attachment']);
+        });
+        break;
+      }
+      case 'report': {
+        const fm = raw['fieldMapTaskId'];
+        const info = typeof fm === 'string' ? fieldMapInfo.get(fm) : undefined;
+        if (!info) add(r.file, r.id, `${r.field}.fieldMapTaskId`, `必須是 field-map 任務，得到 ${String(fm)}`);
+        else if (!info.dynamic) add(r.file, r.id, `${r.field}.fieldMapTaskId`, `${String(fm)} 沒有 dynamic，報告無法對應保存的資料`);
+        else if (info.day !== r.day) add(r.file, r.id, `${r.field}.fieldMapTaskId`, `${String(fm)} 必須在同一天`);
+        else if (!r.dependsOn.has(fm as string)) add(r.file, r.id, `${r.field}.fieldMapTaskId`, `${String(fm)} 必須列入 dependsOn`);
+        checkTransformList(r, `${r.field}.transformTaskIds`, raw['transformTaskIds']);
+        break;
+      }
+      case 'field-map': {
+        const dyn = raw['dynamic'];
+        const info = r.id !== null ? fieldMapInfo.get(r.id) : undefined;
+        const base = `${r.field}.dynamic`;
+        if (!isObj(dyn) || !info) {
+          add(r.file, r.id, base, `需要物件，得到 ${typeName(dyn)}`);
+          break;
+        }
+        for (const [, p] of extraKeys(dyn, base, FIELD_MAP_DYNAMIC_KEYS, false)) {
+          add(r.file, r.id, p, `不在 dynamic 內的欄位（只允許 ${FIELD_MAP_DYNAMIC_KEYS.join('、')}）`);
+        }
+        const code = dyn['codeFieldId'];
+        const reply = dyn['replyFieldId'];
+        if (typeof code !== 'string' || !info.sourceIds.has(code)) add(r.file, r.id, `${base}.codeFieldId`, `必須是來源欄位 ID，得到 ${String(code)}`);
+        if (typeof reply !== 'string' || !info.booleanSources.has(reply)) {
+          add(r.file, r.id, `${base}.replyFieldId`, `必須是某個 boolean 目標的預設來源欄位，得到 ${String(reply)}`);
+        }
+        if (code === reply) add(r.file, r.id, `${base}.replyFieldId`, 'codeFieldId 與 replyFieldId 不能相同');
+        const rows = dyn['rows'];
+        if (!Array.isArray(rows)) {
+          add(r.file, r.id, `${base}.rows`, `需要陣列，得到 ${typeName(rows)}`);
+          break;
+        }
+        const seen = new Set<string>();
+        rows.forEach((row, j) => {
+          const path = `${base}.rows[${j}]`;
+          if (!isObj(row)) {
+            add(r.file, r.id, path, `需要物件，得到 ${typeName(row)}`);
+            return;
+          }
+          for (const [, p] of extraKeys(row, path, FIELD_MAP_DYNAMIC_ROW_KEYS, false)) {
+            add(r.file, r.id, p, `不在 dynamic 資料列內的欄位（只允許 ${FIELD_MAP_DYNAMIC_ROW_KEYS.join('、')}）`);
+          }
+          const rowId = row['rowId'];
+          if (typeof rowId !== 'string' || !info.rowIds.has(rowId)) add(r.file, r.id, `${path}.rowId`, `必須是 rows 內的資料列，得到 ${String(rowId)}`);
+          else if (seen.has(rowId)) add(r.file, r.id, `${path}.rowId`, `重複的資料列 ${rowId}`);
+          else seen.add(rowId);
+          const recordId = row['recordId'];
+          if (typeof recordId !== 'string' || recordId === '') add(r.file, r.id, `${path}.recordId`, `需要紀錄 ID，得到 ${typeName(recordId)}`);
+          else checkArchivedRecord(r, `${path}.recordId`, recordId);
+          checkTransformList(r, `${path}.transformTaskIds`, row['transformTaskIds']);
+        });
+        break;
+      }
+    }
+  }
+
+  /* ---- M1 unlockAfter：案件／任務存在、種類相符、所屬日不晚於訊息的 visibleFrom ---- */
+  for (const u of progressUnlockRefs) {
+    const visibleDay = typeof u.visibleFrom === 'string' ? dayNumberOf.get(u.visibleFrom) : undefined;
+    const path = `${u.base}.${u.key}`;
+    let day: number | null | undefined;
+    if (u.key === 'caseOpened') {
+      const c = cases.get(u.target);
+      if (!c) add(u.file, u.id, path, `找不到案件 ${u.target}`);
+      day = c?.day;
+    } else {
+      const info = taskInfo.get(u.target);
+      const allowed = u.key === 'taskOpened' ? ['attachment', 'transform', 'report'] : ['transform', 'report'];
+      if (!info || !allowed.includes(String(info.kind))) add(u.file, u.id, path, `${u.key} 必須是 ${allowed.join('／')} 任務，得到 ${u.target}`);
+      day = info?.day;
+    }
+    if (visibleDay !== undefined && day !== undefined && day !== null && day > visibleDay) {
+      add(u.file, u.id, path, `${u.target} 屬於第 ${day} 日，晚於訊息的 visibleFrom`);
+    }
+  }
+
+  /* ---- M1 工作日內容包：延後回條（模板、觸發條件）、離班／到班短文、介面字 ---- */
+  if (input.workday) checkWorkday(input.workday);
 
   /* ---- 引用檢查 ---- */
   for (const r of references) {

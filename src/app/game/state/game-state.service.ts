@@ -94,6 +94,36 @@ import {
   submitFieldMap,
   submitReply,
   validateRecord,
+  SAVE_VERSION,
+  AttachmentInput,
+  AttachmentProgress,
+  ReportSnapshot,
+  TransformCheck,
+  TransformPolicy,
+  TransformProgress,
+  attachmentProgressOf,
+  attachmentStatus,
+  deliveredMail,
+  isTaskOpen,
+  isTaskOpened,
+  isTaskPreviewed,
+  isTaskSettled,
+  markTaskOpened,
+  pendingDependencies,
+  previewTransform,
+  reportOf,
+  reportProgressOf,
+  resolvedFieldMapTask,
+  reviseAttachment,
+  selectTask,
+  setAttachmentDraft,
+  setTransformPolicy,
+  submitAttachment,
+  submitReport,
+  submitTransform,
+  transformCheckOf,
+  transformProgressOf,
+  generateReport,
 } from '../core';
 import { createSeed } from '../platform/seed';
 import { DAY_DIRECTORY } from './day-directory';
@@ -122,6 +152,14 @@ export interface DayTaskItem {
   status: 'done' | 'waived' | 'active' | 'pending';
   total: number;
   processed: number;
+  /** M1：資料依賴尚未交付（不能開始）；工作佇列顯示「等待前一批交付」。 */
+  locked: boolean;
+  /** M1：可以切換成目前工作（work 階段、未完成、依賴已結清、不是目前工作）。 */
+  selectable: boolean;
+  /** M1：已送件但仍有待補（保留缺漏、附件待修正或批次有待補列）。 */
+  awaiting: boolean;
+  /** M1：尚未交付的依賴工作名稱（依內容順序）。 */
+  waitingFor: readonly string[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -226,10 +264,11 @@ export class GameStateService {
 
   /* ---------- 欄位映射工作（field-map）的進度 ---------- */
 
-  /** 目前欄位映射工作的日程（欄位、資料列）；不是映射日時為 null。 */
+  /** 目前欄位映射工作的日程（欄位、資料列；M1 起資料列依保存資料解析）；不是映射日時為 null。 */
   readonly fieldMapPlan = computed(() => {
+    const s = this._save();
     const t = this.task();
-    return t?.kind === 'field-map' ? t : null;
+    return s && t?.kind === 'field-map' ? resolvedFieldMapTask(s, t) : null;
   });
   readonly fieldMap = computed(() => {
     const s = this._save();
@@ -253,21 +292,28 @@ export class GameStateService {
     if (!s || !plan) return [];
     // 不適用的工作（沒有退件的複審）不出現在清單，也不佔序號
     const tasks = plan.tasks.filter((t) => isTaskApplicable(s, t));
-    const activeIndex = tasks.findIndex((t) => t.id === s.taskId);
+    const headingOf = (t: TaskPlan) => (t.kind === 'return-review' ? DOCUMENT_ISSUES_UI.taskHeading : taskHeading(t.id));
+    // M1：工作可自選順序，狀態依各工作自己的完成與依賴判斷（不再以「排在目前工作之前」推斷已完成）
     return tasks.map((t, i): DayTaskItem => {
       const waived = isTaskWaived(s, t.id);
       const done = isTaskDone(s, this.dir, t);
+      const settled = isTaskSettled(s, this.dir, t);
       let status: DayTaskItem['status'];
-      if (s.stage === 'wrap' || s.stage === 'end' || i < activeIndex) status = waived && !done ? 'waived' : 'done';
-      else if (i === activeIndex && s.stage === 'work') status = 'active';
+      if (s.stage === 'wrap' || s.stage === 'end' || (settled && t.id !== s.taskId)) status = waived && !done ? 'waived' : 'done';
+      else if (t.id === s.taskId && s.stage === 'work') status = 'active';
       else status = 'pending';
+      const waiting = pendingDependencies(s, this.dir, t);
       return {
         taskId: t.id,
         kind: t.kind,
         index: i + 1,
-        heading: t.kind === 'return-review' ? DOCUMENT_ISSUES_UI.taskHeading : taskHeading(t.id),
+        heading: headingOf(t),
         status,
         ...this.taskAmounts(s, t),
+        locked: !settled && waiting.length > 0,
+        selectable: s.stage === 'work' && t.id !== s.taskId && isTaskOpen(s, this.dir, t),
+        awaiting: done && this.hasAwaiting(s, t),
+        waitingFor: waiting.map(headingOf),
       };
     });
   });
@@ -299,6 +345,9 @@ export class GameStateService {
       hasReview: (batchId: string) => batchHasReview(s, batchId),
       archivedCount: (batchId: string) => archivedCount(s, batchId),
       caseDecision: (caseId: string) => caseDecisionOf(s, this.dir, caseId),
+      caseOpened: (caseId: string) => s.caseReviews[caseId] !== undefined,
+      taskOpened: (taskId: string) => isTaskOpened(s, taskId),
+      taskPreviewed: (taskId: string) => isTaskPreviewed(s, taskId),
       returnNotified: (auditId: string) => returnNotified(s, this.dir, auditId),
       chatChoice: (promptId: string) => chatChoiceOf(s, promptId),
       helpRequested: (requestId: string) => s.helpRequests[requestId] !== undefined,
@@ -332,7 +381,7 @@ export class GameStateService {
     this._save.set(loaded.save);
     this.storageIssue.set(loaded.issue);
     // 舊檔轉換後立刻寫回，避免每次載入都重新遷移
-    if (loaded.save && loaded.migratedFrom !== null && loaded.migratedFrom !== 11) {
+    if (loaded.save && loaded.migratedFrom !== null && loaded.migratedFrom !== SAVE_VERSION) {
       this.storageIssue.set(this.repo.persist(loaded.save));
     }
   }
@@ -470,14 +519,17 @@ export class GameStateService {
 
   /* ---------- 郵件（R12） ---------- */
 
-  /** 郵件（依收到順序）。 */
-  readonly mailbox = computed<readonly MailRecord[]>(() => this._save()?.mailbox ?? []);
-  /** 未開啟過的郵件數；與案件是否解決無關。 */
+  /** 已送達的郵件（依收到順序）；M1 一般回條在送達前不出現。 */
+  readonly mailbox = computed<readonly MailRecord[]>(() => {
+    const s = this._save();
+    return s ? deliveredMail(s, this.dir) : [];
+  });
+  /** 未開啟過的郵件數（只算已送達的）；與案件是否解決無關。 */
   readonly unreadMailCount = computed(() => {
     const s = this._save();
     if (!s) return 0;
     const read = new Set(s.readMail);
-    return s.mailbox.filter((m) => !read.has(m.id)).length;
+    return this.mailbox().filter((m) => !read.has(m.id)).length;
   });
 
   isMailRead(mailId: string): boolean {
@@ -515,6 +567,88 @@ export class GameStateService {
     if (requestId === undefined) return true;
     const at = this.helpRequest(requestId)?.deliveries.find((d) => d.messageId === messageId)?.at;
     return at !== undefined && at <= now;
+  }
+
+  /* ---------- M1：工作佇列、附件關聯、批次轉換、交付報告 ---------- */
+
+  /** 切換目前工作（只能切到當日可開始的工作）；回傳是否切換。 */
+  selectTask(taskId: string): boolean {
+    this.status.set('');
+    return this.apply((s) => selectTask(s, this.dir, taskId));
+  }
+
+  /** 第一次開啟附件／批次／報告工作時記下（訊息依此解鎖）。 */
+  markTaskOpened(): void {
+    this.apply((s) => markTaskOpened(s, this.dir));
+  }
+
+  attachmentProgress(taskId: string): AttachmentProgress {
+    const s = this._save();
+    return s ? attachmentProgressOf(s, taskId) : { kind: 'attachment', opened: false, versions: [], checks: [] };
+  }
+
+  /** 附件草稿（目前工作尚未送件，或可修訂的版本）。 */
+  setAttachmentDraft(taskId: string, draft: AttachmentInput): void {
+    this.apply((s) => setAttachmentDraft(s, this.dir, taskId, draft));
+  }
+
+  submitAttachmentStrict(input: AttachmentInput): CommitOutcome {
+    return this.applyStrict((s) => submitAttachment(s, this.dir, input), '');
+  }
+
+  /** 修訂（版本鎖定）：expectedIndex 必須仍是可修訂的版本，否則 'noop'。 */
+  reviseAttachmentStrict(taskId: string, expectedIndex: number, input: AttachmentInput): CommitOutcome {
+    return this.applyStrict((s) => reviseAttachment(s, this.dir, taskId, expectedIndex, input), '');
+  }
+
+  transformProgress(taskId: string): TransformProgress {
+    const s = this._save();
+    return s ? transformProgressOf(s, taskId) : { kind: 'transform', opened: false, previewed: false, previewedOnce: false };
+  }
+
+  /** 某個批次的檢查結果（已交付＝交付快照）。 */
+  transformCheck(taskId: string): TransformCheck | null {
+    const s = this._save();
+    return s ? transformCheckOf(s, this.dir, taskId) : null;
+  }
+
+  setTransformPolicy(policy: TransformPolicy): void {
+    this.apply((s) => setTransformPolicy(s, this.dir, policy));
+  }
+
+  /** 建立批次預覽；回傳是否通過（缺策略時不通過、不寫入）。 */
+  previewTransform(): boolean {
+    this.apply((s) => previewTransform(s, this.dir));
+    const id = this.taskId();
+    return id !== null && this.transformCheck(id)?.ok === true && this.transformProgress(id).previewed;
+  }
+
+  submitTransformStrict(): CommitOutcome {
+    return this.applyStrict((s) => submitTransform(s, this.dir), '');
+  }
+
+  /** 報告（已交付＝快照；未交付依保存資料即時建立；欄位映射未匯入為 null）。 */
+  report(taskId: string): ReportSnapshot | null {
+    const s = this._save();
+    return s ? reportOf(s, this.dir, taskId) : null;
+  }
+
+  reportGenerated(taskId: string): boolean {
+    const s = this._save();
+    return s ? reportProgressOf(s, taskId).generated : false;
+  }
+
+  generateReport(): boolean {
+    return this.apply((s) => generateReport(s, this.dir));
+  }
+
+  submitReportStrict(): CommitOutcome {
+    return this.applyStrict((s) => submitReport(s, this.dir), '');
+  }
+
+  /** 某個附件關聯工作的目前狀態。 */
+  attachmentStatus(taskId: string): ReturnType<typeof attachmentStatus> {
+    return attachmentStatus(this.attachmentProgress(taskId));
   }
 
   /** 某案件最後一次實際送出的編號（修訂表單預填用）。 */
@@ -743,6 +877,33 @@ export class GameStateService {
         const items = scheduledIssues(s, t.dayId);
         return { total: items.length, processed: items.filter((r) => handledOnOrAfter(r, t.dayId, this.dir)).length };
       }
+      case 'attachment':
+        return { total: 1, processed: attachmentProgressOf(s, t.id).versions.length > 0 ? 1 : 0 };
+      case 'transform':
+        return { total: t.rows.length, processed: transformProgressOf(s, t.id).submitted?.rows.length ?? 0 };
+      case 'report': {
+        const report = reportProgressOf(s, t.id).submitted;
+        return { total: report?.rows.length ?? 0, processed: report?.rows.length ?? 0 };
+      }
+    }
+  }
+
+  /** 已送件但仍有待補：附件保留缺漏或待修正、批次有待補列、報告列有待補。 */
+  private hasAwaiting(s: Save, t: TaskPlan): boolean {
+    switch (t.kind) {
+      case 'attachment': {
+        const p = attachmentProgressOf(s, t.id);
+        const latest = p.versions[p.versions.length - 1];
+        return latest?.destination === 'review' || attachmentStatus(p) === 'returned';
+      }
+      case 'transform':
+        return (transformProgressOf(s, t.id).submitted?.pendingCount ?? 0) > 0;
+      case 'report':
+        return (reportProgressOf(s, t.id).submitted?.pendingCount ?? 0) > 0;
+      case 'archive':
+        return batchHasReview(s, t.batchId);
+      default:
+        return false;
     }
   }
 

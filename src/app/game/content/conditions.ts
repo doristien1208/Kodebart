@@ -266,6 +266,12 @@ export interface ConditionContext {
    * `cond.help.*` 讀這裡；只代表已觸發，個別說明訊息是否已送達由狀態層依保存的送達時間判斷。
    */
   helpRequested: (requestId: string) => boolean;
+  /** M1：比對案件是否已開啟（存檔 caseReviews 有該案件）。省略＝一律 false。 */
+  caseOpened?: (caseId: string) => boolean;
+  /** M1：附件／批次／報告任務是否開啟過。省略＝一律 false。 */
+  taskOpened?: (taskId: string) => boolean;
+  /** M1：批次是否開啟過預覽、報告是否已建立。省略＝一律 false。 */
+  taskPreviewed?: (taskId: string) => boolean;
 }
 
 /** 解析單一條件；未知 ID 一律回傳 false（驗證階段就會先擋下）。 */
@@ -322,7 +328,12 @@ export function isVisibleFrom(visibleFrom: string, ctx: ConditionContext): boole
  * 已提交的紀錄會鎖定、不會減少，因此一旦成立之後各日仍成立。
  */
 export function progressHolds(unlockAfter: MessageUnlockAfter | undefined, ctx: ConditionContext): boolean {
-  return unlockAfter === undefined || ctx.archivedCount(unlockAfter.archiveBatchId) >= unlockAfter.archivedCount;
+  if (unlockAfter === undefined) return true;
+  // M1：案件開啟、任務開啟、預覽／報告建立都只會由 false 變 true，與已提交筆數一樣不會倒退
+  if ('caseOpened' in unlockAfter) return ctx.caseOpened?.(unlockAfter.caseOpened) ?? false;
+  if ('taskOpened' in unlockAfter) return ctx.taskOpened?.(unlockAfter.taskOpened) ?? false;
+  if ('taskPreviewed' in unlockAfter) return ctx.taskPreviewed?.(unlockAfter.taskPreviewed) ?? false;
+  return ctx.archivedCount(unlockAfter.archiveBatchId) >= unlockAfter.archivedCount;
 }
 
 /**

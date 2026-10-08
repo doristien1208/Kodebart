@@ -43,6 +43,8 @@ export const ID_PREFIX = {
   help: 'help.',
   /** 詢問說明包的提問（R12）；全域唯一，條件 `cond.help.<去前綴>.requested` 引用，存檔 helpRequests 以此為鍵。 */
   request: 'request.',
+  /** M1 工作日內容包（data/workday/）。 */
+  workday: 'workday.',
 } as const;
 
 /**
@@ -111,7 +113,7 @@ export type ChannelKind = (typeof CHANNEL_KINDS)[number];
  * 每日任務種類；新增玩法時在這裡加，並由規則層決定如何執行。
  * `return-review`（R10／R11）：錯誤文件處理；每天一個位置，只有當天排入到期的文件問題案件時才進入佇列，否則不佔工作。
  */
-export const TASK_KINDS = ['archive', 'reconcile', 'field-map', 'return-review'] as const;
+export const TASK_KINDS = ['archive', 'reconcile', 'field-map', 'return-review', 'attachment', 'transform', 'report'] as const;
 export type TaskKind = (typeof TASK_KINDS)[number];
 
 /** field-map 目標欄位的轉換方式（R6-03）：text 原樣帶入；boolean 依 trueValue／falseValue 轉換，空字串交給 blankPolicy。 */
@@ -247,6 +249,34 @@ export const ARCHIVE_UI_SHAPE = {
   queueSelectedMark: 'string',
 } as const satisfies Shape;
 export type ArchiveUi = FromShape<typeof ARCHIVE_UI_SHAPE>;
+
+/** `kind: "attachment"` 任務的文字（M1）：標題、說明與兩種處理方式的選項文字。 */
+export const ATTACHMENT_TASK_TEXT_SHAPE = {
+  eyebrow: 'string',
+  heading: 'string',
+  instruction: 'string',
+  reference: 'string',
+  review: 'string',
+} as const satisfies Shape;
+export type AttachmentTaskText = FromShape<typeof ATTACHMENT_TASK_TEXT_SHAPE>;
+
+/** `kind: "transform"` 任務的文字（M1）：標題、說明與兩種缺漏策略的選項文字。 */
+export const TRANSFORM_TASK_TEXT_SHAPE = {
+  eyebrow: 'string',
+  heading: 'string',
+  instruction: 'string',
+  departmentDefault: 'string',
+  review: 'string',
+} as const satisfies Shape;
+export type TransformTaskText = FromShape<typeof TRANSFORM_TASK_TEXT_SHAPE>;
+
+/** `kind: "report"` 任務的文字（M1）。 */
+export const REPORT_TASK_TEXT_SHAPE = {
+  eyebrow: 'string',
+  heading: 'string',
+  instruction: 'string',
+} as const satisfies Shape;
+export type ReportTaskText = FromShape<typeof REPORT_TASK_TEXT_SHAPE>;
 
 /** `kind: "field-map"` 任務的日別文字（R6-03）：標題、說明與兩種空白值處理方式的選項文字。 */
 export const FIELD_MAP_TASK_TEXT_SHAPE = {
@@ -385,6 +415,9 @@ const TASK_KIND_SHAPE = {
   reconcile: 'string',
   'field-map': 'string',
   'return-review': 'string',
+  attachment: 'string',
+  transform: 'string',
+  report: 'string',
 } as const satisfies Record<TaskKind, 'string'>;
 
 /**
@@ -464,6 +497,10 @@ export const EXECUTION_LOG_UI_SHAPE = {
     recordReview: 'string',
     /** 下游核對回條（R11）：`$ receipt.check <案號>`。 */
     receiptCheck: 'string',
+    /** M1：附件關聯送件／修訂、批次執行、交付報告。 */
+    attachment: 'string',
+    transform: 'string',
+    report: 'string',
   },
   key: {
     check: 'string',
@@ -481,6 +518,13 @@ export const EXECUTION_LOG_UI_SHAPE = {
     /** 比對案件（R9）：提交快照中的依據文件與差異註記。 */
     basis: 'string',
     note: 'string',
+    /** M1：引用附件、附件證明範圍、交付列數、待補列數、本人回覆數、窗口收件數。 */
+    attachment: 'string',
+    evidence: 'string',
+    delivered: 'string',
+    pending: 'string',
+    replies: 'string',
+    receipts: 'string',
   },
   check: { pass: 'string' },
   result: { delivered: 'string', sentReview: 'string', sent: 'string' },
@@ -950,6 +994,10 @@ interface ContentTaskBase extends Annotated {
   id: string;
   recordIds: string[];
   documentIds: string[];
+  /**
+   * 資料依賴（M1）：同一天、排在前面的任務 ID；全部完成後這項才能開始。省略或空陣列＝可以自選順序。
+   */
+  dependsOn?: string[];
 }
 
 /** 比對案件的補件收件狀態變體（R9）：依 seed＋case ID 選一個並保存；只影響佐證多寡，不決定正解。 */
@@ -1082,6 +1130,25 @@ export interface FieldMapRow extends Annotated {
   values: Readonly<Record<string, string>>;
 }
 
+/** 欄位映射資料列與前幾天保存資料的對應（M1）。 */
+export interface FieldMapDynamicRow {
+  /** rows 內的資料列 ID。 */
+  rowId: string;
+  /** archive 任務歸檔過的紀錄。 */
+  recordId: string;
+  /** 依序查找最近一次批次輸出的 transform 任務（後者優先；可為空陣列）。 */
+  transformTaskIds: string[];
+}
+
+/** 欄位映射的資料列改讀保存資料（M1）：編號欄代入採用的人員編號，回覆欄代入批次輸出或歸檔的回覆欄。 */
+export interface FieldMapDynamic {
+  /** 來源欄位 ID；代入採用的人員編號。 */
+  codeFieldId: string;
+  /** 來源欄位 ID；必須是某個 boolean 目標的預設來源，有／無字串取自該目標。 */
+  replyFieldId: string;
+  rows: FieldMapDynamicRow[];
+}
+
 /** 欄位映射任務（R6-03）：玩家為每個目標欄位選一個來源欄位，處理空白值後匯入。 */
 export interface FieldMapTask extends ContentTaskBase {
   kind: 'field-map';
@@ -1089,9 +1156,62 @@ export interface FieldMapTask extends ContentTaskBase {
   sourceFields: FieldMapSourceField[];
   /** 非空。 */
   targetFields: FieldMapTargetField[];
-  /** 非空。 */
+  /** 非空。有 dynamic 時是沒有保存資料可用時的退回值。 */
   rows: FieldMapRow[];
+  /** M1：資料列改讀保存資料。 */
+  dynamic?: FieldMapDynamic;
   text: FieldMapTaskText;
+}
+
+/** 附件能證明什麼（M1）：reply＝本人回覆；receipt＝窗口收件；pending＝待補紀錄。 */
+export const ATTACHMENT_EVIDENCE_KINDS = ['reply', 'receipt', 'pending'] as const;
+export type AttachmentEvidenceKind = (typeof ATTACHMENT_EVIDENCE_KINDS)[number];
+
+/** 可引用的附件（M1）：case-source 文件；所屬對象＝文件 recordIds 的第一筆。 */
+export interface ContentAttachmentCandidate {
+  documentId: string;
+  evidence: AttachmentEvidenceKind;
+  /** 只有 reply：異議回覆（true＝有、false＝無）。 */
+  objection?: boolean;
+}
+
+/**
+ * 附件關聯任務（M1 §2B）：為對象紀錄選一份引用附件，或保留缺漏送覆核。
+ * 只驗附件存在、選項合法；選到別的對象的附件也能送出，隔日回條才指出。
+ */
+export interface AttachmentTask extends ContentTaskBase {
+  kind: 'attachment';
+  /** 對象紀錄；必須由某個 archive 任務歸檔，且在 recordIds 內。 */
+  subjectRecordId: string;
+  /** 非空；文件必須是 case-source、在 documentIds 內。 */
+  candidates: ContentAttachmentCandidate[];
+  text: AttachmentTaskText;
+}
+
+/** 批次的一列（M1）：已歸檔的紀錄＋玩家在附件任務選的附件，或隨資料附上的附件（二擇一，可都沒有）。 */
+export interface ContentTransformRow {
+  /** `row.` 前綴，同一任務內唯一。 */
+  id: string;
+  recordId: string;
+  attachmentTaskId?: string;
+  attachment?: ContentAttachmentCandidate;
+}
+
+/** 批次轉換任務（M1 §2C）：選缺漏策略、預覽逐列輸出後交付；輸入取保存的歸檔與附件資料。 */
+export interface TransformTask extends ContentTaskBase {
+  kind: 'transform';
+  /** 非空。 */
+  rows: ContentTransformRow[];
+  text: TransformTaskText;
+}
+
+/** 交付報告任務（M1）：依欄位映射輸出與批次輸出分欄統計送件、本人回覆、窗口收件與待補。 */
+export interface ReportTask extends ContentTaskBase {
+  kind: 'report';
+  /** 有 dynamic 的 field-map 任務。 */
+  fieldMapTaskId: string;
+  transformTaskIds: string[];
+  text: ReportTaskText;
 }
 
 /**
@@ -1113,7 +1233,7 @@ export interface ReturnReviewTask extends ContentTaskBase {
 }
 
 /** 任務依 `kind` 分型（KB-R5-03、R6-03、R10）；每日至少一個，依陣列順序執行（R8）。 */
-export type ContentTask = ArchiveTask | ReconcileTask | FieldMapTask | ReturnReviewTask;
+export type ContentTask = ArchiveTask | ReconcileTask | FieldMapTask | ReturnReviewTask | AttachmentTask | TransformTask | ReportTask;
 
 export interface MessageVariant {
   key: VariantKey;
@@ -1161,12 +1281,20 @@ export interface ContentReplyPrompt {
  * 訊息的「當日工作進度」解鎖（R8 §4）：指定 archive 批次已提交至少 `archivedCount` 筆才解鎖。
  * 由存檔推導（ConditionContext.archivedCount），不模擬時鐘；批次所屬日不得晚於訊息的 visibleFrom。
  */
-export interface MessageUnlockAfter {
+export interface MessageUnlockAfterArchived {
   /** 某個 archive 任務的 batchId。 */
   archiveBatchId: string;
   /** 1 以上、不超過該批次筆數的整數。 */
   archivedCount: number;
 }
+
+/**
+ * M1 的工作進度解鎖（擇一）：caseOpened＝比對案件已開啟；taskOpened＝附件／批次／報告任務已開啟；
+ * taskPreviewed＝批次已建立預覽、報告已建立。皆由存檔推導；所屬日不得晚於訊息的 visibleFrom。
+ */
+export type MessageUnlockAfterProgress = { caseOpened: string } | { taskOpened: string } | { taskPreviewed: string };
+
+export type MessageUnlockAfter = MessageUnlockAfterArchived | MessageUnlockAfterProgress;
 
 export interface ContentMessage extends Annotated {
   id: string;
@@ -1510,6 +1638,8 @@ export interface ContentSource {
 
 /** validate-content.ts 的輸入：全部內容檔，未經型別斷言。 */
 export interface ContentInput {
+  /** M1 工作日內容包（data/workday/）：延後回條郵件、離班／到班短文與工作介面字。可省略（測試用合成內容）。 */
+  workday?: ContentSource;
   ui: ContentSource;
   actors: ContentSource;
   channels: ContentSource;
@@ -1533,4 +1663,120 @@ export interface ContentBundle {
   mail: readonly ContentMailPack[];
   onboarding: ContentOnboarding;
   help: readonly ContentHelpPack[];
+  /** M1 工作日內容包；沒有提供時為 null。 */
+  workday: ContentWorkday | null;
+}
+
+/* ---------- data/workday/*.json（M1） ---------- */
+
+/** 延後回條的觸發條件（對應 core 的 WorkdayMailTrigger）。 */
+export type ContentWorkdayTrigger =
+  | { kind: 'case-decided'; caseId: string }
+  | { kind: 'attachment-mismatch'; taskId: string }
+  | { kind: 'batch-delivered'; taskId: string; attachmentTaskId?: string }
+  | { kind: 'batch-pending'; taskId: string }
+  | { kind: 'attachment-submitted'; taskId: string }
+  | { kind: 'batch-result'; taskId: string };
+
+export const WORKDAY_TRIGGER_KINDS = [
+  'case-decided',
+  'attachment-mismatch',
+  'batch-delivered',
+  'batch-pending',
+  'attachment-submitted',
+  'batch-result',
+] as const;
+
+/** 一封延後回條的計畫：固定 ID、模板、送達日與觸發條件；ordinary＝一般回條（送達時機兩個變體）。 */
+export interface ContentWorkdayOutcome extends Annotated {
+  /** `mail.` 前綴、全域唯一；含送達日識別。 */
+  id: string;
+  templateId: string;
+  dayId: string;
+  ordinary: boolean;
+  trigger: ContentWorkdayTrigger;
+}
+
+/** 回條模板：主旨與逐段內文（不含任何代入欄位）。 */
+export interface ContentWorkdayTemplate {
+  subject: string;
+  lines: string[];
+}
+
+export interface ContentWorkdayMail {
+  /** 郵件紀錄的 packId；`mail.` 前綴，不得與 data/mail/ 的郵件包相同。 */
+  packId: string;
+  sender: ContentMailSender;
+  templates: Readonly<Record<string, ContentWorkdayTemplate>>;
+  outcomes: ContentWorkdayOutcome[];
+}
+
+/** 收班與到班的短文（每日結束時）；beforeDay 為 null＝最後一日。 */
+export interface ContentInterlude {
+  afterDay: string;
+  beforeDay: string | null;
+  leave: string[];
+  arrive: string[];
+}
+
+export const WORKDAY_UI_SHAPE = {
+  workQueue: 'string',
+  currentCase: 'string',
+  source: 'string',
+  adopted: 'string',
+  generated: 'string',
+  sourceVersion: 'string',
+  compare: 'string',
+  resetWindows: 'string',
+  openSource: 'string',
+  openSnapshot: 'string',
+  chooseAttachment: 'string',
+  preserveMissing: 'string',
+  referenceAndSend: 'string',
+  referencedEvidence: 'string',
+  attachmentMissing: 'string',
+  pendingDependency: 'string',
+  preview: 'string',
+  execute: 'string',
+  input: 'string',
+  rule: 'string',
+  output: 'string',
+  missingMeaning: 'string',
+  submissionCount: 'string',
+  replyCount: 'string',
+  pendingCount: 'string',
+  signOff: 'string',
+  tomorrow: 'string',
+  handoff: 'string',
+  pendingHandoff: 'string',
+  logValidate: 'string',
+  logTransform: 'string',
+  logPersist: 'string',
+  logEnqueue: 'string',
+  logFailure: 'string',
+  statusTodo: 'string',
+  statusSent: 'string',
+  statusPending: 'string',
+  receiptCount: 'string',
+  generateReport: 'string',
+  snapshotLabel: 'string',
+  batchCopyLabel: 'string',
+  arrivedMail: 'string',
+  evidence: { reply: 'string', receipt: 'string', pending: 'string', mismatch: 'string', none: 'string' },
+  valueOrigin: { reply: 'string', source: 'string', policy: 'string', held: 'string' },
+  rowStatus: { delivered: 'string', pending: 'string' },
+  legendTemplate: 'string',
+  columns: { row: 'string', code: 'string', value: 'string', origin: 'string', attachment: 'string', status: 'string' },
+} as const satisfies Shape;
+export type WorkdayUi = FromShape<typeof WORKDAY_UI_SHAPE>;
+
+/** M1 工作日內容包。 */
+export interface ContentWorkday extends Annotated {
+  /** `workday.` 前綴。 */
+  id: string;
+  schemaVersion: typeof CONTENT_PACK_SCHEMA_VERSION;
+  mail: ContentWorkdayMail;
+  interludes: ContentInterlude[];
+  ui: WorkdayUi;
+  integration?: IntegrationNotes;
 }

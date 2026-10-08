@@ -29,6 +29,7 @@ import {
   SaveV8,
   SaveV9,
   SaveV10,
+  SaveV11,
   ReturnCase,
   ReturnReceipt,
   ReturnVersion,
@@ -275,14 +276,18 @@ export function migrateV9ToV10(legacy: SaveV9, dir: DayDirectory): SaveV10 {
  *   之後新的回覆照常依送達狀態計算未讀。
  * - 沒有詢問紀錄與修訂草稿。
  */
-export function migrateV10ToV11(legacy: SaveV10, dir: DayDirectory): Save {
+export function migrateV10ToV11(legacy: SaveV10, dir: DayDirectory): SaveV11 {
   const { readIssueReceipts, ...rest } = legacy;
   const order = (dayId: string) => dir.days.indexOf(dayId);
   const mails: { mail: MailRecord; seq: number }[] = [];
   for (const item of legacy.returns) for (const receipt of item.receipts) mails.push({ mail: receiptMail(item, receipt), seq: mails.length });
   mails.sort((a, b) => order(a.mail.dayId) - order(b.mail.dayId) || a.seq - b.seq);
   const readReceipts = new Set(readIssueReceipts);
-  const readMail = mails.filter((m) => readReceipts.has(m.mail.attachments[0]?.receiptId ?? '')).map((m) => m.mail.id);
+  const receiptIdOf = (mail: MailRecord) => {
+    const a = mail.attachments[0];
+    return a?.kind === 'return-receipt' ? a.receiptId : '';
+  };
+  const readMail = mails.filter((m) => readReceipts.has(receiptIdOf(m.mail))).map((m) => m.mail.id);
   const readMessages = [...legacy.readMessages];
   const seen = new Set(readMessages);
   for (const reply of Object.values(legacy.chatReplies)) {
@@ -295,7 +300,7 @@ export function migrateV10ToV11(legacy: SaveV10, dir: DayDirectory): Save {
   }
   return {
     ...rest,
-    version: SAVE_VERSION,
+    version: 11,
     issueDrafts: {},
     mailbox: mails.map((m) => m.mail),
     readMail,
@@ -306,22 +311,53 @@ export function migrateV10ToV11(legacy: SaveV10, dir: DayDirectory): Save {
   };
 }
 
+/**
+ * v11 → v12（M1）：結構不變，只升版本號；M1 新增的工作（附件關聯、批次轉換、交付報告）若落在
+ * 舊檔已越過的日子（目前日之前；目前日已在 wrap／end 時含當日），列為免補——不要求補做、不假裝已提交。
+ * 目前日仍在 work／morning 時不免補：做完舊工作後可以接著做新工作。舊回覆、郵件、已讀、時間原樣保留。
+ */
+export function migrateV11ToV12(legacy: SaveV11, dir: DayDirectory): Save {
+  const index = dir.days.indexOf(legacy.dayId);
+  const passed = dir.days.slice(0, legacy.stage === 'wrap' || legacy.stage === 'end' ? index + 1 : Math.max(index, 0));
+  const raw = legacy as unknown as Record<string, unknown>;
+  const waivedTasks = [...legacy.waivedTasks];
+  for (const dayId of passed) {
+    for (const task of dir.plan(dayId)?.tasks.slice(1) ?? []) {
+      if (task.kind === 'return-review' || waivedTasks.includes(task.id)) continue;
+      if (!isRawTaskDone(raw, dir, task)) waivedTasks.push(task.id);
+    }
+  }
+  return { ...legacy, version: SAVE_VERSION, waivedTasks };
+}
+
 export interface MigrationResult {
   save: Save;
-  /** 來源版本；11 代表本來就是現行格式。 */
-  from: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+  /** 來源版本；12 代表本來就是現行格式。 */
+  from: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+}
+
+/** v11 的最低結構（版本號與遷移需要讀的欄位）；完整規則在轉成 v12 後檢查。 */
+function isV11Shape(s: unknown): s is SaveV11 {
+  if (typeof s !== 'object' || s === null || Array.isArray(s)) return false;
+  const o = s as Record<string, unknown>;
+  return o['version'] === 11 && typeof o['dayId'] === 'string' && typeof o['stage'] === 'string' && Array.isArray(o['waivedTasks']);
 }
 
 /**
- * 把任何合法的存檔（v2～v11）沿鏈帶到現行格式；不合法回傳 null。
+ * 把任何合法的存檔（v2～v12）沿鏈帶到現行格式；不合法回傳 null。
  * 舊檔不會被判定損壞或清空，只會被轉換；轉換結果仍須通過現行驗證。
  */
 export function migrateToCurrent(parsed: unknown, dir: DayDirectory): MigrationResult | null {
-  if (isValidSave(parsed, dir)) return { save: parsed, from: 11 };
+  if (isValidSave(parsed, dir)) return { save: parsed, from: 12 };
+  const fromV11 = (v11: unknown, from: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11): MigrationResult | null => {
+    if (!isV11Shape(v11)) return null;
+    const v12 = migrateV11ToV12(v11, dir);
+    return isValidSave(v12, dir) ? { save: v12, from } : null;
+  };
+  if (isV11Shape(parsed)) return fromV11(parsed, 11);
   const fromV10 = (v10: SaveV10, from: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10): MigrationResult | null => {
     if (!isValidLegacySaveV10(v10, dir)) return null;
-    const v11 = migrateV10ToV11(v10, dir);
-    return isValidSave(v11, dir) ? { save: v11, from } : null;
+    return fromV11(migrateV10ToV11(v10, dir), from);
   };
   if (isValidLegacySaveV10(parsed, dir)) return fromV10(parsed, 10);
   const fromV9 = (v9: SaveV9, from: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9): MigrationResult | null => {

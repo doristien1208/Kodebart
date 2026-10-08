@@ -1,0 +1,51 @@
+<fieldset class="af-group" [attr.aria-describedby]="error() ? errorId : null">
+  <legend class="af-legend">{{ ui.chooseAttachment }}</legend>
+  @if (candidates().length === 0) {
+    <p class="text-sm text-muted m-0" data-attachment-none>{{ ui.attachmentMissing }}</p>
+  }
+  <ul class="af-list">
+    @for (c of candidates(); track c.documentId) {
+      <li class="af-item" [class.af-selected]="c.documentId === selected()" [attr.data-attachment-candidate]="$index">
+        <label class="af-option">
+          <input
+            type="radio"
+            [name]="groupName"
+            [value]="c.documentId"
+            [checked]="c.documentId === selected()"
+            [disabled]="busy()"
+            (change)="pick.emit(c.documentId)"
+          />
+          <span class="min-w-0 [overflow-wrap:anywhere]">{{ c.heading }}</span>
+        </label>
+        <button type="button" class="af-open" data-attachment-open (click)="open.emit(c.documentId)">{{ ui.openSource }}</button>
+      </li>
+    }
+  </ul>
+  @if (candidates().length > 1) {
+    <button type="button" class="btn-ghost af-compare" data-attachment-compare (click)="compare.emit()">{{ ui.compare }}</button>
+  }
+</fieldset>
+
+@if (current(); as c) {
+  <section class="af-evidence" data-attachment-evidence>
+    <h5 class="af-evidence-title">{{ ui.referencedEvidence }}</h5>
+    <dl class="af-fields">
+      @for (f of c.fields; track f.label) {
+        <dt>{{ f.label }}</dt>
+        <dd>{{ f.value }}</dd>
+      }
+    </dl>
+  </section>
+}
+
+@if (error()) {
+  <p class="field-error" role="alert" [id]="errorId" data-attachment-error>{{ error() }}</p>
+}
+
+<div class="af-actions" role="group" [attr.aria-label]="methodLabel">
+  <button type="button" data-attachment-submit="reference" [disabled]="busy()" (click)="submit.emit('reference')">{{ labels().reference }}</button>
+  <button type="button" data-attachment-submit="review" [disabled]="busy()" (click)="submit.emit('review')">{{ labels().review }}</button>
+</div>
+@if (operation(); as op) {
+  <app-operation-status [operation]="op" (retry)="retry.emit()" />
+}

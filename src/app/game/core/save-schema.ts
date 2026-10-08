@@ -1,4 +1,18 @@
-import { DayDirectory, FieldMapTaskPlan, TaskPlan, batchIdOfTask, findAudit, findCase, taskPlanOf } from './day-plan';
+import {
+  ATTACHMENT_CHOICES,
+  ATTACHMENT_EVIDENCE,
+  AttachmentTaskPlan,
+  DayDirectory,
+  FieldMapTaskPlan,
+  TRANSFORM_POLICIES,
+  TaskPlan,
+  TransformTaskPlan,
+  batchIdOfTask,
+  findAudit,
+  findCase,
+  findTask,
+  taskPlanOf,
+} from './day-plan';
 import { isValidCodeString, normalizePlayerName } from './validate';
 import { RETURN_RECEIPT_MAIL_PACK, RETURN_RECEIPT_TEMPLATES, mailIdOfReceipt } from './mail';
 import { checkFieldMap } from './field-map';
@@ -20,6 +34,7 @@ import {
   SaveV8,
   SaveV9,
   SaveV10,
+  SaveV11,
   RETURN_STATUSES,
   REVIEW_DISPOSITIONS,
   LEGACY_STAGES,
@@ -157,11 +172,138 @@ function isValidFieldMapProgress(p: Record<string, unknown>, task: FieldMapTaskP
   if (p['submitted'] !== undefined) {
     if (!p['previewed']) return false;
     if (!isValidSubmission(p['submitted'], task)) return false;
-    // 已提交代表當時的對應完整且正確，政策也已選好
+    // 已提交代表當時的對應完整且正確，政策也已選好。
+    // M1：資料列讀保存資料（dynamic）時，提交當下的列不一定是內容檔的列，只驗對應結構與快照自己的一致性。
     const policy = p['blankPolicy'] as Parameters<typeof checkFieldMap>[2];
-    if (!checkFieldMap(task, assignments as Record<string, string>, policy).ok) return false;
+    if (task.dynamic) {
+      if (!checkFieldMap({ ...task, rows: [] }, assignments as Record<string, string>, policy).ok) return false;
+      const sub = p['submitted'] as Record<string, unknown>;
+      if ((sub['affectedCount'] as number) > 0 && sub['blankPolicy'] === null) return false;
+    } else if (!checkFieldMap(task, assignments as Record<string, string>, policy).ok) return false;
   }
   return true;
+}
+
+/* ---------- M1：附件關聯、批次轉換、交付報告的進度 ---------- */
+
+function isNullableBool(v: unknown): boolean {
+  return v === null || typeof v === 'boolean';
+}
+
+function isNullableString(v: unknown): boolean {
+  return v === null || typeof v === 'string';
+}
+
+function isCount(v: unknown): boolean {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0;
+}
+
+function isDocumentSnapshot(v: unknown): boolean {
+  if (!isPlainObject(v) || typeof v['id'] !== 'string' || typeof v['heading'] !== 'string') return false;
+  const fields = v['fields'];
+  return Array.isArray(fields) && fields.every((f) => isPlainObject(f) && typeof f['label'] === 'string' && typeof f['value'] === 'string');
+}
+
+/** 附件送件版本：序號連續、處理方式與去向一致；引用時附件是這件工作的候選附件，保留缺漏時沒有附件。 */
+function isValidLinkVersion(v: unknown, index: number, task: AttachmentTaskPlan, dir: DayDirectory): boolean {
+  if (!isPlainObject(v) || v['index'] !== index) return false;
+  const choice = v['choiceId'];
+  if (!ATTACHMENT_CHOICES.includes(choice as never)) return false;
+  if (v['destination'] !== (choice === 'reference' ? 'archive' : 'review')) return false;
+  if (choice === 'reference') {
+    const doc = v['document'];
+    if (!isDocumentSnapshot(doc) || !task.candidates.some((c) => c.documentId === (doc as Record<string, unknown>)['id'])) return false;
+    if (!ATTACHMENT_EVIDENCE.includes(v['evidence'] as never)) return false;
+    if (typeof v['attachedKey'] !== 'string' || typeof v['attachedCode'] !== 'string') return false;
+    if (!isNullableBool(v['objection'])) return false;
+  } else if (v['document'] !== null || v['evidence'] !== null || v['attachedKey'] !== null || v['attachedCode'] !== null || v['objection'] !== null) {
+    return false;
+  }
+  if (v['subjectKey'] !== task.subjectKey || typeof v['subjectCode'] !== 'string' || typeof v['sourceCode'] !== 'string') return false;
+  if (typeof v['dayId'] !== 'string' || !dir.plan(v['dayId'])) return false;
+  const check = v['checkDayId'];
+  return check === null || (typeof check === 'string' && dir.plan(check) !== undefined);
+}
+
+function isValidAttachmentProgress(p: Record<string, unknown>, task: AttachmentTaskPlan, dir: DayDirectory): boolean {
+  if (typeof p['opened'] !== 'boolean') return false;
+  const draft = p['draft'];
+  if (draft !== undefined) {
+    if (!isPlainObject(draft)) return false;
+    if (draft['choiceId'] !== undefined && !ATTACHMENT_CHOICES.includes(draft['choiceId'] as never)) return false;
+    if (draft['documentId'] !== undefined && !task.candidates.some((c) => c.documentId === draft['documentId'])) return false;
+  }
+  const versions = p['versions'];
+  if (!Array.isArray(versions) || !versions.every((v, i) => isValidLinkVersion(v, i, task, dir))) return false;
+  const checks = p['checks'];
+  if (!Array.isArray(checks)) return false;
+  const seen = new Set<number>();
+  for (const c of checks) {
+    if (!isPlainObject(c) || typeof c['versionIndex'] !== 'number' || seen.has(c['versionIndex'])) return false;
+    seen.add(c['versionIndex']);
+    const version = versions[c['versionIndex']] as Record<string, unknown> | undefined;
+    // 只核對預定核對的版本，而且在預定那天
+    if (!version || version['checkDayId'] !== c['dayId']) return false;
+    if (c['outcome'] !== 'returned' && c['outcome'] !== 'resolved') return false;
+  }
+  return true;
+}
+
+const VALUE_ORIGINS = ['reply', 'source', 'policy', 'held'];
+
+function isValidTransformRow(r: unknown): boolean {
+  if (!isPlainObject(r)) return false;
+  if (typeof r['id'] !== 'string' || typeof r['recordKey'] !== 'string' || typeof r['batchId'] !== 'string') return false;
+  if (!isNullableString(r['sourceCode']) || !isNullableBool(r['sourceRefusal'])) return false;
+  if (!isNullableString(r['adoptedCode']) || !isNullableBool(r['adoptedRefusal'])) return false;
+  if (!(r['adoptedOrigin'] === null || ORIGINS.includes(r['adoptedOrigin'] as never))) return false;
+  const a = r['attachment'];
+  if (a !== null) {
+    if (!isPlainObject(a) || typeof a['documentId'] !== 'string' || typeof a['heading'] !== 'string') return false;
+    if (!ATTACHMENT_EVIDENCE.includes(a['evidence'] as never)) return false;
+    if (typeof a['attachedKey'] !== 'string' || typeof a['attachedCode'] !== 'string') return false;
+    if (!isNullableString(a['taskId']) || !(a['versionIndex'] === null || typeof a['versionIndex'] === 'number')) return false;
+  }
+  if (typeof r['heldForReview'] !== 'boolean' || !isNullableBool(r['value'])) return false;
+  if (!VALUE_ORIGINS.includes(r['valueOrigin'] as string)) return false;
+  return r['status'] === (r['value'] === null ? 'pending' : 'delivered');
+}
+
+function isValidTransformOutput(o: unknown, task: TransformTaskPlan): boolean {
+  if (!isPlainObject(o)) return false;
+  if (!(o['policy'] === null || TRANSFORM_POLICIES.includes(o['policy'] as never))) return false;
+  const rows = o['rows'];
+  if (!Array.isArray(rows) || rows.length !== task.rows.length || !rows.every(isValidTransformRow)) return false;
+  if (!isCount(o['deliveredCount']) || !isCount(o['pendingCount']) || !isCount(o['replyCount'])) return false;
+  return typeof o['dayId'] === 'string';
+}
+
+function isValidTransformProgress(p: Record<string, unknown>, task: TransformTaskPlan): boolean {
+  if (typeof p['opened'] !== 'boolean' || typeof p['previewed'] !== 'boolean' || typeof p['previewedOnce'] !== 'boolean') return false;
+  if (p['policy'] !== undefined && !TRANSFORM_POLICIES.includes(p['policy'] as never)) return false;
+  if (p['previewed'] && !p['previewedOnce']) return false;
+  if (p['submitted'] !== undefined && (!p['previewed'] || !isValidTransformOutput(p['submitted'], task))) return false;
+  return true;
+}
+
+const REPORT_EVIDENCE = ['reply', 'receipt', 'mismatch', 'none'];
+
+function isValidReportSnapshot(o: unknown): boolean {
+  if (!isPlainObject(o)) return false;
+  const rows = o['rows'];
+  if (!Array.isArray(rows)) return false;
+  for (const r of rows) {
+    if (!isPlainObject(r) || typeof r['id'] !== 'string' || !isNullableString(r['recordKey']) || typeof r['code'] !== 'string') return false;
+    if (!isNullableBool(r['value']) || !REPORT_EVIDENCE.includes(r['evidence'] as string)) return false;
+    if (r['status'] !== (r['value'] === null ? 'pending' : 'delivered')) return false;
+  }
+  for (const k of ['submissionCount', 'replyCount', 'receiptCount', 'pendingCount']) if (!isCount(o[k])) return false;
+  return typeof o['dayId'] === 'string';
+}
+
+function isValidReportProgress(p: Record<string, unknown>): boolean {
+  if (typeof p['opened'] !== 'boolean' || typeof p['generated'] !== 'boolean') return false;
+  return p['submitted'] === undefined || (p['generated'] === true && isValidReportSnapshot(p['submitted']));
 }
 
 /** 每一筆進度：taskId 必須是已知工作，kind 必須與該工作一致（歸檔工作不用進度）。 */
@@ -174,7 +316,10 @@ function isValidTaskProgress(progress: unknown, dir: DayDirectory): boolean {
     if (!task || p['kind'] !== task.kind) return false;
     if (task.kind === 'reconcile' && !isValidReconcileProgress(p)) return false;
     if (task.kind === 'field-map' && !isValidFieldMapProgress(p, task)) return false;
-    if (task.kind === 'archive') return false;
+    if (task.kind === 'attachment' && !isValidAttachmentProgress(p, task, dir)) return false;
+    if (task.kind === 'transform' && !isValidTransformProgress(p, task)) return false;
+    if (task.kind === 'report' && !isValidReportProgress(p)) return false;
+    if (task.kind === 'archive' || task.kind === 'return-review') return false;
   }
   return true;
 }
@@ -203,7 +348,13 @@ export function isRawTaskDone(s: Record<string, unknown>, dir: DayDirectory, tas
     case 'reconcile':
       return rawProgress(s, task.id)?.['reply'] !== undefined;
     case 'field-map':
+    case 'transform':
+    case 'report':
       return rawProgress(s, task.id)?.['submitted'] !== undefined;
+    case 'attachment': {
+      const versions = rawProgress(s, task.id)?.['versions'];
+      return Array.isArray(versions) && versions.length > 0;
+    }
     case 'return-review': {
       // 當天排入的案件在當天或之後都有處理版本（與案件之後是否再被退回無關）
       const ids = rawSchedule(s)[task.dayId] ?? [];
@@ -302,21 +453,36 @@ function isRawTaskSettled(s: Record<string, unknown>, dir: DayDirectory, task: T
 }
 
 /**
- * v11 存檔檢查（R12）：v10 的案件／排程規則 ＋ 郵件（每份回條恰一封、附件引用一致）、郵件已讀、
+ * v12 存檔檢查（M1）：v11 的規則 ＋ 新工作種類的進度、郵件的新附件與送達時機；
+ * 當日工作可自選順序，目前工作只需依賴已結清（不再要求排在前面的都完成）。
+ *
+ * v11（R12）：v10 的案件／排程規則 ＋ 郵件（每份回條恰一封、附件引用一致）、郵件已讀、
  * 修訂草稿（既有回條）、向同事詢問、角色資料與入職進度。
  */
 export function isValidSave(s: unknown, dir: DayDirectory): s is Save {
+  return isValidR12Fields(s, dir, SAVE_VERSION, true);
+}
+
+/**
+ * v11 舊檔：結構與 v12 相同、當日工作依序。遷移（migrateV11ToV12）先把已越過日子的新工作列為免補，
+ * 再以 v12 規則檢查；這裡只給測試與診斷使用。
+ */
+export function isValidLegacySaveV11(s: unknown, dir: DayDirectory): s is SaveV11 {
+  return isValidR12Fields(s, dir, 11, false);
+}
+
+function isValidR12Fields(s: unknown, dir: DayDirectory, version: number, freeOrder: boolean): boolean {
   if (!isPlainObject(s)) return false;
-  if (s['version'] !== SAVE_VERSION) return false;
+  if (s['version'] !== version) return false;
   if (!isValidReturns(s['returns'], s, dir)) return false;
   if (!isValidIssueSchedule(s['issueSchedule'], s, dir)) return false;
   if (!isValidIssueDrafts(s['issueDrafts'], s)) return false;
-  if (!isValidMailbox(s['mailbox'], s)) return false;
+  if (!isValidMailbox(s['mailbox'], s, dir)) return false;
   if (!isValidReadMail(s['readMail'], s)) return false;
   if (!isValidHelpRequests(s['helpRequests'], s, dir)) return false;
   if (!isValidProfile(s['profile']) || !isValidOnboarding(s['onboarding'])) return false;
   if (!isValidCaseReviews(s['caseReviews'], dir)) return false;
-  return isValidV7Fields(s, dir);
+  return isValidV7Fields(s, dir, freeOrder);
 }
 
 /** v10 舊檔（R11）：案件、排程與回條已讀的完整規則（遷移成 v11 不改案件資料）。 */
@@ -343,14 +509,22 @@ function rawReceipts(s: Record<string, unknown>): { caseId: string; receipt: Rec
  * 郵件（R12）：每份回條恰有一封固定 ID 的郵件，郵件包／模板／日期與附件引用（案件、回條、版本）都和回條一致；
  * 不能有指向不存在回條的郵件，也不能少寄。
  */
-function isValidMailbox(v: unknown, s: Record<string, unknown>): boolean {
+function isValidMailbox(v: unknown, s: Record<string, unknown>, dir: DayDirectory): boolean {
   if (!Array.isArray(v)) return false;
   const receipts = new Map(rawReceipts(s).map((x) => [String(x.receipt['id']), x]));
   const seen = new Set<string>();
+  let receiptMails = 0;
   for (const m of v) {
     if (!isPlainObject(m) || typeof m['id'] !== 'string' || seen.has(m['id'])) return false;
     seen.add(m['id']);
-    if (m['packId'] !== RETURN_RECEIPT_MAIL_PACK || !RETURN_RECEIPT_TEMPLATES.includes(m['templateId'] as never)) return false;
+    if (m['deliverAfter'] !== undefined && m['deliverAfter'] !== 'first-task') return false;
+    if (m['packId'] !== RETURN_RECEIPT_MAIL_PACK) {
+      if (!isValidWorkdayMail(m, dir)) return false;
+      continue;
+    }
+    receiptMails++;
+    if (m['deliverAfter'] !== undefined) return false;
+    if (!RETURN_RECEIPT_TEMPLATES.includes(m['templateId'] as never)) return false;
     const attachments = m['attachments'];
     if (!Array.isArray(attachments) || attachments.length !== 1) return false;
     const a = attachments[0];
@@ -360,7 +534,38 @@ function isValidMailbox(v: unknown, s: Record<string, unknown>): boolean {
     if (m['id'] !== mailIdOfReceipt(a['receiptId'])) return false;
     if (m['templateId'] !== found.receipt['kind'] || m['dayId'] !== found.receipt['dayId']) return false;
   }
-  return seen.size === receipts.size;
+  return receiptMails === receipts.size;
+}
+
+/** M1 延後回條：ID 對得上郵件計畫（再次退回加 `.r<n>`）、郵件包與模板一致、附件是結構正確的資料引用。 */
+function isValidWorkdayMail(m: Record<string, unknown>, dir: DayDirectory): boolean {
+  const id = String(m['id']);
+  const plan = (dir.mails ?? []).find((p) => id === p.id || (id.startsWith(`${p.id}.r`) && /^[1-9]\d*$/.test(id.slice(p.id.length + 2))));
+  if (!plan || m['packId'] !== plan.packId || m['templateId'] !== plan.templateId) return false;
+  if (id !== plan.id && plan.trigger.kind !== 'attachment-mismatch') return false;
+  if (typeof m['dayId'] !== 'string' || !dir.plan(m['dayId'])) return false;
+  if (m['deliverAfter'] !== undefined && !plan.ordinary) return false;
+  const attachments = m['attachments'];
+  return Array.isArray(attachments) && attachments.length > 0 && attachments.every((a) => isValidWorkdayAttachment(a, dir));
+}
+
+function isValidWorkdayAttachment(a: unknown, dir: DayDirectory): boolean {
+  if (!isPlainObject(a)) return false;
+  switch (a['kind']) {
+    case 'archive-copy':
+      return typeof a['batchId'] === 'string' && typeof a['recordKey'] === 'string';
+    case 'case-source':
+      return typeof a['documentId'] === 'string';
+    case 'attachment-link': {
+      const index = a['versionIndex'];
+      const task = typeof a['taskId'] === 'string' ? findTask(dir, a['taskId']) : undefined;
+      return task?.kind === 'attachment' && typeof index === 'number' && Number.isInteger(index) && index >= 0;
+    }
+    case 'batch-output':
+      return typeof a['taskId'] === 'string' && findTask(dir, a['taskId'])?.kind === 'transform';
+    default:
+      return false;
+  }
 }
 
 /** 郵件已讀：既有郵件 ID、不重複。 */
@@ -581,10 +786,10 @@ export function isValidLegacySaveV7(s: unknown, dir: DayDirectory): s is SaveV7 
   return isValidV7Fields(s, dir);
 }
 
-function isValidV7Fields(s: Record<string, unknown>, dir: DayDirectory): boolean {
+function isValidV7Fields(s: Record<string, unknown>, dir: DayDirectory, freeOrder = false): boolean {
   if (!isValidChatReplies(s['chatReplies'])) return false;
   if (!isValidWaived(s['waivedTasks'], s, dir)) return false;
-  return isValidSaveBody(s, dir);
+  return isValidSaveBody(s, dir, freeOrder);
 }
 
 /** 案件閱讀狀態：case 必須存在、變體屬於該案件、標記為不重複字串。 */
@@ -611,7 +816,7 @@ function isValidCaseReviews(v: unknown, dir: DayDirectory): boolean {
  * - 進度以 taskId 為鍵、依 kind 驗證；映射欄位不存在或來源重複都拒絕。
  * - 只對「目前工作的批次」比對內容；歷史批次只驗結構與快照，不拿新版內容覆寫。
  */
-function isValidSaveBody(s: Record<string, unknown>, dir: DayDirectory): boolean {
+function isValidSaveBody(s: Record<string, unknown>, dir: DayDirectory, freeOrder = false): boolean {
   if (!isValidSeed(s['seed'])) return false;
   if (!STAGES.includes(s['stage'] as never)) return false;
   if (!Array.isArray(s['events'])) return false;
@@ -663,9 +868,12 @@ function isValidSaveBody(s: Record<string, unknown>, dir: DayDirectory): boolean
     }
   }
 
-  // 當日佇列
+  // 當日佇列：v12 起工作可自選順序，目前工作只需依賴的工作都已結清；舊版依序
   const stage = s['stage'] as Save['stage'];
-  if (plan.tasks.slice(0, activeIndex).some((t) => !isRawTaskSettled(s, dir, t))) return false;
+  if (freeOrder) {
+    const deps = (active.dependsOn ?? []).map((id) => taskPlanOf(plan, id));
+    if (deps.some((t) => t !== undefined && !isRawTaskSettled(s, dir, t))) return false;
+  } else if (plan.tasks.slice(0, activeIndex).some((t) => !isRawTaskSettled(s, dir, t))) return false;
   if (stage === 'end' && plan.nextDayId !== null) return false;
   if (stage === 'wrap' && plan.nextDayId === null) return false;
   if ((stage === 'wrap' || stage === 'end') && plan.tasks.some((t) => !isRawTaskSettled(s, dir, t))) return false;

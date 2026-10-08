@@ -16,6 +16,7 @@ import { isValidCodeString, normalizePlayerName, validateRecord } from './valida
 import { FieldMapCheck, checkFieldMap } from './field-map';
 import { rand } from './rand';
 import { receiptMail } from './mail';
+import { WORKDAY_EVENT_KINDS, processWorkdayOnDayStart, resolvedFieldMapTask, workdayTaskDone } from './workday';
 import {
   BatchId,
   BatchState,
@@ -43,6 +44,7 @@ import {
   ChatResponseSnapshot,
   PromptId,
   HelpDelivery,
+  MailRecord,
 } from './types';
 
 /** 夜間介入門檻：rand(seed,'night.intervention') < 0.45 → 介入。Demo 測試用設計，非正史。 */
@@ -70,6 +72,7 @@ export const EVENT_KINDS = {
   returnWindow: 'return.window',
   returnChecked: 'return.checked',
   helpRequest: 'help.request',
+  ...WORKDAY_EVENT_KINDS,
 } as const;
 
 
@@ -320,6 +323,10 @@ export function isTaskDone(save: Save, dir: DayDirectory, task: TaskPlan): boole
       const items = scheduledIssues(save, task.dayId);
       return items.length > 0 && items.every((r) => handledOnOrAfter(r, task.dayId, dir));
     }
+    case 'attachment':
+    case 'transform':
+    case 'report':
+      return workdayTaskDone(save, task) === true;
   }
 }
 
@@ -341,11 +348,48 @@ export function isTaskSettled(save: Save, dir: DayDirectory, task: TaskPlan): bo
   return isTaskWaived(save, task.id) || !isTaskApplicable(save, task) || isTaskDone(save, dir, task);
 }
 
-/** 當日佇列中，排在 afterTaskId 之後第一件尚未完成（且非免補）的工作；沒有則 null。 */
+/** 依賴的工作（同一天）都已完成或免補；沒有依賴＝成立。找不到的依賴視為已結清（內容驗證會擋下）。 */
+export function dependenciesSettled(save: Save, dir: DayDirectory, task: TaskPlan): boolean {
+  const plan = dir.planOfTask(task.id);
+  return (task.dependsOn ?? []).every((id) => {
+    const dep = plan ? taskPlanOf(plan, id) : undefined;
+    return !dep || isTaskSettled(save, dir, dep);
+  });
+}
+
+/** 工作可以開始處理：尚未結清，且依賴的工作都已結清。 */
+export function isTaskOpen(save: Save, dir: DayDirectory, task: TaskPlan): boolean {
+  return !isTaskSettled(save, dir, task) && dependenciesSettled(save, dir, task);
+}
+
+/** 尚未結清的依賴工作（畫面說明「等待前一批交付」用）；可開始時為空陣列。 */
+export function pendingDependencies(save: Save, dir: DayDirectory, task: TaskPlan): readonly TaskPlan[] {
+  const plan = dir.planOfTask(task.id);
+  return (task.dependsOn ?? [])
+    .map((id) => (plan ? taskPlanOf(plan, id) : undefined))
+    .filter((dep): dep is TaskPlan => dep !== undefined && !isTaskSettled(save, dir, dep));
+}
+
+/**
+ * 當日下一件可開始的工作（M1：沒有依賴的工作可以自選順序）：先找排在 afterTaskId 之後的，
+ * 再從頭找（玩家先跳去做後面的工作時，前面的仍在佇列）；都沒有則 null。
+ */
 export function nextOpenTask(save: Save, dir: DayDirectory, afterTaskId: TaskId): TaskPlan | null {
   const tasks = planOf(save, dir).tasks;
   const at = tasks.findIndex((t) => t.id === afterTaskId);
-  return tasks.slice(at + 1).find((t) => !isTaskSettled(save, dir, t)) ?? null;
+  const ordered = [...tasks.slice(at + 1), ...tasks.slice(0, Math.max(at, 0))];
+  return ordered.find((t) => t.id !== afterTaskId && isTaskOpen(save, dir, t)) ?? null;
+}
+
+/**
+ * 切換目前工作（M1 工作佇列）：只在 work 階段、目標是當日可開始的工作時生效。
+ * 不寫事件、不改任何進度；草稿與畫面狀態都留在原工作。
+ */
+export function selectTask(save: Save, dir: DayDirectory, taskId: TaskId): Save {
+  if (save.stage !== 'work' || save.taskId === taskId) return save;
+  const task = taskPlanOf(planOf(save, dir), taskId);
+  if (!task || !isTaskOpen(save, dir, task)) return save;
+  return { ...save, taskId };
 }
 
 /** 完成當日後的階段：有下一天 → 本日交接；沒有 → Demo 結束。 */
@@ -397,7 +441,9 @@ export function advanceDay(save: Save, dir: DayDirectory): Save {
   if (!nextPlan) throw new Error(`Unknown next day ${nextDayId}`);
   // 進入新的一天：建立新退件、核對到期的重送版本、排定當天的錯誤文件處理（皆只一次）
   next = processIssuesOnDayStart(next, dir, nextDayId);
-  const first = nextPlan.tasks.find((t) => !isTaskSettled(next, dir, t)) ?? firstTaskOf(nextPlan);
+  // M1：附件關聯核對與延後回條（依保存的資料，只一次）
+  next = processWorkdayOnDayStart(next, dir, nextDayId);
+  const first = nextPlan.tasks.find((t) => isTaskOpen(next, dir, t)) ?? firstTaskOf(nextPlan);
   return { ...next, dayId: nextDayId, stage: 'morning', taskId: first.id };
 }
 
@@ -750,6 +796,38 @@ export function isMailRead(save: Save, mailId: string): boolean {
   return save.readMail.includes(mailId);
 }
 
+/** 算「當日第一次交付或提交」的事件種類（M1 一般回條的送達時機）。 */
+const FIRST_TASK_EVENT_KINDS: readonly string[] = [
+  EVENT_KINDS.archive,
+  EVENT_KINDS.taskComplete,
+  EVENT_KINDS.replySubmit,
+  EVENT_KINDS.fieldMapSubmit,
+  EVENT_KINDS.returnResubmit,
+  EVENT_KINDS.returnWindow,
+  EVENT_KINDS.attachmentSubmit,
+  EVENT_KINDS.attachmentRevise,
+  EVENT_KINDS.transformSubmit,
+  EVENT_KINDS.reportSubmit,
+];
+
+/**
+ * 郵件是否已送達（M1）：沒有 deliverAfter 的郵件寄出即送達；'first-task' 的一般回條在寄出那天
+ * 第一次交付或提交之後才送達（之後的日子一律已送達）。只讀保存的事件，不重擲。
+ */
+export function isMailDelivered(save: Save, dir: DayDirectory, mail: MailRecord): boolean {
+  if (mail.deliverAfter !== 'first-task') return true;
+  const today = dir.days.indexOf(save.dayId);
+  const sent = dir.days.indexOf(mail.dayId);
+  if (today > sent) return true;
+  if (today < sent || save.stage === 'morning') return false;
+  return save.events.some((e) => FIRST_TASK_EVENT_KINDS.includes(e.kind) && eventDayId(e, dir) === mail.dayId);
+}
+
+/** 已送達的郵件（依收到順序）；收件匣、未讀數與附件都只看這些。 */
+export function deliveredMail(save: Save, dir: DayDirectory): readonly MailRecord[] {
+  return save.mailbox.filter((m) => isMailDelivered(save, dir, m));
+}
+
 /** 開啟郵件才標已讀（開收件匣不算）；只記錄既有郵件，重複與已讀去除；沒有新增回傳同一物件。 */
 export function markMailRead(save: Save, mailIds: readonly string[]): Save {
   const known = new Set(save.mailbox.map((m) => m.id));
@@ -765,11 +843,12 @@ export function markMailRead(save: Save, mailIds: readonly string[]): Save {
 
 /* ---------- 欄位映射工作（Day 6） ---------- */
 
+/** 目前的欄位映射工作（資料列已依保存資料解析，M1）與進度；已匯入時為 null。 */
 function activeFieldMap(save: Save, dir: DayDirectory): { task: FieldMapTaskPlan; progress: FieldMapProgress } | null {
   const task = activeTaskOfKind(save, dir, 'field-map');
   if (!task) return null;
   const progress = fieldMapProgressOf(save, task.id);
-  return progress.submitted ? null : { task, progress };
+  return progress.submitted ? null : { task: resolvedFieldMapTask(save, task), progress };
 }
 
 /** 設定某個目標欄位的來源；空字串＝清除。任何改動都會清除預覽。提交後鎖定。 */
@@ -797,7 +876,7 @@ export function fieldMapCheck(save: Save, dir: DayDirectory): FieldMapCheck | nu
   if (task?.kind !== 'field-map') return null;
   const progress = fieldMapProgressOf(save, task.id);
   if (progress.submitted) return { ok: true, result: progress.submitted };
-  return checkFieldMap(task, progress.assignments, progress.blankPolicy);
+  return checkFieldMap(resolvedFieldMapTask(save, task), progress.assignments, progress.blankPolicy);
 }
 
 /** 驗證並預覽：通過才標記 previewed。錯誤不改存檔。 */

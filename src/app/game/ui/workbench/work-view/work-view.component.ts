@@ -12,6 +12,7 @@ import {
 import { WORKDAY_UI } from '../../../content/text';
 import { DAY_DIRECTORY } from '../../../state/day-directory';
 import { GameStateService } from '../../../state/game-state.service';
+import { WorkOperationsService } from '../../../state/work-operations.service';
 import { ArchiveWorkComponent } from '../../archive/archive-work/archive-work.component';
 import { AttachmentWorkComponent } from '../../attachment/attachment-work/attachment-work.component';
 import { Day2ReconcileComponent } from '../../day2/day2-reconcile/day2-reconcile.component';
@@ -56,6 +57,7 @@ import { WorkQueueComponent } from '../work-queue/work-queue.component';
 })
 export class WorkViewComponent {
   protected readonly game = inject(GameStateService);
+  protected readonly ops = inject(WorkOperationsService);
   private readonly delivery = inject(WorkDeliveryService);
   private readonly windows = inject(WindowManagerService);
   protected readonly docs = inject(MailAttachmentService);
@@ -82,7 +84,9 @@ export class WorkViewComponent {
     });
   }
 
+  /** 切換目前工作；提交處理／保存中不切換（交易綁在開始時的工作上），草稿留在原工作。 */
   protected onSelect(taskId: string): void {
+    if (this.ops.busy()) return;
     this.delivery.cancelHandoff();
     this.game.selectTask(taskId);
   }

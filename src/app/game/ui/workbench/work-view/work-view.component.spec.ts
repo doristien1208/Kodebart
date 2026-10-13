@@ -3,6 +3,8 @@ import { Router, provideRouter } from '@angular/router';
 import { archiveTask, reconcileTask, recordsOfTask, taskHeading } from '../../../content/bundle';
 import { recordLabel } from '../../../content/records';
 import { ARCHIVE_UI, DOCUMENT_ISSUES_UI, SOURCE_CARD, TASKS_UI, WORKDAY_UI, taskKindLabel } from '../../../content/text';
+import { WORKDAY_EVENT_KINDS } from '../../../core/workday';
+import { SettingsService } from '../../../platform/settings.service';
 import { GameStateService } from '../../../state/game-state.service';
 import { WorkOperationsService } from '../../../state/work-operations.service';
 import { M1_SAVE_A, M1_SAVE_B, archiveAll, archiveOne, finishDay, instantOperations, playM1Day, playM1To, playM1UntilKind, playTo, reviewAll, settle } from '../../testing/play';
@@ -258,6 +260,38 @@ describe('WorkViewComponent（R8 同日多工作）', () => {
     fixture.detectChanges();
     expect(game.taskId()).toBe('task.day4.archive');
     expect(game.draft('H233')).toEqual({ value: 'H-23' });
+  });
+
+  it('M1.1 R3：提交處理／保存中佇列停用、切換 handler 也不動作，文件仍可開啟；放行後只寫入一次並恢復切換', async () => {
+    const { game } = h;
+    playTo(game, 'day.04');
+    const settings = TestBed.inject(SettingsService);
+    settings.setMotion(true);
+    settings.reducedMotion.set(false);
+    const ops = TestBed.inject(WorkOperationsService);
+    expect(game.selectTask('task.day4.m1-attachment')).toBeTrue();
+    fixture = render();
+    let release: () => void = () => undefined;
+    let n = 0;
+    ops.wait = () => (n++ === 2 ? new Promise<void>((resolve) => (release = resolve)) : Promise.resolve());
+
+    const pending = ops.submitAttachment({ choiceId: 'reference', documentId: 'doc.day4.m1-0314-window' }, '');
+    await settle();
+    fixture.detectChanges();
+    expect(ops.busy()).toBeTrue();
+    expect(queueItems(fixture).map((b) => b.disabled)).toEqual([true, true, true]);
+    (fixture.componentInstance as unknown as { onSelect(taskId: string): void }).onSelect('task.day4.archive');
+    expect(game.taskId()).toBe('task.day4.m1-attachment');
+    const docs = TestBed.inject(MailAttachmentService);
+    docs.open({ kind: 'batch-preview', taskId: 'task.day4.m1-transform' });
+    expect(docs.openRefs()).toContain({ kind: 'batch-preview', taskId: 'task.day4.m1-transform' });
+
+    release();
+    expect(await pending).toBeTrue();
+    fixture.detectChanges();
+    expect(game.attachmentProgress('task.day4.m1-attachment').versions.length).toBe(1);
+    expect(game.save()?.events.filter((e) => e.kind === WORKDAY_EVENT_KINDS.attachmentSubmit).length).toBe(1);
+    expect(queueItems(fixture)[0]?.disabled).toBeFalse();
   });
 
   it('M1 佇列狀態：交付後依保存結果顯示已送件／待補（保留缺漏的批次、有送覆核紀錄的歸檔）；已交付的不能切回', () => {

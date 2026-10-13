@@ -1,6 +1,6 @@
 <div class="wv">
   <aside class="wv-queue">
-    <app-work-queue [tasks]="game.dayTasks()" (select)="onSelect($event)" />
+    <app-work-queue [tasks]="game.dayTasks()" [busy]="ops.busy()" (select)="onSelect($event)" />
     <div class="wv-tools" role="group" [attr.aria-label]="ui.currentCase">
       <button type="button" class="btn-ghost" data-tile-windows [disabled]="docs.shownRefs().length < 2" (click)="tileWindows()">{{ ui.compare }}</button>
       <button type="button" class="btn-ghost" data-reset-windows (click)="resetWindows()">{{ ui.resetWindows }}</button>

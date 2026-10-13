@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { GameStateService } from '../../../state/game-state.service';
 import { routeForStage } from '../../../state/stage-route';
+import { WorkOperationsService } from '../../../state/work-operations.service';
 
 /**
  * 交付與收班（M1 §3）：所有工作元件的「交付此項工作／完成今日交接」都經過這裡。
@@ -13,6 +14,7 @@ import { routeForStage } from '../../../state/stage-route';
 @Injectable({ providedIn: 'root' })
 export class WorkDeliveryService {
   private readonly game = inject(GameStateService);
+  private readonly ops = inject(WorkOperationsService);
   private readonly router = inject(Router);
 
   private readonly requested = signal<string | null>(null);
@@ -23,9 +25,9 @@ export class WorkDeliveryService {
     return id !== null && id === this.game.taskId() && this.game.stage() === 'work' && this.game.isLastTask() && this.game.taskDone();
   });
 
-  /** 交付目前工作；最後一件改為打開本日交接。回傳是否有動作。 */
+  /** 交付目前工作；最後一件改為打開本日交接。提交處理／保存中不交付（交付會換目前工作）。回傳是否有動作。 */
   deliver(): boolean {
-    if (this.game.stage() !== 'work' || !this.game.taskDone()) return false;
+    if (this.ops.busy() || this.game.stage() !== 'work' || !this.game.taskDone()) return false;
     if (this.game.isLastTask()) {
       this.requested.set(this.game.taskId());
       return true;
@@ -35,7 +37,7 @@ export class WorkDeliveryService {
 
   /** 確認本日交接：交付最後一件，依新 stage 離開桌面（日結或結束）。 */
   confirmHandoff(): boolean {
-    if (!this.handoffOpen() || !this.game.completeWork()) return false;
+    if (this.ops.busy() || !this.handoffOpen() || !this.game.completeWork()) return false;
     this.requested.set(null);
     const stage = this.game.stage();
     void this.router.navigateByUrl(stage ? routeForStage(stage) : '/');

@@ -26,6 +26,8 @@ export function queueStatusLabel(t: DayTaskItem): string {
 })
 export class WorkQueueComponent {
   readonly tasks = input.required<readonly DayTaskItem[]>();
+  /** 提交處理／保存中：暫停切換工作（文件、通訊與郵件仍可查閱）。 */
+  readonly busy = input(false);
   readonly select = output<string>();
 
   protected readonly ui = WORKDAY_UI;

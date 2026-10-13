@@ -1,7 +1,8 @@
-import { completeWorkdayTask } from '../ui/testing/play';
+import { M1_SAVE_A, completeWorkdayTask, playM1To, settle } from '../ui/testing/play';
 import { TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 import { STORAGE } from '../content/text';
 import { isValidSave } from '../core/save-schema';
+import { WORKDAY_EVENT_KINDS } from '../core/workday';
 import { MissingPolicy, RecordKey, Save, ValidationOk } from '../core/types';
 import { SettingsService } from '../platform/settings.service';
 import { DAY_DIRECTORY } from './day-directory';
@@ -403,6 +404,111 @@ describe('WorkOperationsService', () => {
       expect(await ops.retry()).toBeFalse();
       expect(ops.current()!.failure).toBe('invalid');
       expect(persist).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('交易上下文（M1.1 R3）：提交綁在開始時的日與工作', () => {
+    const ATTACH_D4 = 'task.day4.m1-attachment';
+    const ARCHIVE_D4 = 'task.day4.archive';
+    const REPLY_0521 = { choiceId: 'reference', documentId: 'doc.day4.m1-0521-reply' };
+    const WINDOW_0314 = { choiceId: 'reference', documentId: 'doc.day4.m1-0314-window' };
+
+    /** 第 index 次等待（0 起算；2＝寫入前最後一段）停住，回傳放行函式。 */
+    function gateAt(ops: WorkOperationsService, index: number): () => void {
+      let release: () => void = () => undefined;
+      let n = 0;
+      ops.wait = () => (n++ === index ? new Promise<void>((resolve) => (release = resolve)) : Promise.resolve());
+      return () => release();
+    }
+
+    function toDay4Attachment(motion: boolean): Ctx {
+      const ctx = setup(motion);
+      ctx.game.newGame();
+      playM1To(ctx.game, 'day.04', M1_SAVE_A);
+      expect(ctx.game.taskId()).toBe(ARCHIVE_D4);
+      expect(ctx.game.selectTask(ATTACH_D4)).toBeTrue();
+      return ctx;
+    }
+
+    function submits(game: GameStateService): number {
+      return game.save()?.events.filter((e) => e.kind === WORKDAY_EVENT_KINDS.attachmentSubmit).length ?? -1;
+    }
+
+    it('處理途中被強制換工作：寫入前安全拒絕，原工作草稿保留、另一件也沒寫入；在別件重試被拒，回原工作重試只寫一次', async () => {
+      const { game, ops } = toDay4Attachment(true);
+      game.setAttachmentDraft(ATTACH_D4, REPLY_0521);
+      const release = gateAt(ops, 2);
+      const pending = ops.submitAttachment(REPLY_0521, '');
+      await settle();
+      expect(ops.busy()).toBeTrue();
+      expect(game.selectTask(ARCHIVE_D4)).toBeTrue(); // 繞過畫面的強制切換
+      const switched = game.save();
+      release();
+      expect(await pending).toBeFalse();
+      expect(ops.current()).toEqual(jasmine.objectContaining({ kind: 'attachment', taskId: ATTACH_D4, stage: 'failed', failure: 'rejected' }));
+      expect(game.save()).toBe(switched);
+      expect(game.attachmentProgress(ATTACH_D4).versions).toEqual([]);
+      expect(game.attachmentProgress(ATTACH_D4).draft).toEqual(REPLY_0521 as never);
+      expect(game.archivedCount()).toBe(0);
+
+      ops.wait = () => Promise.resolve();
+      expect(await ops.retry()).toBeFalse();
+      expect(game.save()).toBe(switched);
+      expect(ops.current()).toEqual(jasmine.objectContaining({ taskId: ATTACH_D4, stage: 'failed', failure: 'rejected' }));
+
+      expect(game.selectTask(ATTACH_D4)).toBeTrue();
+      expect(await ops.retry()).toBeTrue();
+      expect(game.attachmentProgress(ATTACH_D4).versions.map((v) => v.document?.id)).toEqual(['doc.day4.m1-0521-reply']);
+      expect(submits(game)).toBe(1);
+    });
+
+    it('保存失敗後換到別件工作：重試不執行、兩件都不寫入；回原工作重試成功且事件只有一個', async () => {
+      const { game, ops, repo } = toDay4Attachment(false);
+      const persist = spyOn(repo, 'persist').and.returnValue(STORAGE.writeIssue);
+      expect(await ops.submitAttachment(WINDOW_0314, '')).toBeFalse();
+      expect(ops.current()).toEqual(jasmine.objectContaining({ taskId: ATTACH_D4, failure: 'storage' }));
+      persist.and.callThrough();
+
+      expect(game.selectTask(ARCHIVE_D4)).toBeTrue();
+      const switched = game.save();
+      persist.calls.reset();
+      expect(await ops.retry()).toBeFalse();
+      expect(persist).not.toHaveBeenCalled();
+      expect(game.save()).toBe(switched);
+      expect(game.attachmentProgress(ATTACH_D4).versions).toEqual([]);
+
+      expect(game.selectTask(ATTACH_D4)).toBeTrue();
+      expect(await ops.retry()).toBeTrue();
+      expect(game.attachmentProgress(ATTACH_D4).versions.length).toBe(1);
+      expect(submits(game)).toBe(1);
+    });
+
+    it('郵件修訂綁自己的工作與版本：目前工作是別件也能送出、途中被切換仍照原版本寫入；失敗後在別件工作也能重試', async () => {
+      const { game, ops } = setup(true);
+      game.newGame();
+      playM1To(game, 'day.05', M1_SAVE_A);
+      expect(game.taskId()).not.toBe(ATTACH_D4);
+      const other = game.dayTasks().find((t) => t.selectable)?.taskId;
+
+      const release = gateAt(ops, 2);
+      const pending = ops.reviseAttachment(ATTACH_D4, 0, WINDOW_0314, '');
+      await settle();
+      if (other) expect(game.selectTask(other)).toBeTrue();
+      release();
+      expect(await pending).toBeTrue();
+      expect(game.attachmentProgress(ATTACH_D4).versions.map((v) => v.index)).toEqual([0, 1]);
+
+      // 寫入失敗：重建到同一點（版本 0 退回、可修訂），失敗後換到別件工作仍可重試同一個版本
+      const again = setup(false);
+      again.game.newGame();
+      playM1To(again.game, 'day.05', M1_SAVE_A);
+      const persist = spyOn(again.repo, 'persist').and.returnValue(STORAGE.writeIssue);
+      expect(await again.ops.reviseAttachment(ATTACH_D4, 0, WINDOW_0314, '')).toBeFalse();
+      persist.and.callThrough();
+      const next = again.game.dayTasks().find((t) => t.selectable)?.taskId;
+      if (next) expect(again.game.selectTask(next)).toBeTrue();
+      expect(await again.ops.retry()).toBeTrue();
+      expect(again.game.attachmentProgress(ATTACH_D4).versions.length).toBe(2);
     });
   });
 

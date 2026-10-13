@@ -205,29 +205,61 @@ COLLABORATION.md 的「桌面布局、B 判斷、C 真正下游、隔日回聲�
 7. **Day 6 是最後一個工作日**：Day 6 送出的附件修訂沒有隔日核對，狀態停在「已送件」，不會自動判定正確。
 8. **一般回條的送達時機每局不同**：Day 4–6 有些回條要等當日第一次交付後才出現在收件匣。相關測試已改成不依賴擲骰結果的斷言。
 
-## Remaining
+## M1.1 同案續做（Issue #9／PR #10，GitHub Action）
 
-- Human 試玩：Day 3–6 的完整體驗與文字長度，以及 1366×768、375px、實際舊存檔的表現。
-- Codex 覆核：資料流、新增字串（上列第 4 點）與 bundle 預算的處理方式。
-- 建立 PR → main：本機沒有 `gh`，請用上方連結建立，或交由有權限的一方建立。
+本節是最新狀態，取代本檔上方舊的 Remaining 與本機 worktree 試玩說明。上方 `ac6cfe2` 的 2935 tests 與 549.74 kB 是舊本機紀錄，不是本輪 head 的 CI 證據。
+
+- Source：`claude/issue-9-m1@ef1aa7b794bb79f434dbf60dc8c3c2151da43d92`（Codex 以 M1 `4bb8f4b`／產品 `ac6cfe2` 整合 main `2c3d690` 建立）。
+- Checkpoint：`63de921`（R1／R2／R4）→ `505ddc5`（R3）→ 最後一個 commit（R5＋本報告，`KodeBart-Delivery: complete`）。固定 head SHA 由 workflow 收尾回報填入。
+- 既有 M1 成果全部保留，沒有刪功能、內容或測試；沒有改 `.github/`、`CLAUDE.md`、治理規則、`package*.json`、`angular.json`（預算仍 500 kB）、存檔格式或 save key。
+
+### Completed
+
+- **R1 附件當日不揭露**：新增共用列 presenter `batchRowView`／`batchAttachmentText`（`ui/shared/presenters/work-document.ts`），工作摘要、批次預覽、批次副本共用。附件欄只列附件名稱與它聲稱的證明範圍（例如「0521 回覆附件（本人回覆）」），不比對對象。只有這一列實際引用的送件版本已有正式核對、而且結果是退回時，才顯示「對象不符」；不拿附件最新版本重判舊批次。錯附件照常送件、傳到下游，隔日退回不變。
+- **R2 來源／採用／輸出分開**：來源欄改用 `sourceRefusalStatus`：null 顯示「未提供」，不適用仍是「不適用」。採用欄改用新的 `adoptedRefusalStatus`（`record-status.ts`）：defaulted 顯示「未拒絕（依規則補登）」，review 顯示「未確認（送資料覆核）」，送件副本用同一套。輸出欄只描述本次轉換。摘要表新增「採用資料」欄。core 的 false/null 與快照 schema 都沒有改。
+- **R3 busy 與交易上下文**：`WorkOperationsService` 每次提交記下開始時的日與工作。寫入前會在同一個同步段落再確認一次；換了日或目前工作，就以 rejected 安全拒絕，原草稿保留，也不會寫到別件工作。retry 只在原上下文執行。郵件／回條修訂（`attachment-revise`、`return-resubmit`、`return-window`）只綁日，工作與版本由核心版本鎖定，可以在另一件目前工作下送出或重試。工作佇列在 busy 時停用，`WorkView.onSelect`、`WorkDeliveryService.deliver`／`confirmHandoff` 也加了 guard。文件、通訊、郵件不鎖。
+- **R4 changed**：改成比較輸出值與該列保存的 `adoptedRefusal`。批次 JSON 的 input 改列 `sourceRefusal` 與 `adoptedRefusal`，和表格用同一個基準。
+- **R5 初始 chunk**：初始 bundle 中唯一引用遊戲狀態的是 `app.routes.ts` 的 `stageGuard`。我改成和既有 `openAppGuard` 相同的延後載入，讓 GameStateService、核心規則與內容包隨第一個畫面的 lazy chunk 載入。守衛判定不變；`stage.guard.ts` 只把回傳型別標成 `true | UrlTree`。沒有提高預算。
+
+### 檔案
+
+- 產品：`src/app/app.routes.ts`、`src/app/game/ui/guards/stage.guard.ts`、`src/app/game/state/work-operations.service.ts`、`src/app/game/ui/shared/presenters/{work-document,record-status}.ts`、`src/app/game/ui/transform/transform-work/transform-work.component.{ts,html}`、`src/app/game/ui/workbench/work-queue/work-queue.component.{ts,html}`、`src/app/game/ui/workbench/work-view/work-view.component.{ts,html}`、`src/app/game/ui/workbench/services/work-delivery.service.ts`
+- 測試：`work-document.spec.ts`（R1 未核對／隔日核對／版本分離／修訂不覆寫舊輸出、R2 兩份存檔兩種策略與來源卡・副本一致、不適用、R4 各組合與 JSON 同基準）、`transform-work.component.spec.ts`（摘要與預覽同 presenter、當日不提示對象不符）、`work-operations.service.spec.ts`（強制切換兩側不誤寫、跨工作重試被拒／回原工作重試、郵件修訂）、`work-view.component.spec.ts`（暫停保存時佇列停用、handler 不切換、文件可開、只寫一次）
+- 文件：本報告
+
+### Validation（本輪 Agent 局部檢查）
+
+- PASS `npx tsc -p tsconfig.app.json --noEmit`（exit 0）、`npx tsc -p tsconfig.spec.json --noEmit`（exit 0），R5 修改後重跑。
+- NOT RUN `npx ng build`、`npx ng test --watch=false --browsers=ChromeHeadless`：Action allowlist 不允許（需要 approval），交給模型之外的獨立 CI 對同一 head 執行。新測試沒有在本輪實際跑過。
+- NOT RUN `npm ci`：沒有改 lock，沿用 runner 的 node_modules，完整 `npm ci` 由 CI 執行。
+- PENDING：獨立 CI 的 production build 零警告與完整測試。
+
+### 已知限制與需要 Codex 覆核
+
+1. R5 沒有在本輪實測 bundle 大小。依靜態分析，main 只剩 Angular、router、AppComponent／SettingsService 與路由表，應明顯低於 500 kB。若 CI 仍有 warning，請附精確 log 同案續做。
+2. 採用欄 review 的「未確認（送資料覆核）」是用既有字串 `recordStatus.unconfirmed`＋`archive.methodReview` 組成的，沒有新增 JSON 鍵。M1 送件副本用同一套；R7 的 ArchivePreview 與 Day 2 副本仍是原本的「未確認」，請覆核文字。
+3. Day 6 交接報告的「對象不符」仍由 core `buildReport` 依附件對象計算，沒有修改。Day 6 時，Day 4／5 批次引用的版本都已在到班時正式核對；報告快照 schema 不在 R1 範圍。
+4. 批次 JSON input 的鍵 `refusal` 改名為 `sourceRefusal`，並新增 `adoptedRefusal`。只影響視窗顯示，存檔快照不變。
+
+### Remaining
+
+- 獨立 CI（npm ci、兩個 tsc、production build 零警告、完整 ChromeHeadless tests）對最後 head 的結果，以及 Codex 覆核。
+- Human 試玩（見下方 checklist）。工程完成不等於試玩通過。
 
 ## Human Review Checklist
 
-1. 試玩新局：在 worktree 執行下列指令（不要用 4200），用完請關掉：
-   ```bash
-   npx ng serve --port 4340
-   ```
-2. 試玩舊存檔：localStorage 依網址來源（含 port）分開保存，原本在其他 port 的存檔不會自動出現在 4340。
-   1. 在舊版頁面的 DevTools Console 執行 `copy(localStorage.getItem('kodebart-save-v2'))`。
-   2. 到 `http://localhost:4340` 的 Console 執行 `localStorage.setItem('kodebart-save-v2', <貼上>)`。
-   3. 重新整理頁面。
+只在 Codex 依委任整合 main、標 `playtest(M1.1)` 並通知後進行。Human 在唯一本機專案 pull main 即可，不切 branch、不開 worktree 或第二份 clone。
 
-   存檔會遷移到 v12：已過的日子不補新工作，目前這一天的新工作照常排入。
-3. 重點操作：
-   - Day 4：0314 選錯附件或保留缺漏；批次分別試兩種策略。
-   - Day 5：看到窗口收件或待補回條；從退回郵件的附件修訂。
-   - Day 6：查看前日批次副本，建立報告，交接後收班。
-4. 視窗：使用「並排查閱」「還原視窗位置」、最小化與切換工作後確認草稿保留，並在 375px 單窗模式下操作。
+1. 先備份原存檔：在原本試玩頁面的 DevTools Console 執行 `copy(JSON.stringify(localStorage.getItem('kodebart-save-v2')))`，把剪貼簿內容（外層帶引號的 JSON 字串）另存成文字檔。
+2. 啟動：`npx ng serve --port 4340`（不要用 4200），用完請關掉。
+3. 存檔在不同 origin（例如不同 port）時：到 `http://localhost:4340` 的 Console 執行 `localStorage.setItem('kodebart-save-v2', <貼上第 1 步的 JSON 字串>)`，再重新整理。貼上的是 JSON 字串字面值，不用另外加引號。
+4. 載入後存檔遷移到 v12，不會寫回舊版格式。要回到舊版進度，只能用第 1 步的備份重新匯入。已過的日子不補新工作，目前這一天的新工作照常排入。
+5. 重點操作：
+   - Day 4：0314 選錯附件（0521 回覆）。當日摘要、批次預覽、批次副本只顯示附件本身，沒有「對象不符」。Day 5 收到退回回條後，Day 4 的批次副本才顯示；修訂附件後舊副本不變。
+   - 批次摘要：來源缺漏顯示「未提供」；採用欄依 Day 3 歸檔選擇顯示「未拒絕（依規則補登）」或「未確認（送資料覆核）」。兩種策略都試，看輸出欄與待補量。
+   - 提交處理中（動態開啟時約 0.6 秒）工作佇列暫停切換，文件、通訊、郵件仍可開；完成後恢復。
+   - Day 5：看到窗口收件或待補回條，從退回郵件的附件修訂（目前工作是別件時也可以）。Day 6：查看前日批次副本、建立報告、交接後收班。
+6. 視窗：使用「並排查閱」「還原視窗位置」、最小化與切換工作後，確認草稿保留；在 375px 單窗與 1366×768 下操作底部處理列。
 
 ## Follow-up Suggestions（僅供 Human 決定，不自動派發）
 

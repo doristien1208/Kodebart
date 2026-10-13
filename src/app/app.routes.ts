@@ -1,6 +1,14 @@
 import { EnvironmentInjector, inject, runInInjectionContext } from '@angular/core';
 import { CanActivateFn, Routes } from '@angular/router';
-import { stageGuard } from './game/ui/guards/stage.guard';
+
+/**
+ * 畫面守衛（見 ui/guards/stage.guard）；延後載入：它讀 GameStateService（核心規則、內容包與存檔），
+ * 這些程式隨第一個畫面一起載入，不進初始 bundle。守衛本身的判定不變。
+ */
+const stageGuard: CanActivateFn = (route, state) => {
+  const injector = inject(EnvironmentInjector);
+  return import('./game/ui/guards/stage.guard').then((m) => runInInjectionContext(injector, () => m.stageGuard(route, state)));
+};
 
 /** 桌面舊網址的守衛（見 openAppFromRoute）；延後載入，桌面相關程式不進初始 bundle。 */
 const openAppGuard: CanActivateFn = (route) => {

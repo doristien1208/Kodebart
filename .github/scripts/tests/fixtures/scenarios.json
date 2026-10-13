@@ -1,0 +1,207 @@
+{
+  "constants": {
+    "sha": "1111111111111111111111111111111111111111",
+    "otherSha": "2222222222222222222222222222222222222222"
+  },
+  "issueGuard": [
+    {
+      "name": "正常派發取得執行鎖",
+      "input": { "actorPermission": "write", "issueState": "open", "labels": ["claude-ready"], "triggerLabelPresent": true, "openClaudePrs": 0, "runAttempt": 1 },
+      "expect": { "proceed": true }
+    },
+    {
+      "name": "無權限 actor",
+      "input": { "actorPermission": "read", "issueState": "open", "labels": ["claude-ready"], "triggerLabelPresent": true, "openClaudePrs": 0, "runAttempt": 1 },
+      "expect": { "proceed": false, "code": "actor" }
+    },
+    {
+      "name": "closed Issue",
+      "input": { "actorPermission": "admin", "issueState": "closed", "labels": ["claude-ready"], "triggerLabelPresent": true, "openClaudePrs": 0, "runAttempt": 1 },
+      "expect": { "proceed": false, "code": "closed" }
+    },
+    {
+      "name": "approved Issue",
+      "input": { "actorPermission": "admin", "issueState": "open", "labels": ["claude-ready", "approved"], "triggerLabelPresent": true, "openClaudePrs": 0, "runAttempt": 1 },
+      "expect": { "proceed": false, "code": "approved" }
+    },
+    {
+      "name": "重複派發：已有 agent-working",
+      "input": { "actorPermission": "write", "issueState": "open", "labels": ["claude-ready", "agent-working"], "triggerLabelPresent": true, "openClaudePrs": 0, "runAttempt": 1 },
+      "expect": { "proceed": false, "code": "active" }
+    },
+    {
+      "name": "重複派發：claude-ready 已被前一個 run 取用",
+      "input": { "actorPermission": "write", "issueState": "open", "labels": ["blocked"], "triggerLabelPresent": false, "openClaudePrs": 0, "runAttempt": 1 },
+      "expect": { "proceed": false, "code": "duplicate" }
+    },
+    {
+      "name": "重複派發：重跑同一個 run",
+      "input": { "actorPermission": "write", "issueState": "open", "labels": ["claude-ready"], "triggerLabelPresent": true, "openClaudePrs": 0, "runAttempt": 2 },
+      "expect": { "proceed": false, "code": "rerun" }
+    },
+    {
+      "name": "已有未結束的 Claude PR",
+      "input": { "actorPermission": "write", "issueState": "open", "labels": ["claude-ready"], "triggerLabelPresent": true, "openClaudePrs": 1, "runAttempt": 1 },
+      "expect": { "proceed": false, "code": "open-pr" }
+    }
+  ],
+  "verifyOnlyGuard": [
+    {
+      "name": "正常：既有分支、未過期 SHA",
+      "input": { "actorPermission": "write", "ref": "refs/heads/main", "defaultBranch": "main", "issue": "2", "issueState": "open", "isPullRequest": false, "labels": ["blocked"], "activeRuns": 0, "branch": "claude/issue-2-20261001-0501", "inputSha": "$sha", "branchSha": "$sha", "aheadBy": 17 },
+      "expect": { "proceed": true }
+    },
+    {
+      "name": "無權限 actor",
+      "input": { "actorPermission": "triage", "ref": "refs/heads/main", "defaultBranch": "main", "issue": "2", "issueState": "open", "isPullRequest": false, "labels": ["blocked"], "activeRuns": 0, "branch": "claude/issue-2-20261001-0501", "inputSha": "$sha", "branchSha": "$sha", "aheadBy": 17 },
+      "expect": { "proceed": false, "code": "actor" }
+    },
+    {
+      "name": "不是從預設分支啟動",
+      "input": { "actorPermission": "write", "ref": "refs/heads/claude/issue-2-20261001-0501", "defaultBranch": "main", "issue": "2", "issueState": "open", "isPullRequest": false, "labels": ["blocked"], "activeRuns": 0, "branch": "claude/issue-2-20261001-0501", "inputSha": "$sha", "branchSha": "$sha", "aheadBy": 17 },
+      "expect": { "proceed": false, "code": "ref" }
+    },
+    {
+      "name": "closed Issue",
+      "input": { "actorPermission": "write", "ref": "refs/heads/main", "defaultBranch": "main", "issue": "2", "issueState": "closed", "isPullRequest": false, "labels": [], "activeRuns": 0, "branch": "claude/issue-2-20261001-0501", "inputSha": "$sha", "branchSha": "$sha", "aheadBy": 17 },
+      "expect": { "proceed": false, "code": "closed" }
+    },
+    {
+      "name": "approved Issue",
+      "input": { "actorPermission": "write", "ref": "refs/heads/main", "defaultBranch": "main", "issue": "2", "issueState": "open", "isPullRequest": false, "labels": ["approved"], "activeRuns": 0, "branch": "claude/issue-2-20261001-0501", "inputSha": "$sha", "branchSha": "$sha", "aheadBy": 17 },
+      "expect": { "proceed": false, "code": "approved" }
+    },
+    {
+      "name": "active run",
+      "input": { "actorPermission": "write", "ref": "refs/heads/main", "defaultBranch": "main", "issue": "2", "issueState": "open", "isPullRequest": false, "labels": ["blocked"], "activeRuns": 1, "branch": "claude/issue-2-20261001-0501", "inputSha": "$sha", "branchSha": "$sha", "aheadBy": 17 },
+      "expect": { "proceed": false, "code": "active" }
+    },
+    {
+      "name": "錯誤 branch：另一張 Issue 的分支",
+      "input": { "actorPermission": "write", "ref": "refs/heads/main", "defaultBranch": "main", "issue": "2", "issueState": "open", "isPullRequest": false, "labels": ["blocked"], "activeRuns": 0, "branch": "claude/issue-20-20261001-0501", "inputSha": "$sha", "branchSha": "$sha", "aheadBy": 17 },
+      "expect": { "proceed": false, "code": "branch" }
+    },
+    {
+      "name": "錯誤 branch：預設分支",
+      "input": { "actorPermission": "write", "ref": "refs/heads/main", "defaultBranch": "main", "issue": "2", "issueState": "open", "isPullRequest": false, "labels": ["blocked"], "activeRuns": 0, "branch": "main", "inputSha": "$sha", "branchSha": "$sha", "aheadBy": 17 },
+      "expect": { "proceed": false, "code": "branch" }
+    },
+    {
+      "name": "過期 SHA",
+      "input": { "actorPermission": "write", "ref": "refs/heads/main", "defaultBranch": "main", "issue": "2", "issueState": "open", "isPullRequest": false, "labels": ["blocked"], "activeRuns": 0, "branch": "claude/issue-2-20261001-0501", "inputSha": "$sha", "branchSha": "$otherSha", "aheadBy": 17 },
+      "expect": { "proceed": false, "code": "stale" }
+    }
+  ],
+  "decideFinal": [
+    {
+      "name": "完整交付且同 SHA 必跑檢查全過 → human-review",
+      "input": { "mode": "issue", "hasCommits": true, "snapshotSha": "$sha", "finalSha": "$sha", "delivery": "complete", "stop": { "reason": "none", "detail": "" }, "verification": "$workflowPass" },
+      "expect": { "status": "complete", "label": "human-review", "pr": { "action": "create", "draft": false } }
+    },
+    {
+      "name": "模型成功卻缺完成證據 → draft＋blocked",
+      "input": { "mode": "issue", "hasCommits": true, "snapshotSha": "$sha", "finalSha": "$sha", "delivery": "missing", "stop": { "reason": "none", "detail": "" }, "verification": "$workflowPass" },
+      "expect": { "status": "checkpoint", "label": "blocked", "stop": { "reason": "unknown" }, "pr": { "action": "create", "draft": true } }
+    },
+    {
+      "name": "有提交的 max_turns → draft＋blocked",
+      "input": { "mode": "issue", "hasCommits": true, "snapshotSha": "$sha", "finalSha": "$sha", "delivery": "checkpoint", "stop": { "reason": "max_turns", "detail": "達到回合上限（error_max_turns）" }, "verification": "$workflowPass" },
+      "expect": { "status": "checkpoint", "label": "blocked", "stop": { "reason": "max_turns" }, "pr": { "action": "create", "draft": true } }
+    },
+    {
+      "name": "CI fail → draft＋blocked（validation）",
+      "input": { "mode": "issue", "hasCommits": true, "snapshotSha": "$sha", "finalSha": "$sha", "delivery": "complete", "stop": { "reason": "none", "detail": "" }, "verification": "$productFail" },
+      "expect": { "status": "validation-failed", "label": "blocked", "stop": { "reason": "validation" }, "pr": { "draft": true } }
+    },
+    {
+      "name": "完整交付但 CI 沒有結果 → pending＋blocked",
+      "input": { "mode": "issue", "hasCommits": true, "snapshotSha": "$sha", "finalSha": "$sha", "delivery": "complete", "stop": { "reason": "none", "detail": "" }, "verification": null },
+      "expect": { "status": "pending", "label": "blocked", "stop": { "reason": "validation" } }
+    },
+    {
+      "name": "CI 後 branch head 改變 → 不得 human-review",
+      "input": { "mode": "issue", "hasCommits": true, "snapshotSha": "$sha", "finalSha": "$otherSha", "delivery": "complete", "stop": { "reason": "none", "detail": "" }, "verification": "$workflowPass" },
+      "expect": { "status": "stale-head", "label": "blocked", "pr": { "draft": true } }
+    },
+    {
+      "name": "檢查結果綁定別的 SHA → 不採用",
+      "input": { "mode": "issue", "hasCommits": true, "snapshotSha": "$otherSha", "finalSha": "$otherSha", "delivery": "complete", "stop": { "reason": "none", "detail": "" }, "verification": "$workflowPass" },
+      "expect": { "status": "pending", "label": "blocked" }
+    },
+    {
+      "name": "路徑超出宣告的 profile → blocked",
+      "input": { "mode": "issue", "hasCommits": true, "snapshotSha": "$sha", "finalSha": "$sha", "delivery": "complete", "stop": { "reason": "none", "detail": "" }, "verification": "$profileViolation" },
+      "expect": { "status": "validation-failed", "label": "blocked" }
+    },
+    {
+      "name": "無提交 → blocked，不建 PR",
+      "input": { "mode": "issue", "hasCommits": false, "snapshotSha": "", "finalSha": null, "delivery": "missing", "stop": { "reason": "none", "detail": "" }, "verification": null },
+      "expect": { "status": "no-commits", "label": "blocked", "pr": { "action": "none" } }
+    },
+    {
+      "name": "錯誤 branch → blocked，不回收",
+      "input": { "mode": "issue", "branchOk": false, "branchReason": "Action 回報的分支不是本輪預期", "hasCommits": true, "snapshotSha": "$sha", "finalSha": "$sha", "delivery": "complete", "stop": { "reason": "none", "detail": "" }, "verification": "$workflowPass" },
+      "expect": { "status": "uncertain-branch", "label": "blocked", "pr": { "action": "none" } }
+    },
+    {
+      "name": "已存在 PR 重用，不重複建立",
+      "input": { "mode": "issue", "hasCommits": true, "snapshotSha": "$sha", "finalSha": "$sha", "delivery": "checkpoint", "stop": { "reason": "timeout", "detail": "" }, "verification": null, "existingPr": { "number": 7, "draft": true } },
+      "expect": { "status": "checkpoint", "label": "blocked", "pr": { "action": "reuse", "number": 7 } }
+    },
+    {
+      "name": "完整交付時沿用 draft PR → 標記 ready",
+      "input": { "mode": "issue", "hasCommits": true, "snapshotSha": "$sha", "finalSha": "$sha", "delivery": "complete", "stop": { "reason": "none", "detail": "" }, "verification": "$workflowPass", "existingPr": { "number": 7, "draft": true } },
+      "expect": { "status": "complete", "label": "human-review", "pr": { "action": "reuse", "number": 7, "markReady": true } }
+    },
+    {
+      "name": "backstop 一律 blocked（不採信完成標記）",
+      "input": { "mode": "backstop", "hasCommits": true, "snapshotSha": "$sha", "finalSha": "$sha", "delivery": "complete", "stop": { "reason": "timeout", "detail": "" }, "verification": null },
+      "expect": { "status": "checkpoint", "label": "blocked", "pr": { "action": "create", "draft": true } }
+    },
+    {
+      "name": "verify-only 全綠仍不變更標籤、不是完成",
+      "input": { "mode": "verify-only", "hasCommits": true, "snapshotSha": "$sha", "finalSha": "$sha", "delivery": "complete", "stop": { "reason": "unknown", "detail": "" }, "verification": "$workflowPass" },
+      "expect": { "status": "verified-only", "label": null, "pr": { "action": "create", "draft": true, "markReady": false } }
+    },
+    {
+      "name": "verify-only 驗證後 head 改變 → stale，標籤不變",
+      "input": { "mode": "verify-only", "hasCommits": true, "snapshotSha": "$sha", "finalSha": "$otherSha", "delivery": "missing", "stop": { "reason": "unknown", "detail": "" }, "verification": "$workflowPass" },
+      "expect": { "status": "stale-head", "label": null }
+    }
+  ],
+  "classifyStop": [
+    { "name": "正常結束", "input": { "stepOutcome": "success", "execPresent": true, "execSubtype": "success", "jobConclusion": "success", "jobMinutes": 20 }, "expect": { "reason": "none" } },
+    { "name": "max_turns（81 turns）", "input": { "stepOutcome": "failure", "execPresent": true, "execSubtype": "error_max_turns", "jobConclusion": "failure", "jobMinutes": 55 }, "expect": { "reason": "max_turns" } },
+    { "name": "job timed_out", "input": { "jobConclusion": "timed_out", "jobMinutes": 60 }, "expect": { "reason": "timeout" } },
+    { "name": "取消且達時間上限 → timeout", "input": { "stepOutcome": "cancelled", "jobConclusion": "cancelled", "jobMinutes": 60.2 }, "expect": { "reason": "timeout" } },
+    { "name": "提早取消 → unknown", "input": { "stepOutcome": "cancelled", "jobConclusion": "cancelled", "jobMinutes": 3 }, "expect": { "reason": "unknown" } },
+    { "name": "模型輸出前失敗 → environment", "input": { "stepOutcome": "failure", "execPresent": false, "actionConclusion": "", "jobConclusion": "failure", "jobMinutes": 1 }, "expect": { "reason": "environment" } },
+    { "name": "execution output 缺失 → unknown，不捏造", "input": {}, "expect": { "reason": "unknown" } }
+  ],
+  "planChecks": [
+    {
+      "name": "workflow-only：Angular 檢查不必跑",
+      "files": [".github/workflows/claude.yml", ".github/scripts/agent-flow.mjs", "CLAUDE.md", "doc/agent-workflow/WORKFLOW_RULES.md"],
+      "declared": "workflow",
+      "expect": { "product": false, "workflow": true, "violations": [] }
+    },
+    {
+      "name": "宣告 workflow 卻改了 src → violation 且產品檢查必跑",
+      "files": [".github/workflows/claude.yml", "src/app/app.ts"],
+      "declared": "workflow",
+      "expect": { "product": true, "workflow": true, "violations": ["src/app/app.ts"] }
+    },
+    {
+      "name": "沒有宣告 profile：依 diff 決定、不收窄",
+      "files": ["src/styles.css", "doc/DESIGN.md"],
+      "declared": "",
+      "expect": { "product": true, "workflow": false, "violations": [] }
+    },
+    {
+      "name": "宣告 docs 卻改 package.json → violation",
+      "files": ["doc/DESIGN.md", "package.json"],
+      "declared": "docs",
+      "expect": { "product": true, "violations": ["package.json"] }
+    }
+  ]
+}

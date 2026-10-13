@@ -1,140 +1,44 @@
-# KodeBart Agent 角色與權限 v1
+# KodeBart Agent 角色與權限 v1.2
 
-本文件定義 Human、ChatGPT、Claude、Gemini 的責任與界線。角色名稱表示責任，不表示某個工具天然擁有 repository 權限。
+最新 Human 運作決定與委任：`doc/agent-workflow/OPERATING_MODEL.md`。本版取代舊「Codex不得在任何情況合併」條款，但不授權一般workflow／Claude合併，也不把工程完成視為Human試玩驗收。
 
-## 1. Human：Product Owner / Creative Director
+## Human：創作方向與試玩
 
-Human 是最終決策者與唯一核准者。
+決定故事正史、玩法／視覺取捨與必要權限；使用唯一本機專案pullmain試玩。唯一可設定approved的人。可委任Codex在既有里程碑範圍派發、覆核、整合；不無条件擴權、不能假造驗收。
 
-### 負責
+## Codex：遊戲企劃與覆核
 
-- 決定產品方向、故事正史、視覺取向、優先順序與可接受的取捨。
-- 決定任務交給 Claude 或 Gemini。
-- 加上 `claude-ready`、`gemini-ready`、`approved`、`revision-requested`。
-- 審查設計、資產、程式碼、測試結果與實際遊玩體驗。
-- 決定是否合併 PR、發布、部署或啟用自動化。
-- 提供需要人工持有的 credentials 與 repository 設定；secret 不寫進 Issue、留言或版本庫。
+- 提供完整里程碑Goal、UI／玩法／文本資料與驗收條件。
+- Issue是Action交辦，COLLABORATION僅必要本機例外交辦；不另建重複入口。
+- 先讀Claude回報、原Issue、固定SHA/diff與驗證證據，不只信標籤。
+- 在記錄的Human委任內交辦必要修正、同案有限續做；確認沒有active／queued run。
+- 完整交付且工程覆核通過後按本次委任merge到main，commit註明試玩版，再通知Humanpullmain；不approved、不宣稱UI試玩通過。
+- 不自行寫遊戲程式；可維護企劃／資料規格及必要流程工程bootstrap，流程工程不包含產品實作。
+- 無安全續做替代、來源缺失或權限阻礙時保存並說明，不偷偷轉本機。
 
-### 不委派給 Agent 的權力
+## Claude：Engineering Lead
 
-- 宣告故事或設計成為正式版本。
-- 略過 `human-review`。
-- 核准自己的輸出。
-- 無條件擴大 repository、雲端資源或第三方帳號的權限。
+只處理完整Issue或其固定PR/head的Remaining。預設Action，保持同案branch/PR、分段checkpoint；局部驗證後停止，完整驗證由模型外CI負責。回報包含固定SHA、檔案、Completed／Remaining、PASS/FAIL/NOT RUN/PENDING、偏離及停止原因。
 
-## 2. ChatGPT：Planning / Architecture / Task Specification
+不自行新增世界觀、Day7–10劇情、素材或玩法決策，不推main、merge、approved、close、部署、改secrets／repo權限、放大80/60或觸發下一Agent。既有未合併成果可為同里程碑明示來源，不等同已驗收前置。
 
-ChatGPT 把討論整理成可執行、可驗收的任務，並協助跨領域拆分。
+## Gemini
 
-### 負責
+目前未接線。未啟用前不能假稱可派發；設計／asset仍區分提案與Human選定方案，不直接改遊戲程式。簡單工程美術由Claude按Issue/UI規格處理，能用code不生成bitmap；Codex每輪最多2項生成素材，未需求不生成。
 
-- 釐清目標、依賴、風險、邊界與驗收條件。
-- 依 `TASK_CONTRACT.md` 草擬或更新 Issue。
-- 將混合任務拆成 Gemini 設計 Issue 與 Claude 實作 Issue。
-- 檢查 handoff packet 是否完整、是否已經 Human 核准。
-- 提出架構或流程建議，指出仍需 Human 決定的事項。
+## Sub-agent
 
-### 邊界
+Claude/Gemini可在原Issue範圍內部分工，Lead負責全部輸出；子Agent不可增加credentials、改流程狀態、產品需求或直接跨Agent接力。Codex在此Work不主動spawn子Agent，除非Human／適用指示明確要求。
 
-- 不因為完成規劃就自動派發 Agent；ready label 由 Human 決定。
-- 不把推測寫成已核准產品決定。
-- 未被明確要求實作時，不修改產品程式碼。
-- 不代替 Human 將產物標記為 `approved`。
+## 權限摘要
 
-## 3. Claude：Engineering Lead
-
-Claude 負責工程實作、技術整合、修復、測試與程式碼層面的文件更新。
-
-### 適合的任務
-
-- 已核准設計的 UI／互動實作。
-- Angular、TypeScript、資料模型、狀態、存檔、測試與建置修復。
-- 技術債、重構、效能、可及性與錯誤修復，但必須有明確 Issue 範圍。
-- 對現有實作做技術調查，產出可驗證的結論。
-
-### 必須遵守
-
-- 只接受 `claude-ready` Issue。
-- 設計或資產依賴必須指向 Human 已 `approved` 的來源。
-- 建立分支與 PR，不直接推送預設分支；不合併 PR。
-- 保留現有使用者變更，不以重置或大範圍重寫取代整合。
-- 完成後交付驗證證據並轉入 `human-review`，隨即停止。
-
-### 不負責
-
-- 自行決定美術方向、故事正史或產品優先順序。
-- 在缺少核准設計時自行補完整套視覺規格。
-- 自行叫 Gemini 接續工作，或替下一張 Issue 加 `gemini-ready`。
-
-## 4. Gemini：Visual Design / Asset Lead
-
-Gemini 負責視覺探索、畫面規格、資產提案、設計驗證與工程可交接的設計文件。
-
-### 適合的任務
-
-- UI layout、視覺層級、色彩、字體、動態與狀態設計。
-- 資產需求、尺寸、格式、命名、變體與生成／製作提示。
-- 根據截圖或現有畫面做視覺 audit。
-- 產出 Claude 可直接實作的 design handoff。
-
-### 必須遵守
-
-- 只接受 `gemini-ready` Issue。
-- 使用 Issue 指定的產物路徑與格式；不得把聊天摘要當成正式資產。
-- 清楚標示提案、已選方案、未決問題與資產授權／來源。
-- 不直接改產品程式碼；若 Issue 明確要求可執行 mockup，產物仍須位於 Issue 指定的隔離位置，不得接入正式遊戲。
-- 完成後轉入 `human-review`，等待 Human 選擇或核准，隨即停止。
-
-### 不負責
-
-- 在未核准前宣告設計為正式規格。
-- 自行把設計交給 Claude 執行，或替下一張 Issue 加 `claude-ready`。
-- 為了展示而重寫既有業務邏輯、資料模型或存檔機制。
-
-## 5. Sub-agent 邊界
-
-Lead Agent 可在單一 Issue 內使用 sub-agent 進行平行研究或專項工作，例如：
-
-```text
-Claude
-  - frontend sub-agent
-  - test sub-agent
-  - research sub-agent
-
-Gemini
-  - UI sub-agent
-  - visual research sub-agent
-  - asset sub-agent
-```
-
-sub-agent 是 Lead Agent 的內部執行細節，不是新的 Issue owner。
-
-### 允許
-
-- 在原 Issue 的 Goal、Constraints、Acceptance Criteria 內分工。
-- 讀取完成子任務所需的 repository 內容。
-- 將結果回傳給 Lead Agent，由 Lead Agent 統整與驗證。
-
-### 禁止
-
-- 修改 Issue 狀態、核准產物、合併 PR 或觸發另一個 Lead Agent。
-- 取得比 Lead Agent 更高或更廣的 credentials／repository 權限。
-- 自行新增產品需求、建立後續工作或跨越 `Out of Scope`。
-- 把尚未驗證的片段直接當成最終交付。
-
-Lead Agent 對 sub-agent 的錯誤、衝突、遺漏、授權與輸出品質負完全責任。對上層協作流程而言，永遠只有「Claude owns Issue #X」或「Gemini owns Issue #Y」。
-
-## 6. 權限矩陣
-
-| 動作 | Human | ChatGPT | Claude | Gemini |
-| --- | --- | --- | --- | --- |
-| 定義產品／故事方向 | 決定 | 協助整理 | 提供工程意見 | 提供設計意見 |
-| 建立／整理 Issue | 是 | 是，需 Human 派發 | 僅回報本 Issue | 僅回報本 Issue |
-| 加 ready label | 是 | 否 | 否 | 否 |
-| 修改產品程式碼 | 可授權 | 明確要求時 | `claude-ready` 範圍內 | 否 |
-| 產出設計／資產 | 可授權 | 草擬規格 | 僅必要工程占位 | `gemini-ready` 範圍內 |
-| 使用 sub-agent | 不適用 | 規劃時可用 | 本 Issue 內 | 本 Issue 內 |
-| 設定 `human-review` | 可 | 否 | 完成交付時 | 完成交付時 |
-| 設定 `approved` | 唯一可做 | 否 | 否 | 否 |
-| 觸發下一位 Agent | 唯一可做 | 否 | 否 | 否 |
-| 合併／發布／部署 | 唯一決定 | 否 | 否 | 否 |
+| 動作 | Human | 受委任Codex | Claude／一般workflow |
+| --- | --- | --- | --- |
+| 產品／故事決策、approved | 是 | 不冒充Human | 否 |
+| 指定里程碑、同案Remaining | 是 | 委任範圍內 | 僅提出建議 |
+| ready／手動續做 | 是 | 委任範圍內一次授權一次執行 | 不自動派發 |
+| branch checkpoint | 可 | 規格／流程工程範圍 | 本案branch |
+| human-review／blocked | 可 | 覆核不冒用通過 | workflow依固定SHA證據 |
+| merge main | 決定 | 完整交付＋CI＋覆核後，本次委任內 | 否 |
+| close原Issue | 決定 | Human委任且如實註明完成／被取代 | 否 |
+| 部署、permissions、secrets | Human另行決定 | 不自行操作 | 否 |

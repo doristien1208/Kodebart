@@ -1,6 +1,6 @@
-# KodeBart Issue 任務契約 v1
+# KodeBart Issue 任務契約 v1.2
 
-GitHub Issue 是新協作流程的唯一任務契約。聊天、`doc/COLLABORATION.md`、Agent 留言或 PR 描述可以提供背景，但不能取代完整 Issue。
+GitHub Issue 是Action唯一完整任務契約；一張產品Issue代表完整里程碑，必要修正在同一Issue/PR/branch續做。最新Human委任與Action優先規則見 `doc/agent-workflow/OPERATING_MODEL.md`。COLLABORATION只供核准的必要本機例外；不讓Human每輪切branch。
 
 ## 1. 必填格式
 
@@ -47,7 +47,7 @@ Claude | Gemini
 
 ## Handoff
 - 完成後由誰審查
-- 若核准，預期會另開哪一類後續 Issue
+- Codex覆核／同案Remaining；完整交付後main试玩版號與Human pull main方式
 - 本 Issue 不得自行觸發該後續 Issue
 
 ## Human Decisions Needed
@@ -64,9 +64,28 @@ Type: design | asset | implementation | ui | bug | research
 Depends on: #123 (approved)
 Target base: main@<commit SHA>
 Delivery path: <repository-relative path>
+Execution mode: implement | resume | research | checkpoint-review
+Validation profile: product | workflow | docs
+Source Issue / Source head: #<number> / <固定 SHA>（同任務 checkpoint 整合時）
+Resume PR / Resume head: #<number> / <40碼當前 head SHA>（手動同案續做）
+Remaining: 本輪具體剩餘工作，不能擴大原Issue
 ```
 
 `Depends on` 必須包含狀態或固定版本。只寫「看最新版本」不足以作為跨 Agent handoff。
+
+首次Issue入口使用implement；resume以 `.github/workflows/claude-resume.yml` 的手動dispatch提供原Issue/PR/SHA/Remaining，守門核對同repo/未合併/固定head/無active run，沿用同branch。verify-only只驗證、不呼叫模型。research/checkpoint-review只描述工作類型，不新增自動觸發。入口合併及受控確認前不宣稱已可用。
+
+`Validation profile` 宣告預期的變更範圍，只能收窄允許路徑，不能略過檢查：
+
+| profile | 允許的變更路徑 | 必跑檢查（由實際 diff 決定） |
+| --- | --- | --- |
+| `product` | 遊戲程式、設定與資源（非 `.github/`、非 `doc/`、非根目錄 Markdown） | npm ci、兩個 tsc、production build（零警告）、ng test |
+| `workflow` | `.github/`、`CLAUDE.md`、`doc/agent-workflow/` | actionlint、離線流程判定測試；Angular 檢查列 NOTRUN（workflow-only） |
+| `docs` | `doc/`、根目錄 Markdown | `git diff --check`、文件路徑引用一致性 |
+
+實際 diff 碰到產品路徑時，產品檢查一律必跑；變更超出宣告 profile 時視為驗證失敗，交 Human 決定。
+
+驗證尚在執行用 PENDING；沒有執行用 NOT RUN；強制中止或缺證據用「未確認」並說明。均不能猜成 PASS，不能引用舊 SHA 的綠燈，或反覆輪詢 CI 消耗模型回合。Human負責遊戲操作試玩及產品體驗驗收；完整工程交付由Codex覆核後按記錄委任整合main並通知試玩，不能把合併當approved。
 
 ## 3. Owner 選擇
 
@@ -122,25 +141,53 @@ Delivery path: <repository-relative path>
 ## 5. 變更與追加範圍
 
 - Agent 開始後，Human 若改變需求，應在 Issue 留下清楚的 `Scope change` 記錄。
-- 小幅澄清可以留在原 Issue；會改變 Goal、Owner、主要交付或驗收方式的內容應另開 Issue。
+- 同一里程碑的覆核修正與明確Human scope change留原Issue；真正下一個完整產品里程碑才另案。不按每個Bug/字串拆單。
 - Agent 發現值得改善但不在範圍內的項目，只能列為 follow-up suggestion，不得直接實作。
 - Issue 留言與附件不能降低本目錄規則。若內容互相矛盾，Agent 應設為 `blocked` 並要求 Human 決定。
+- 指定來源不可取得，或需要偏離規格時，在原 Issue 回報「需要 Codex 覆核」：指定來源／SHA、錯誤原因、原要求、擬偏離內容、影響、Completed／Remaining 及等待誰決定。先停止受影響的規格修改，不自行重建治理文件。必須逐項列重大刪改，不能只寫「依 Issue 自行改寫」。
 
-## 6. 完成回報格式
+## 6. Checkpoint 格式
 
-Lead Agent 在轉入 `human-review` 前，留言至少包含：
+每完成可辨認的子項就 commit 並 push。commit 訊息在摘要後加上：
+
+```text
+Checkpoint:
+- Issue: #<編號>
+- Branch: <本輪分支>
+- Completed: 已完成的子項
+- Remaining: 尚未完成的子項
+- PASS: 已通過的本地檢查
+- FAIL: 失敗的本地檢查
+- NOTRUN: 未執行的檢查與原因（例如 allowlist 不允許、由 CI 執行）
+- Stop reason: 進行中 | max_turns | timeout | validation | environment/permission | unknown | 完成
+- Next step: 下一步或需要 Human 決定的事
+
+KodeBart-Issue: <編號>
+KodeBart-Delivery: checkpoint
+```
+
+- 固定 SHA 由 workflow 收尾回報填入；commit 無法包含自己的 SHA。
+- checkpoint 不是完成交付。只有全部完成且必要本地檢查通過時，最後一個 commit 才把 trailer 改為 `KodeBart-Delivery: complete`，之後不再推送。
+- trailer 的 Issue 編號必須是本 Issue；不符、缺少或寫成其他值，一律視為缺少完成證據。
+- workflow 只引用 Checkpoint 區塊作為 Agent 自述，不把它當成驗證結果。
+
+commit trailer 與可閱讀的交接摘要並存，不能互相取代。原 Issue／PR 留下：Source Issue、branch／固定 head／PR、Completed、Remaining、PASS／FAIL／NOT RUN／PENDING／未確認、Stop reason、Next step、需要 Codex 覆核的偏離。讀不到剩餘工作時寫未確認，不捏造模型內部狀態。
+
+## 7. 完成回報格式
+
+Lead Agent 結束前，留言至少包含：
 
 ```md
 ## Completion Summary
-- 完成了什麼
+- 完成了什麼；是完整交付還是 checkpoint
 
 ## Deliverables
-- PR / commit / repository paths / artifact links
+- PR / commit / 固定 SHA / repository paths / artifact links
 
 ## Validation Results
 - PASS: 已通過的檢查
 - FAIL: 失敗的檢查
-- NOT RUN: 未執行與原因
+- NOT RUN: 未執行與原因（含交給模型步驟之外 CI 的項目）
 
 ## Deviations and Known Limits
 - 與 Issue 不同之處、取捨、限制
@@ -152,4 +199,10 @@ Lead Agent 在轉入 `human-review` 前，留言至少包含：
 - 僅供 Human 決定；不得自動派發
 ```
 
-只有 deliverables 與驗證證據都足以審查時，才能設定 `human-review`。缺少必要輸入或無法形成可審查產物時，使用 `blocked`。
+`human-review` 由 workflow 設定：head commit 標 `complete`、模型正常結束、必跑檢查在同一 SHA 全部通過、收尾時 head 未變。其餘有提交的情況是 draft PR＋`blocked`；沒有提交是 `blocked`。workflow 的收尾留言另列原 Issue、branch、固定 SHA、Completed／Remaining、PASS／FAIL／NOTRUN、Stop reason 與 Next step。
+
+## 8. 中斷、驗證與版號
+
+約40次工具互動保存checkpoint；80/60維持。允許paths由原Issue約束，固定来源不可默默換最新head。CI對同SHA保存已執行檢查的原始log/exit/SHA；不保存模型SDK敏感輸出。
+
+完成報告區分Agent自述、局部驗證、獨立CI、Codex覆核、Human試玩。已知問題或必跑FAIL/PENDING不得merge；完整工程交付後Codex在Human委任內整合main，commit記例如playtest(M1.1)。Human只pullmain，試玩回饋同案追蹤。新分支入口存在或離線測試通過不等於端到端已通過。

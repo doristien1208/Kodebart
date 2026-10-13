@@ -1,0 +1,111 @@
+name: Agent verify-only
+
+# 工作流程 v1.1 階段 A：既有 Claude 成果的「只驗證」入口（Human 手動 workflow_dispatch）。合併到預設分支後才可使用。
+# - 輸入原 Issue、既有 claude/issue-<編號>- 分支與固定 head SHA；只接受從預設分支的 workflow 啟動。
+# - 檢查：啟動者 write 權限、Issue 開啟且未 approved、沒有 agent-working 或其他同 Issue active run、
+#   分支屬於該 Issue、SHA 仍是 branch head（未過期）、分支有提交；與 claude.yml 共用 claude-issue-<編號> concurrency。
+# - 不呼叫模型、不使用任何 secrets、不推送或改寫分支；只建立／沿用 draft PR、以 agent-verify.yml 驗證固定 SHA 並留言。
+# - 不變更流程標籤：即使全綠也不把先前失敗的模型 run 改成完成或 human-review，由 Human 決定。
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: 原 Issue 編號
+        required: true
+        type: string
+      branch:
+        description: 既有 Claude 分支（claude/issue-<編號>-…）
+        required: true
+        type: string
+      sha:
+        description: 固定 head SHA（40 碼）
+        required: true
+        type: string
+
+run-name: verify-only-issue-${{ inputs.issue }}
+
+permissions: {}
+
+concurrency:
+  group: claude-issue-${{ inputs.issue }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  guard:
+    name: guard
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      actions: read
+    outputs:
+      proceed: ${{ steps.guard.outputs.proceed }}
+      merge_base: ${{ steps.guard.outputs.merge_base }}
+      declared_profile: ${{ steps.guard.outputs.declared_profile }}
+    steps:
+      - name: Checkout workflow scripts (default branch)
+        # actions/checkout v4.4.0
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Guard
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          ACTOR: ${{ github.triggering_actor }}
+          INPUT_ISSUE: ${{ inputs.issue }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_SHA: ${{ inputs.sha }}
+        run: node .github/scripts/agent-flow-cli.mjs verify-only-guard
+
+  verify:
+    name: verify
+    needs: guard
+    if: needs.guard.outputs.proceed == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/agent-verify.yml
+    with:
+      sha: ${{ inputs.sha }}
+      base: ${{ needs.guard.outputs.merge_base }}
+      declared_profile: ${{ needs.guard.outputs.declared_profile }}
+
+  report:
+    name: report
+    needs: [guard, verify]
+    if: always() && needs.guard.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout workflow scripts (default branch)
+        # actions/checkout v4.4.0
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Report (draft PR and comment, labels unchanged)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          INPUT_ISSUE: ${{ inputs.issue }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_SHA: ${{ inputs.sha }}
+          VERIFY_RESULTS: ${{ needs.verify.outputs.results }}
+        run: node .github/scripts/agent-flow-cli.mjs verify-only-report

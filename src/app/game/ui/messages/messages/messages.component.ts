@@ -18,6 +18,7 @@ import {
   dayOrder,
   helpRequestOf,
   helpRequestOfMessage,
+  promptOf,
   promptsOfChannel,
 } from '../../../content/bundle';
 import { CHANNEL_KINDS, ChannelKind, ContentMessage } from '../../../content/schema';
@@ -32,6 +33,7 @@ import { MessageUnreadService } from '../services/message-unread.service';
 import { MessagesNavigationService } from '../services/messages-navigation.service';
 import { QuickReplyChoice, QuickReplyComponent } from '../quick-reply/quick-reply.component';
 import { TimelineEntry, TimelineRequest, buildTimeline, initialOf, lastMessageOf } from '../presenters/timeline';
+import { displayReply } from '../presenters/reply-display';
 
 interface ThreadView {
   header: ThreadHeader;
@@ -66,6 +68,8 @@ function safeActorName(actorId: string): string {
  *   條件稍後才成立（切回頁籤、還原視窗）時，標記當下看得到的列。
  * - 回覆與說明依保存的送達時間出現（ChatPacingService），未送達前顯示「正在輸入」。
  * - 玩家列的署名是玩家的角色名（舊存檔「員工」）。
+ * - 拒絕紀錄說明的追問：已回答的舊快照在顯示時改用目前核准的內容文字（presenters/reply-display.ts），
+ *   對話串與頻道列表摘要都經過這裡；存檔、送達時間與已讀不變。
  * 窄版面（容器寬度不足兩欄）一次只顯示列表或對話。
  */
 @Component({
@@ -113,7 +117,7 @@ export class MessagesComponent {
   private timelineOf(messages: readonly ContentMessage[], fresh?: ReadonlySet<string>): readonly TimelineEntry[] {
     return buildTimeline({
       messages,
-      replyOf: (id) => this.game.chatReply(id),
+      replyOf: (id) => displayReply(id, this.game.chatReply(id), (promptId) => promptOf(promptId)?.prompt),
       actorName: safeActorName,
       dateLabel: chatDateLabel,
       you: this.game.displayName(),

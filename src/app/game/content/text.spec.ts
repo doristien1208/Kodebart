@@ -84,10 +84,36 @@ const ARCHIVE_R7_CHANGES = {
   destinationReview: '資料覆核佇列',
 };
 
-describe('Day 1 歸檔文字：R6 搬移後只有 R7 §6.1 指定的鍵改變，R8 只搬走 finishDay，R11 只移除 useCode', () => {
-  it('Day 1 task 的 3 欄＋ARCHIVE_UI 恰好等於搬移前的 Day 1 text 加上 R7 的加入／取代，減去 R8 搬走與 R11 移除的鍵', () => {
-    const { finishDay: _movedToTasks, useCode: _removedR11, ...expected } = { ...DAY1_BEFORE_R6, ...ARCHIVE_R7_CHANGES };
+/**
+ * R12（#7，Human 核准）缺漏處理改成「選擇處理動作」：legend 與兩個選項的主文字／hint 取代 R7 的文字；
+ * 選項的 value（default_false／request_review）與預覽、結果的狀態文字不變。
+ */
+const ARCHIVE_R12_CHANGES = {
+  missingLegend: '處理缺漏方式',
+  policyDefault: '套用部門預設並歸檔',
+  policyDefaultHint: '將拒絕狀態補登為「未拒絕」。',
+  policyReview: '保留缺漏並送覆核',
+  policyReviewHint: '不補登答案，交由窗口查核。',
+};
+
+describe('Day 1 歸檔文字：R6 搬移後只有 R7 §6.1 與 R12 缺漏處理指定的鍵改變，R8 只搬走 finishDay，R11 只移除 useCode', () => {
+  it('Day 1 task 的 3 欄＋ARCHIVE_UI 恰好等於搬移前的 Day 1 text 加上 R7 與 R12 的加入／取代，減去 R8 搬走與 R11 移除的鍵', () => {
+    const { finishDay: _movedToTasks, useCode: _removedR11, ...expected } = {
+      ...DAY1_BEFORE_R6,
+      ...ARCHIVE_R7_CHANGES,
+      ...ARCHIVE_R12_CHANGES,
+    };
     expect({ ...archiveTask('task.day1.archive').text, ...ARCHIVE_UI }).toEqual(expected);
+  });
+
+  it('R12：選項主文字是處理動作，不以「未拒絕」「未確認」當名稱；預覽與結果的狀態、去向文字不變', () => {
+    for (const label of [ARCHIVE_UI.missingLegend, ARCHIVE_UI.policyDefault, ARCHIVE_UI.policyReview]) {
+      expect(label).withContext(label).not.toContain(RECORD_STATUS.notRefused);
+      expect(label).withContext(label).not.toContain(RECORD_STATUS.unconfirmed);
+    }
+    expect([RECORD_STATUS.defaultedNotRefused, RECORD_STATUS.unconfirmed]).toEqual(['未拒絕（依規則補登）', '未確認']);
+    expect([ARCHIVE_UI.destinationArchive, ARCHIVE_UI.destinationReview]).toEqual(['正式歸檔', '資料覆核佇列']);
+    expect([ARCHIVE_UI.methodArchive, ARCHIVE_UI.methodReview]).toEqual(['正式歸檔', '送資料覆核']);
   });
 
   it('R8：finishDay 逐字搬到 TASKS_UI，archive／fieldMap 不再有', () => {
@@ -184,10 +210,23 @@ describe('RECORD_STATUS 與 SOURCE_CARD（R7 §6.1）', () => {
     });
   });
 
-  it('SOURCE_CARD 只剩標籤；refusalNA／Null／True 已移除', () => {
-    expect(Object.keys(SOURCE_CARD).sort()).toEqual(['code', 'eyebrow', 'name', 'nameUnregistered', 'refusal']);
+  it('SOURCE_CARD 只剩標籤、安排項目與缺漏說明（R12）；refusalNA／Null／True 已移除', () => {
+    expect(Object.keys(SOURCE_CARD).sort()).toEqual([
+      'arrangement',
+      'arrangementValue',
+      'code',
+      'eyebrow',
+      'missingNote',
+      'name',
+      'nameUnregistered',
+      'refusal',
+    ]);
     expect(SOURCE_CARD.eyebrow('B102')).toBe('SOURCE / B102');
     expect([SOURCE_CARD.name, SOURCE_CARD.code, SOURCE_CARD.refusal]).toEqual(['姓名', '人員編號', '拒絕紀錄']);
+    expect([SOURCE_CARD.arrangement, SOURCE_CARD.arrangementValue]).toEqual(['安排項目', '後續聯繫安排']);
+    expect(SOURCE_CARD.missingNote).toBe('來源未附回覆紀錄。');
+    // 缺漏說明是來源卡的附註，共用的「未提供」不變
+    expect(RECORD_STATUS.missing).toBe('未提供');
   });
 
   it('資料檔中玩家可見的字串沒有獨立的 true／false／null（note 除外）', () => {

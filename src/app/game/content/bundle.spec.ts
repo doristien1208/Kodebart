@@ -1736,6 +1736,14 @@ describe('入職前情包（R12）', () => {
     expect(bundle.onboardingContractIndex).toBe(5);
   });
 
+  it('“Welcome to KodeBart.” 只在簽名後出現一次；簽名前的 welcome 段是接待人員遞文件', () => {
+    const lines = bundle.ONBOARDING.steps.map((s) => (s.kind === 'line' ? s.text : ''));
+    const welcomes = lines.flatMap((text, i) => (text.includes('Welcome to KodeBart') ? [i] : []));
+    expect(welcomes).toEqual([bundle.onboardingContractIndex + 1]);
+    expect(bundle.ONBOARDING.steps[bundle.onboardingContractIndex + 1]?.id).toBe('signed');
+    expect(lines[bundle.ONBOARDING.steps.findIndex((s) => s.id === 'welcome')]).toBe('接待人員遞來一份入職文件。');
+  });
+
   it('LEGACY_PLAYER_NAME：舊存檔沒有姓名時顯示「員工」（入職包 ui）', () => {
     expect(bundle.LEGACY_PLAYER_NAME).toBe('員工');
     expect(bundle.LEGACY_PLAYER_NAME).toBe(bundle.ONBOARDING.ui.legacyPlayerName);
@@ -1774,7 +1782,7 @@ describe('詢問說明包（R12）', () => {
       id: REQUEST,
       channelId: DM,
       unlockCondition: COND,
-      playerText: '予安，歸檔的「拒絕紀錄」是指什麼？來源沒寫，我不太確定下面兩個選項怎麼分。',
+      playerText: '予安，來源沒有附回覆紀錄，這兩種處理方式差在哪裡？',
       oncePerSave: true,
     });
     expect(bundle.helpPackOf(REQUEST)?.id).toBe('help.refusal-record');
@@ -1815,17 +1823,37 @@ describe('詢問說明包（R12）', () => {
     expect(ids(unlockedMessages(DM, asked('day.02'))).slice(0, 5)).toEqual(['msg.day1.welcome', 'msg.day1.pace', ...HELP_IDS, 'msg.day2.handoff']);
   });
 
-  it('說明訊息逐字（不給正解、不提世界觀）', () => {
+  it('說明訊息逐字（不給正解、不提世界觀）：安排項目、來源沒附回覆紀錄，以及兩種處理動作的去向', () => {
     expect(bundle.helpMessages(REQUEST).map((m) => m.lines)).toEqual([
-      [
-        '是看當事人有沒有拒絕原表上的那項安排。這裡整理的是之前留下的紀錄，不是要你現在去問本人。',
-        '來源如果有寫拒絕，就照記錄保留。你現在看到的這筆沒寫，所以才會要你選怎麼處理。',
-      ],
-      [
-        '選「未拒絕」，系統就會把空白補成未拒絕，完成正式歸檔。',
-        '選「未確認」，就先保留缺資料的狀態，送窗口覆核。不是退回叫你重填，也不保證今天就會有回覆。',
-      ],
+      ['「拒絕紀錄」記的是有沒有拒絕後續聯繫安排。這張卡沒有附回覆紀錄，不用再找另一張表。'],
+      ['你可以照部門預設補登後歸檔，或先留空送窗口查核。', '補登只是照規則處理，不代表本人真的回答過。'],
     ]);
+  });
+
+  it('追問與確認選項逐字（選項與回應 ID 不變）；確認選項是決定處理動作', () => {
+    const choices = promptOf('prompt.help.refusal')?.prompt.choices ?? [];
+    expect(choices.map((c) => [c.id, c.text, c.responses.map((r) => [r.id, r.lines])])).toEqual([
+      [
+        'ask-blank',
+        '那補登的「未拒絕」，不是本人回覆？',
+        [['msg.help.refusal.blank-response', ['對，是歸檔時套用的預設值。選「保留缺漏並送覆核」就不會補上這個答案。']]],
+      ],
+      ['ack', '懂了，我選怎麼處理這筆缺漏。', [['msg.help.refusal.ack-response', ['嗯，有卡住再問我。']]]],
+    ]);
+  });
+
+  it('說明不以「未拒絕」「未確認」指代選項，也不要求另找原表', () => {
+    const choices = promptOf('prompt.help.refusal')?.prompt.choices ?? [];
+    const texts = [
+      bundle.helpRequestOf(REQUEST)?.playerText ?? '',
+      ...bundle.helpMessages(REQUEST).flatMap((m) => m.lines),
+      ...choices.flatMap((c) => [c.text, ...c.responses.flatMap((r) => r.lines)]),
+    ];
+    expect(texts.length).toBe(8);
+    for (const line of texts) {
+      expect(line).withContext(line).not.toMatch(/選「(未拒絕|未確認)」/);
+      expect(line).withContext(line).not.toContain('原表');
+    }
   });
 });
 

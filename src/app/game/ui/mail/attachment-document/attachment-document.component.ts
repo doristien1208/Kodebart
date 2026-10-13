@@ -62,7 +62,12 @@ export class AttachmentDocumentComponent {
 
   private readonly codeInput = viewChild<ElementRef<HTMLInputElement>>('codeInput');
 
-  protected readonly view = computed<AttachmentDocumentView | null>(() => attachmentDocument(this.game.returns(), this.ref()));
+  /** 存檔的批次：紀錄姓名取自原批次的提交快照；批次沒變時不重算文件。 */
+  private readonly batches = computed(() => this.game.save()?.batches ?? {});
+
+  protected readonly view = computed<AttachmentDocumentView | null>(() =>
+    attachmentDocument(this.game.returns(), this.batches(), this.ref()),
+  );
 
   /** 這份回條目前可以建立新修訂（與狀態層的版本鎖定同一判斷）。 */
   protected readonly editable = computed(

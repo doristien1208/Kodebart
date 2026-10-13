@@ -42,6 +42,7 @@ Action 未達完整交付時，保存並回報：
 - 合併條件：完整Issue交付；驗證證據綁定產品head，無必跑檢查FAIL/PENDING或未說明警告；Codex核對實際diff、資料／敘事／scope，無已知阻止交付的問題。不能因模型自評成功就合併。
 - Codex按本次Human委任判斷並整合，Claude與一般workflow不自行merge。遵守repository既有保護，不能繞過保護或自改權限。
 - checkpoint、未完成版本或仍有已知問題的成果不能為了方便pull就先合併。
+- 流程初次接線的必要 bootstrap 例外：workflow-only 實作已完整、固定head独立PR檢查與Codex覆核通過、無已知執行阻礙時，可先部署預設分支提供手動入口，才能取得真實Action證據。這不是遊戲checkpoint或試玩版；原流程Issue保持開啟，端到端未確認不可結案或宣稱整案完成。只允許 .github/、CLAUDE.md、doc/agent-workflow/，不得藉此合併任何M1產品成果。Codex於本次委任內採此有界啟用步驟，不擴權、不改secrets或repository保護。
 - 每個遊戲Issue完成後合併main；合併commit摘要帶清楚試玩版號，例如 `playtest(M1.1): 第3–6日工作循環`。通知寫版本、Issue／PR、固定main SHA、更新重點、驗證限制與保留存檔的方法。
 - 驗證產品head不等於驗證merge SHA；若main整合有其他變更，對整合SHA再做相稱驗證，通知中分清楚。
 - 本機永遠pull main，不讓Human猜分支。玩法是否有趣、操作／375px／真實舊存檔等仍由Human確認，不把merge等同Human試玩已通過。

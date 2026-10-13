@@ -77,6 +77,8 @@ SDK success但實際回報超過80回合也不是正常完成；保留歷史失�
 
 未完成checkpoint或已知問題不能為方便pull先merge。approved仍是Human產品驗收，不由Codex或bot代寫。完整試玩回饋留原里程碑追蹤，下一完整milestone再以已整合main為基線。
 
+初次流程bootstrap僅允許已完整的workflow-only實作在同head独立PR檢查及Codex覆核通過後先部署預設分支，提供真實dispatch驗證；工程Issue保持開啟，端到端未確認不宣稱全體完成。這個必要啟用步驟不得夾帶未完成遊戲或規避已知問題，邊界見OPERATING_MODEL。
+
 ## 7. 部署狀態與通知
 
 本分支實作了續做、固定SHA驗證及收尾，離線通過不等於已部署／真實Action通過；必須合併到預設分支並作受控端到端驗證。GitHub留言不會自動喚醒本Work。舊heartbeat保持暫停，未重新核准啟動前不宣稱持續監控運作。

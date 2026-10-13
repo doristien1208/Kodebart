@@ -18,7 +18,7 @@ import {
   TransformOutput,
   TransformRowSnapshot,
 } from '../../../core/types';
-import { archivedRefusalStatus } from './record-status';
+import { adoptedRefusalStatus, sourceRefusalStatus } from './record-status';
 
 /**
  * 文件視窗（M1）的純函式 presenter：郵件附件與工作中開啟的文件共用。
@@ -141,11 +141,25 @@ function originText(row: TransformRowSnapshot): string {
   return WORKDAY_UI.valueOrigin[row.valueOrigin];
 }
 
-function attachmentText(row: TransformRowSnapshot): string {
+/**
+ * 附件欄（摘要、批次預覽、批次副本共用）：只列附件自己載明的名稱與證明範圍（對象寫在附件名稱與欄位裡，
+ * 由玩家對照採用編號自行判斷），當日不比對對象、不給警示。只有這一列實際引用的那個送件版本
+ * 已經正式核對、結果是退回時，才改列核對結果；不拿附件工作的最新版本重判舊批次。
+ */
+export function batchAttachmentText(row: TransformRowSnapshot, save: Save): string {
   if (row.heldForReview) return WORKDAY_UI.preserveMissing;
   if (!row.attachment) return WORKDAY_UI.evidence.none;
-  const mismatch = row.attachment.attachedKey !== row.recordKey;
-  return `${row.attachment.heading}（${mismatch ? WORKDAY_UI.evidence.mismatch : evidenceText(row.attachment.evidence)}）`;
+  const { taskId, versionIndex, heading, evidence } = row.attachment;
+  const returned =
+    taskId !== null && versionIndex !== null && checkOfVersion(attachmentProgressOf(save, taskId), versionIndex)?.outcome === 'returned';
+  return `${heading}（${returned ? WORKDAY_UI.evidence.mismatch : evidenceText(evidence)}）`;
+}
+
+/** 來源資料本身是否有拒絕紀錄欄：已歸檔讀提交快照，未歸檔讀內容檔；都找不到視為適用。 */
+function refusalAppliesOf(row: TransformRowSnapshot, save: Save, dir: DayDirectory): boolean {
+  const archived = save.batches[row.batchId]?.archived[row.recordKey];
+  if (archived) return archived.source.refusalApplies;
+  return dir.records(row.batchId).find((r) => r.key === row.recordKey)?.refusalApplies ?? true;
 }
 
 /** 批次的 JSON：輸入（來源＋採用＋附件）、規則（缺漏策略）、輸出（逐列）。鍵為技術名稱，值保留型別。 */
@@ -154,7 +168,8 @@ function batchJson(out: TransformOutput, policyLabel: string): BatchJsonView {
     row: r.id.replace(/^row\./, ''),
     personnelCode: r.adoptedCode,
     sourceCode: r.sourceCode,
-    refusal: r.sourceRefusal,
+    sourceRefusal: r.sourceRefusal,
+    adoptedRefusal: r.adoptedRefusal,
     attachment: r.attachment ? { document: r.attachment.heading, evidence: evidenceText(r.attachment.evidence), subject: r.attachment.attachedCode } : null,
   }));
   const rule = { missingReply: policyLabel, keepSourceValue: true };
@@ -167,21 +182,26 @@ function batchJson(out: TransformOutput, policyLabel: string): BatchJsonView {
   return { input: JSON.stringify(input, null, 2), rule: JSON.stringify(rule, null, 2), output: JSON.stringify(output, null, 2) };
 }
 
-function batchRows(out: TransformOutput): BatchRowView[] {
-  return out.rows.map((r) => ({
+/**
+ * 批次的一列（摘要、批次預覽、批次副本共用）：來源、採用、輸出是三件事——
+ * 來源欄是來源資料本身（缺漏＝未提供）；採用欄是玩家歸檔時保存的決定（依規則補登／送覆核）；
+ * 輸出欄只描述本次轉換的結果。changed 比較輸出值與該列保存的採用值（來源→採用的差異留在各自欄位）。
+ */
+export function batchRowView(r: TransformRowSnapshot, save: Save, dir: DayDirectory): BatchRowView {
+  return {
     id: r.id,
     code: r.adoptedCode ?? '',
     codeDiffers: r.adoptedCode !== null && r.sourceCode !== null && r.adoptedCode !== r.sourceCode,
     sourceCode: r.sourceCode ?? '',
-    source: refusalText(r.sourceRefusal),
-    adopted: r.adoptedOrigin === null ? '' : archivedRefusalStatus({ refusal: r.adoptedRefusal, origin: r.adoptedOrigin }),
+    source: sourceRefusalStatus({ refusal: r.sourceRefusal, refusalApplies: refusalAppliesOf(r, save, dir) }),
+    adopted: r.adoptedOrigin === null ? '' : adoptedRefusalStatus({ refusal: r.adoptedRefusal, origin: r.adoptedOrigin }),
     output: refusalText(r.value),
-    changed: r.value !== r.sourceRefusal,
+    changed: r.value !== r.adoptedRefusal,
     origin: originText(r),
-    attachment: attachmentText(r),
+    attachment: batchAttachmentText(r, save),
     status: WORKDAY_UI.rowStatus[r.status],
     pending: r.status === 'pending',
-  }));
+  };
 }
 
 function batchCounts(out: TransformOutput): DocumentField[] {
@@ -219,7 +239,7 @@ export function workDocumentView(
         { label: WORKDAY_UI.adopted, value: a.archiveCode },
         { label: WORKDAY_UI.source, value: a.source.code },
       ];
-      if (a.source.refusalApplies) fields.push({ label: WORKDAY_UI.columns.value, value: archivedRefusalStatus(a) });
+      if (a.source.refusalApplies) fields.push({ label: WORKDAY_UI.columns.value, value: adoptedRefusalStatus(a) });
       if (a.caseDecision) {
         const basis = documentOf(a.caseDecision.basisDocumentId);
         fields.push({ label: CASE_REVIEW_UI.basisLabel, value: basis?.text.heading ?? '' });
@@ -260,7 +280,7 @@ export function workDocumentView(
         kind: 'batch',
         heading: taskHeadingSafe(ref.taskId),
         preview: ref.kind === 'batch-preview' && !p.submitted,
-        rows: batchRows(out),
+        rows: out.rows.map((r) => batchRowView(r, save, dir)),
         json: batchJson(out, policyLabel),
         legend: refusalLegend(),
         counts: batchCounts(out),

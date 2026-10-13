@@ -1,11 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { taskHeading } from '../../../content/bundle';
-import { FIELD_MAP_UI, WORKDAY_UI } from '../../../content/text';
+import { ALL_DOCUMENTS, taskHeading } from '../../../content/bundle';
+import { FIELD_MAP_UI, RECORD_STATUS, WORKDAY_UI } from '../../../content/text';
+import { DAY_DIRECTORY } from '../../../state/day-directory';
 import { GameStateService } from '../../../state/game-state.service';
 import { WorkOperationsService } from '../../../state/work-operations.service';
 import { MailAttachmentService } from '../../mail/services/mail-attachment.service';
-import { CONTENT_LABELS } from '../../shared/presenters/work-document';
+import { CONTENT_LABELS, workDocumentView } from '../../shared/presenters/work-document';
 import { M1_SAVE_A, M1_SAVE_B, M1Choices, instantOperations, playM1To, playM1UntilKind, settle } from '../../testing/play';
 import { TransformWorkComponent } from './transform-work.component';
 
@@ -16,6 +17,11 @@ import { TransformWorkComponent } from './transform-work.component';
 
 const TRANSFORM_D4 = 'task.day4.m1-transform';
 const INTERNAL = /task\.|record\.|doc\.|batch\.|day\.0|mail\.|\b(true|false|null|undefined)\b/;
+
+function DOC_0521_HEADING(): string {
+  const doc = ALL_DOCUMENTS.find((d) => d.id === 'doc.day4.m1-0521-reply');
+  return doc?.kind === 'case-source' ? doc.text.heading : '?';
+}
 
 function boot(): GameStateService {
   localStorage.clear();
@@ -62,18 +68,39 @@ function choose(f: ComponentFixture<TransformWorkComponent>, policy: string): vo
 describe('TransformWorkComponent（M1 批次轉換）', () => {
   afterEach(() => localStorage.clear());
 
-  it('輸入表讀保存的資料：Save A 的 0314 列顯示採用的 0341 與 0521 附件（對象不符）；不含內部 ID', () => {
+  it('輸入表讀保存的資料：Save A 的 0314 列顯示採用的 0341 與 0521 附件本身（當日不提示對象不符）；不含內部 ID', () => {
     toTransform(M1_SAVE_A);
     const f = render();
     expect(text(el(f).querySelector('h3'))).toBe(taskHeading(TRANSFORM_D4));
     const rows = Array.from(el(f).querySelectorAll('[data-transform-row]')).map((r) => r.getAttribute('data-transform-row'));
     expect(rows).toEqual(['0341', '0521', '0716']);
-    expect(text(el(f).querySelector('[data-transform-row="0341"]'))).toContain(WORKDAY_UI.evidence.mismatch);
+    expect(text(el(f).querySelector('[data-transform-row="0341"] [data-transform-attachment]'))).toBe(`${DOC_0521_HEADING()}（${WORKDAY_UI.evidence.reply}）`);
+    expect(el(f).textContent ?? '').not.toContain(WORKDAY_UI.evidence.mismatch);
     expect(el(f).querySelector('[data-transform-counts]')).toBeNull();
     expect(el(f).querySelector<HTMLButtonElement>('[data-transform-execute]')?.disabled).toBeTrue();
     expect(el(f).querySelector<HTMLButtonElement>('[data-deliver]')?.disabled).toBeTrue();
     expect(el(f).textContent ?? '').not.toMatch(INTERNAL);
   });
+
+  for (const [name, c] of [
+    ['Save A', M1_SAVE_A],
+    ['Save B', M1_SAVE_B],
+  ] as const) {
+    it(`${name}：摘要的來源／採用／附件欄與批次預覽同一個列 presenter（來源缺漏＝未提供，不叫未確認）`, () => {
+      const game = toTransform(c);
+      game.setTransformPolicy(c.transform);
+      const f = render();
+      const save = game.save();
+      const v = save ? workDocumentView({ kind: 'batch-preview', taskId: TRANSFORM_D4 }, save, DAY_DIRECTORY, CONTENT_LABELS) : null;
+      if (v?.kind !== 'batch') throw new Error('沒有批次預覽');
+      const cells = (sel: string) => Array.from(el(f).querySelectorAll(`[data-transform-row] ${sel}`)).map((d) => text(d));
+      expect(cells('[data-transform-source]')).toEqual(v.rows.map((r) => r.source));
+      expect(cells('[data-transform-adopted]')).toEqual(v.rows.map((r) => r.adopted));
+      expect(cells('[data-transform-attachment]')).toEqual(v.rows.map((r) => r.attachment));
+      expect(cells('[data-transform-source]')).not.toContain(RECORD_STATUS.unconfirmed);
+      expect(el(f).textContent ?? '').not.toMatch(INTERNAL);
+    });
+  }
 
   it('有缺漏沒選策略 → 預覽提示需要處理方式；選策略後預覽在文件視窗開啟，兩種策略的數量不同', () => {
     const game = toTransform(M1_SAVE_B);

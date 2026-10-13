@@ -6,7 +6,8 @@ import { GameStateService } from '../../../state/game-state.service';
 import { WorkOperationsService } from '../../../state/work-operations.service';
 import { MailAttachmentService } from '../../mail/services/mail-attachment.service';
 import { OperationStatusComponent } from '../../shared/operation-status/operation-status.component';
-import { DocumentRef, refusalText } from '../../shared/presenters/work-document';
+import { DocumentRef, batchRowView } from '../../shared/presenters/work-document';
+import { DAY_DIRECTORY } from '../../../state/day-directory';
 import { WorkDeliveryService } from '../../workbench/services/work-delivery.service';
 
 /**
@@ -44,20 +45,15 @@ export class TransformWorkComponent {
   protected readonly missing = computed(() => this.game.transformMissing(this.taskId()));
   protected readonly submitted = computed(() => this.progress().submitted ?? null);
 
-  /** 輸入列（摘要表）：人員編號（採用）、來源回覆欄、附件。 */
-  protected readonly rows = computed(() =>
-    (this.display()?.rows ?? []).map((r) => ({
-      id: r.id,
-      code: r.adoptedCode ?? '',
-      source: refusalText(r.sourceRefusal),
-      attachment: r.heldForReview
-        ? this.ui.preserveMissing
-        : r.attachment
-          ? `${r.attachment.heading}（${r.attachment.attachedKey !== r.recordKey ? this.ui.evidence.mismatch : this.ui.evidence[r.attachment.evidence]}）`
-          : this.ui.evidence.none,
+  /** 輸入列（摘要表）：人員編號（採用）、來源回覆欄、採用回覆欄、附件——與批次預覽／副本共用同一個列 presenter。 */
+  protected readonly rows = computed(() => {
+    const save = this.game.save();
+    if (!save) return [];
+    return (this.display()?.rows ?? []).map((r) => ({
+      ...batchRowView(r, save, DAY_DIRECTORY),
       missing: r.valueOrigin === 'held' || r.valueOrigin === 'policy',
-    })),
-  );
+    }));
+  });
 
   /** 已預覽（或已交付）時的數量摘要。 */
   protected readonly counts = computed(() => {

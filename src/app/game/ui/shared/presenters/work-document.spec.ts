@@ -1,13 +1,24 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { ALL_DOCUMENTS, taskHeading } from '../../../content/bundle';
-import { CASE_REVIEW_UI, MAIL_UI, RECORD_STATUS, WORKDAY_UI, attachmentVersionLabel, legendText } from '../../../content/text';
-import { Save } from '../../../core/types';
+import { ARCHIVE_UI, CASE_REVIEW_UI, MAIL_UI, RECORD_STATUS, WORKDAY_UI, attachmentVersionLabel, legendText } from '../../../content/text';
+import { Save, TransformRowSnapshot } from '../../../core/types';
 import { DAY_DIRECTORY } from '../../../state/day-directory';
 import { GameStateService } from '../../../state/game-state.service';
 import { WorkOperationsService } from '../../../state/work-operations.service';
 import { M1_SAVE_A, M1_SAVE_B, instantOperations, playM1To, playM1UntilKind } from '../../testing/play';
-import { CONTENT_LABELS, DocumentRef, WorkDocumentView, documentTitle, refusalLegend, refusalText, workDocumentView } from './work-document';
+import { sourceRefusalStatus } from './record-status';
+import {
+  CONTENT_LABELS,
+  DocumentRef,
+  WorkDocumentView,
+  batchAttachmentText,
+  batchRowView,
+  documentTitle,
+  refusalLegend,
+  refusalText,
+  workDocumentView,
+} from './work-document';
 
 /**
  * 文件視窗 presenter（M1 §1）：來源原件、送件副本、附件關聯版本、批次 input／rule／output。
@@ -206,5 +217,153 @@ describe('work-document presenter（M1 文件視窗）', () => {
       RECORD_STATUS.notRefused,
       RECORD_STATUS.unconfirmed,
     ]);
+  });
+});
+
+describe('批次列 presenter（R1 附件當日不揭露／R2 來源・採用・輸出分開／R4 changed）', () => {
+  afterEach(() => localStorage.clear());
+
+  const REVIEW_ADOPTED = `${RECORD_STATUS.unconfirmed}（${ARCHIVE_UI.methodReview}）`;
+  const claimed0521 = (): string => `${headingOf(DOC_0521_REPLY)}（${WORKDAY_UI.evidence.reply}）`;
+  const returned0521 = (): string => `${headingOf(DOC_0521_REPLY)}（${WORKDAY_UI.evidence.mismatch}）`;
+
+  function toTransform(c: typeof M1_SAVE_A): GameStateService {
+    const game = newGame();
+    playM1To(game, 'day.04', c);
+    playM1UntilKind(game, 'transform', c);
+    return game;
+  }
+
+  function batch(game: GameStateService, ref: DocumentRef): Extract<WorkDocumentView, { kind: 'batch' }> {
+    const v = view(game, ref);
+    if (v.kind !== 'batch') throw new Error(`不是批次：${v.kind}`);
+    return v;
+  }
+
+  function row0341(v: Extract<WorkDocumentView, { kind: 'batch' }>): string | undefined {
+    return v.rows.find((r) => r.code === '0341')?.attachment;
+  }
+
+  it('R1 當日未核對：預覽與當日交付的批次副本只列附件名稱與證明範圍，沒有對象不符；錯附件照常送件、傳到下游', () => {
+    const game = toTransform(M1_SAVE_A);
+    game.setTransformPolicy('departmentDefault');
+    expect(game.previewTransform()).toBeTrue();
+    const preview = batch(game, { kind: 'batch-preview', taskId: TRANSFORM_D4 });
+    expect(row0341(preview)).toBe(claimed0521());
+    expect(visible(preview)).not.toContain(WORKDAY_UI.evidence.mismatch);
+
+    expect(game.submitTransformStrict()).toBe('ok');
+    const copy = batch(game, { kind: 'batch-output', taskId: TRANSFORM_D4 });
+    expect(row0341(copy)).toBe(claimed0521());
+    expect(visible(copy)).not.toContain(WORKDAY_UI.evidence.mismatch);
+    expect(copy.rows.find((r) => r.code === '0341')?.origin).toBe(WORKDAY_UI.valueOrigin.reply);
+  });
+
+  it('R1 隔日正式核對才顯示退回；修訂不覆寫舊批次副本，新版本核對相符也不拿來重判舊批次', () => {
+    const game = newGame();
+    playM1To(game, 'day.05', M1_SAVE_A);
+    const ref: DocumentRef = { kind: 'batch-output', taskId: TRANSFORM_D4 };
+    expect(game.attachmentProgress(ATTACH_D4).checks).toEqual([jasmine.objectContaining({ versionIndex: 0, outcome: 'returned' })]);
+    expect(row0341(batch(game, ref))).toBe(returned0521());
+
+    expect(game.reviseAttachmentStrict(ATTACH_D4, 0, { choiceId: 'reference', documentId: DOC_0314_WINDOW })).toBe('ok');
+    expect(row0341(batch(game, ref))).toBe(returned0521());
+
+    playM1To(game, 'day.06', M1_SAVE_A);
+    expect(game.attachmentProgress(ATTACH_D4).checks).toContain(jasmine.objectContaining({ versionIndex: 1, outcome: 'resolved' }));
+    expect(row0341(batch(game, ref))).toBe(returned0521());
+    expect(game.transformProgress(TRANSFORM_D4).submitted?.rows.find((r) => r.adoptedCode === '0341')?.attachment?.versionIndex).toBe(0);
+  });
+
+  it('R1 版本分離：引用已退回版本的列顯示核對結果；引用尚未核對的新版本、或內容附件的列只列附件本身', () => {
+    const game = newGame();
+    playM1To(game, 'day.05', M1_SAVE_A);
+    expect(game.reviseAttachmentStrict(ATTACH_D4, 0, { choiceId: 'reference', documentId: DOC_0521_REPLY })).toBe('ok');
+    const save = saveOf(game);
+    const old = game.transformProgress(TRANSFORM_D4).submitted?.rows.find((r) => r.adoptedCode === '0341');
+    if (!old?.attachment) throw new Error('沒有 0341 的附件列');
+    expect(batchAttachmentText(old, save)).toBe(returned0521());
+    expect(batchAttachmentText({ ...old, attachment: { ...old.attachment, versionIndex: 1 } }, save)).toBe(claimed0521());
+    expect(batchAttachmentText({ ...old, attachment: { ...old.attachment, taskId: null, versionIndex: null } }, save)).toBe(claimed0521());
+    expect(batchAttachmentText({ ...old, attachment: null, heldForReview: true }, save)).toBe(WORKDAY_UI.preserveMissing);
+    expect(batchAttachmentText({ ...old, attachment: null }, save)).toBe(WORKDAY_UI.evidence.none);
+  });
+
+  for (const [name, c, origin, adopted] of [
+    ['Save A（部門預設歸檔）', M1_SAVE_A, 'defaulted', RECORD_STATUS.defaultedNotRefused],
+    ['Save B（保留缺漏送覆核）', M1_SAVE_B, 'review', REVIEW_ADOPTED],
+  ] as const) {
+    it(`R2 ${name}：來源缺漏＝未提供、採用欄依保存決定、輸出欄依本次策略；與來源卡、送件副本同一套字`, () => {
+      const game = toTransform(c);
+      for (const policy of ['departmentDefault', 'review'] as const) {
+        game.setTransformPolicy(policy);
+        const out = game.transformDisplay(TRANSFORM_D4);
+        const v = batch(game, { kind: 'batch-preview', taskId: TRANSFORM_D4 });
+        const missing = (out?.rows ?? []).filter((r) => r.sourceRefusal === null && r.adoptedOrigin !== null && r.adoptedOrigin !== 'source' && r.valueOrigin !== 'reply');
+        if (c === M1_SAVE_B) expect(missing.length).toBeGreaterThan(0);
+        for (const r of missing) {
+          const shown = v.rows.find((x) => x.id === r.id);
+          expect(r.adoptedOrigin).toBe(origin);
+          expect(shown?.source).toBe(RECORD_STATUS.missing);
+          expect(shown?.adopted).toBe(adopted);
+          expect(shown?.output).toBe(policy === 'departmentDefault' ? RECORD_STATUS.notRefused : RECORD_STATUS.unconfirmed);
+          const record = DAY_DIRECTORY.records(r.batchId).find((x) => x.key === r.recordKey);
+          expect(record ? sourceRefusalStatus(record) : '').toBe(RECORD_STATUS.missing);
+          const copy = view(game, { kind: 'archive-copy', batchId: r.batchId, recordKey: r.recordKey });
+          expect(copy.kind === 'copy' ? copy.fields.find((f) => f.label === WORKDAY_UI.columns.value)?.value : '').toBe(adopted);
+        }
+        expect(v.rows.map((x) => x.source)).not.toContain(RECORD_STATUS.unconfirmed);
+      }
+    });
+  }
+
+  it('R2 來源拒絕紀錄：true／false 為已拒絕／未拒絕、null 為未提供、不適用保留不適用', () => {
+    const game = toTransform(M1_SAVE_B);
+    game.setTransformPolicy('review');
+    const save = saveOf(game);
+    const base = game.transformDisplay(TRANSFORM_D4)?.rows[0];
+    if (!base) throw new Error('沒有批次列');
+    const source = (o: Partial<TransformRowSnapshot>): string => batchRowView({ ...base, ...o }, save, DAY_DIRECTORY).source;
+    expect(source({ sourceRefusal: true })).toBe(RECORD_STATUS.refused);
+    expect(source({ sourceRefusal: false })).toBe(RECORD_STATUS.notRefused);
+    expect(source({ sourceRefusal: null })).toBe(RECORD_STATUS.missing);
+    const b = save.batches[base.batchId];
+    if (!b) throw new Error('沒有批次');
+    const entry = { archiveCode: '1', refusal: null, origin: 'source' as const, source: { name: null, code: '1', refusal: null, refusalApplies: false } };
+    const notApplicable: Save = { ...save, batches: { ...save.batches, [base.batchId]: { ...b, archived: { ...b.archived, [base.recordKey]: entry } } } };
+    expect(batchRowView({ ...base, sourceRefusal: null }, notApplicable, DAY_DIRECTORY).source).toBe(RECORD_STATUS.notApplicable);
+  });
+
+  it('R4 changed 比較輸出值與保存的採用值（不比來源）；表格與 JSON 同一個基準', () => {
+    const game = toTransform(M1_SAVE_B);
+    game.setTransformPolicy('review');
+    const save = saveOf(game);
+    const base = game.transformDisplay(TRANSFORM_D4)?.rows[0];
+    if (!base) throw new Error('沒有批次列');
+    const cases: [string, Partial<TransformRowSnapshot>, boolean][] = [
+      ['來源 null／採用 false／輸出 false', { sourceRefusal: null, adoptedRefusal: false, adoptedOrigin: 'defaulted', value: false, valueOrigin: 'policy', status: 'delivered' }, false],
+      ['來源 null／採用 false／輸出 null', { sourceRefusal: null, adoptedRefusal: false, adoptedOrigin: 'defaulted', value: null, valueOrigin: 'held', status: 'pending' }, true],
+      ['來源 null／採用 null（送覆核）／輸出 null', { sourceRefusal: null, adoptedRefusal: null, adoptedOrigin: 'review', value: null, valueOrigin: 'held', status: 'pending' }, false],
+      ['來源 null／採用 null（送覆核）／輸出 false', { sourceRefusal: null, adoptedRefusal: null, adoptedOrigin: 'review', value: false, valueOrigin: 'policy', status: 'delivered' }, true],
+      ['採用 true／輸出 true', { sourceRefusal: true, adoptedRefusal: true, adoptedOrigin: 'source', value: true, valueOrigin: 'source', status: 'delivered' }, false],
+      ['採用 true／輸出 false', { sourceRefusal: true, adoptedRefusal: true, adoptedOrigin: 'source', value: false, valueOrigin: 'reply', status: 'delivered' }, true],
+      ['採用 false／輸出 true', { sourceRefusal: false, adoptedRefusal: false, adoptedOrigin: 'source', value: true, valueOrigin: 'reply', status: 'delivered' }, true],
+      ['採用 false／輸出 false', { sourceRefusal: false, adoptedRefusal: false, adoptedOrigin: 'source', value: false, valueOrigin: 'source', status: 'delivered' }, false],
+      ['無採用資料', { adoptedCode: null, adoptedRefusal: null, adoptedOrigin: null, value: null, valueOrigin: 'held', status: 'pending' }, false],
+    ];
+    for (const [label, o, changed] of cases) {
+      const v = batchRowView({ ...base, ...o }, save, DAY_DIRECTORY);
+      expect(v.changed).withContext(label).toBe(changed);
+      expect(v.adopted === '').withContext(label).toBe(o.adoptedOrigin === null);
+    }
+
+    for (const policy of ['departmentDefault', 'review'] as const) {
+      game.setTransformPolicy(policy);
+      const v = batch(game, { kind: 'batch-preview', taskId: TRANSFORM_D4 });
+      const input = JSON.parse(v.json.input) as { sourceRefusal: boolean | null; adoptedRefusal: boolean | null }[];
+      const output = JSON.parse(v.json.output) as { refusal: boolean | null }[];
+      expect(v.rows.map((r) => r.changed)).toEqual(input.map((r, i) => r.adoptedRefusal !== output[i]?.refusal));
+      expect(input.every((r) => 'sourceRefusal' in r && 'adoptedRefusal' in r)).toBeTrue();
+    }
   });
 });

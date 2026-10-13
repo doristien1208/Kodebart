@@ -1,4 +1,4 @@
-import { RECORD_STATUS } from '../../../content/text';
+import { ARCHIVE_UI, RECORD_STATUS } from '../../../content/text';
 import { Origin } from '../../../core/types';
 
 /**
@@ -32,4 +32,12 @@ export function archivedRefusalStatus(result: { refusal: boolean | null; origin:
       if (result.refusal === false) return RECORD_STATUS.sourceNotRefused;
       return RECORD_STATUS.notApplicable;
   }
+}
+
+/**
+ * 玩家採用（歸檔保存）的決定（M1 批次的採用欄、送件副本）：依保存的 origin／refusal，
+ * 補登與送覆核分開標示——defaulted → 未拒絕（依規則補登）；review → 未確認（送資料覆核）；其餘同 archivedRefusalStatus。
+ */
+export function adoptedRefusalStatus(result: { refusal: boolean | null; origin: Origin }): string {
+  return result.origin === 'review' ? `${RECORD_STATUS.unconfirmed}（${ARCHIVE_UI.methodReview}）` : archivedRefusalStatus(result);
 }

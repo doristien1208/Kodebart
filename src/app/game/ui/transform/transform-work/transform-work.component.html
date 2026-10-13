@@ -14,6 +14,7 @@
             <tr>
               <th scope="col">{{ ui.columns.code }}</th>
               <th scope="col">{{ ui.source }}</th>
+              <th scope="col">{{ ui.adopted }}</th>
               <th scope="col">{{ ui.columns.attachment }}</th>
             </tr>
           </thead>
@@ -21,8 +22,9 @@
             @for (r of rows(); track r.id) {
               <tr [attr.data-transform-row]="r.code" [class.tw-missing]="r.missing">
                 <td class="font-mono">{{ r.code }}</td>
-                <td>{{ r.source }}</td>
-                <td>{{ r.attachment }}</td>
+                <td data-transform-source>{{ r.source }}</td>
+                <td data-transform-adopted>{{ r.adopted }}</td>
+                <td data-transform-attachment>{{ r.attachment }}</td>
               </tr>
             }
           </tbody>

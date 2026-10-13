@@ -55,6 +55,7 @@ export function evaluateIssueGuard(input) {
   if (!WRITE_PERMISSIONS.includes(actorPermission)) return reject('actor', '加上 claude-ready 的帳號沒有 repository write 權限。');
   if (issueState !== 'open') return reject('closed', 'Issue 已關閉。');
   if (labels.includes('approved')) return reject('approved', 'Issue 已標記 approved，不再派發。');
+  if (labels.includes('revision-requested')) return reject('revision', 'Human 的 revision-requested 尚未移除；不得默默重新執行或清除此要求。');
   if (labels.includes('agent-working')) return reject('active', '這張 Issue 已有 agent-working（執行中或鎖未釋放），不重複執行。');
   if (labels.includes('human-review')) return reject('review', '這張 Issue 已在 human-review，需由 Human 決定後再重新派發。');
   if (runAttempt !== 1) return reject('rerun', '不支援重跑同一個 run；需要重新執行時請由 Human 重新加上 claude-ready。');
@@ -88,11 +89,36 @@ export function evaluateVerifyOnlyGuard(input) {
 }
 
 /**
- * 確認本輪分支：Action 輸出（若有）必須等於固定名稱；輸出缺失時以固定名稱為準。
- * @param {{ issue: unknown, runId: unknown, actionBranch?: string }} input
+ * 同案續做只接受原 Issue 的同 repo、open PR、固定 branch/head；手動派發是一次授權。
+ * @param {{ actorPermission: string, ref: string, defaultBranch: string, repo: string, issue: unknown,
+ * issueState: string | null, isPullRequest: boolean, labels: string[], activeRuns: number, runAttempt: number,
+ * pr: { state: string, merged: boolean, headRepo: string, baseRepo: string, base: string, branch: string, sha: string, body: string } | null,
+ * inputSha: string, branchSha: string | null, remaining: string }} input
  */
-export function checkRunBranch({ issue, runId, actionBranch = '' }) {
-  const expected = expectedBranch(issue, runId);
+export function evaluateResumeGuard(input) {
+  const { pr, issue, labels } = input;
+  if (!WRITE_PERMISSIONS.includes(input.actorPermission)) return reject('actor', '續做啟動者沒有 write 權限。');
+  if (input.ref !== `refs/heads/${input.defaultBranch}`) return reject('ref', '續做只能從預設分支的可信 workflow 啟動。');
+  if (!parseIssueNumber(issue) || input.isPullRequest || input.issueState !== 'open') return reject('issue', '原 Issue 不存在或已關閉。');
+  if (labels.includes('approved')) return reject('approved', '原 Issue 已 approved。');
+  if (labels.includes('revision-requested')) return reject('revision', 'Human 必須先移除 revision-requested。');
+  if (labels.includes('agent-working') || input.activeRuns > 0) return reject('active', '同案仍有執行鎖或 active／queued run。');
+  if (input.runAttempt !== 1) return reject('rerun', '一次授權一次執行；不可重跑同一 run。');
+  if (!pr || pr.state !== 'open' || pr.merged) return reject('pr', 'PR 必須存在、未合併且開啟。');
+  if (pr.headRepo !== input.repo || pr.baseRepo !== input.repo || pr.base !== input.defaultBranch) return reject('fork', '不接受 fork、其他 repo 或非預設 base。');
+  if (!isIssueBranch(pr.branch, issue)) return reject('branch', 'PR 分支不屬於原 Issue。');
+  if (!pr.body.split('\n').some(line => line.trim() === `Refs #${parseIssueNumber(issue)}`)) return reject('link', 'PR 必須以獨立一行 Refs #編號連結原 Issue。');
+  if (!isSha(input.inputSha) || pr.sha !== input.inputSha || input.branchSha !== input.inputSha) return reject('stale', '指定 SHA 不再是 PR 與遠端 branch 的 head。');
+  if (!input.remaining.trim() || input.remaining.length > 8000) return reject('remaining', '必須提供具體 Remaining（上限 8000 字元）。');
+  return PROCEED;
+}
+
+/**
+ * 確認本輪分支：Action 輸出（若有）必須等於固定名稱；續做使用 guard 已核對的原分支。
+ * @param {{ issue: unknown, runId: unknown, actionBranch?: string, resumeBranch?: string }} input
+ */
+export function checkRunBranch({ issue, runId, actionBranch = '', resumeBranch = '' }) {
+  const expected = resumeBranch ? (isIssueBranch(resumeBranch, issue) ? resumeBranch : null) : expectedBranch(issue, runId);
   if (!expected) return { ok: false, branch: '', reason: '無法由 Issue 編號與 run id 確定本輪分支。' };
   if (actionBranch && actionBranch !== expected) {
     return { ok: false, branch: '', reason: `Action 回報的分支（${actionBranch}）不是本輪預期的 ${expected}；不回收不確定的分支。` };
@@ -103,11 +129,12 @@ export function checkRunBranch({ issue, runId, actionBranch = '' }) {
 /**
  * 模型停止原因：max_turns、timeout、environment、unknown；正常結束為 none。只依據實際證據，不推測完成程度。
  * @param {{ stepOutcome?: string, actionConclusion?: string, execPresent?: boolean, execSubtype?: string,
- *   jobConclusion?: string, jobMinutes?: number | null, timeoutMinutes?: number }} input
+ *   jobConclusion?: string, jobMinutes?: number | null, timeoutMinutes?: number, execTurns?: string }} input
  */
 export function classifyStop(input) {
   const { stepOutcome = '', actionConclusion = '', execPresent = false, execSubtype = '', jobConclusion = '', jobMinutes = null, timeoutMinutes = JOB_TIMEOUT_MINUTES } = input;
   if (execSubtype === 'error_max_turns') return { reason: 'max_turns', detail: '達到回合上限（error_max_turns）' };
+  if (/^[0-9]+$/.test(input.execTurns ?? '') && Number(input.execTurns) > 80) return { reason: 'max_turns', detail: `SDK 回報 ${input.execTurns} turns，超過既有80回合上限；保留成果但不能視為正常完成。` };
   if (jobConclusion === 'timed_out') return { reason: 'timeout', detail: `job 逾時（${timeoutMinutes} 分鐘上限）` };
   const interrupted = stepOutcome === 'cancelled' || jobConclusion === 'cancelled' || (stepOutcome === '' && jobConclusion === 'failure');
   if (interrupted && jobMinutes !== null && jobMinutes >= timeoutMinutes - 1) {
@@ -258,8 +285,9 @@ export function evaluateVerification(verification, sha) {
 
 /** @type {Record<string, string>} */
 export const NEXT_STEPS = {
+  'pr-unavailable': '成果及驗證仍保留；請 Human／受委任的 Codex 修復或建立 PR，不能視為可合併的完整交付。',
   complete: '等待 Human Review；workflow 不會 approved、合併、關閉 Issue 或派發下一張 Issue。',
-  checkpoint: 'Human 決定：審查 draft PR、用 verify-only 入口驗證固定 SHA，或另開續做 Issue（PR 續做入口 B 尚未實作）。',
+  checkpoint: 'Human／受委任的 Codex 覆核後，指定原 Issue／PR／當前固定 head／Remaining，用同案續做入口沿原分支繼續，不重新加 ready 開新分支。',
   'validation-failed': '必跑檢查沒有全部通過；Human 決定修正方式，不能視為完成。',
   pending: '必跑檢查沒有完成（pending）；Human 可用 verify-only 入口對固定 SHA 重新驗證。',
   'stale-head': 'branch head 在驗證後變更，檢查結果不適用；Human 可用 verify-only 入口對新的 head 驗證。',
@@ -347,6 +375,7 @@ export function evaluateBackstop({ jobs, issueState, labels, otherActiveRuns }) 
 
 /** @type {Record<string, string>} */
 const STATUS_TEXT = {
+  'pr-unavailable': 'PR 建立／ready 失敗（成果已保留）',
   complete: '完整交付，必跑檢查在同一 SHA 通過',
   checkpoint: '未完成（checkpoint）',
   'validation-failed': '必跑檢查沒有全部通過',
@@ -432,6 +461,6 @@ export function renderPrBody({ issue, branch, sha, runUrl, mode }) {
     `- 建立時的固定 SHA：\`${sha}\``,
     `- 建立者：${mode === 'verify-only' ? 'verify-only 入口' : mode === 'backstop' ? 'workflow_run 補收尾' : 'claude.yml 收尾'}（${runUrl}）`,
     '- 完整的收尾報告（檢查結果、Stop reason、Next step）在原 Issue 留言。',
-    '- 這個 PR 由 workflow 建立；核准與合併只由 Human 決定。',
+    '- 這個 PR 由 workflow 建立；完整工程交付由 Human 或已記錄委任的 Codex 覆核整合。approved／遊戲試玩驗收仍只由 Human 決定。',
   ].join('\n');
 }

@@ -67,6 +67,13 @@ export function createGitHub({ token, repo, apiUrl = 'https://api.github.com', g
       const data = await call('GET', `/repos/${repo}/pulls?state=open&per_page=10&head=${encodeURIComponent(`${owner}:${branch}`)}`);
       return data.length > 0 ? toPr(data[0]) : null;
     },
+    /** @param {number} number */
+    async pull(number) {
+      const data = await call('GET', `/repos/${repo}/pulls/${number}`, undefined, true);
+      return data ? { ...toPr(data), state: String(data.state), merged: Boolean(data.merged),
+        headRepo: String(data.head?.repo?.full_name ?? ''), baseRepo: String(data.base?.repo?.full_name ?? ''),
+        base: String(data.base?.ref ?? ''), branch: String(data.head?.ref ?? ''), sha: String(data.head?.sha ?? ''), body: String(data.body ?? '') } : null;
+    },
     /** @param {string} branch @returns {Promise<string | null>} */
     async branchHead(branch) {
       const data = await call('GET', `/repos/${repo}/git/ref/heads/${encodeRef(branch)}`, undefined, true);
@@ -89,6 +96,12 @@ export function createGitHub({ token, repo, apiUrl = 'https://api.github.com', g
     /** @param {string} nodeId */
     async markReady(nodeId) {
       const query = 'mutation($id: ID!) { markPullRequestReadyForReview(input: { pullRequestId: $id }) { pullRequest { isDraft } } }';
+      const data = await call('POST', graphqlUrl, { query, variables: { id: nodeId } });
+      if (data?.errors) throw new Error(JSON.stringify(data.errors).slice(0, 300));
+    },
+    /** @param {string} nodeId */
+    async markDraft(nodeId) {
+      const query = 'mutation($id: ID!) { convertPullRequestToDraft(input: { pullRequestId: $id }) { pullRequest { isDraft } } }';
       const data = await call('POST', graphqlUrl, { query, variables: { id: nodeId } });
       if (data?.errors) throw new Error(JSON.stringify(data.errors).slice(0, 300));
     },
@@ -201,7 +214,40 @@ function jobMinutes(job) {
 async function countOtherActiveRuns(gh, issue, selfRunId) {
   const titles = [`claude-issue-${issue}`, `verify-only-issue-${issue}`];
   const runs = await gh.activeRuns();
-  return runs.filter((run) => String(run.id) !== String(selfRunId) && titles.includes(run.display_title)).length;
+  return runs.filter((run) => String(run.id) !== String(selfRunId) && (titles.includes(run.display_title) || run.display_title.startsWith(`claude-resume-issue-${issue}-pr-`))).length;
+}
+
+/** 手動續做：使用可信 tooling 檢查固定 PR/head，保留同案分支，不清除 Human 修改要求。 @param {Context} context */
+export async function resumeGuard({ env, gh, out }) {
+  const issue = requireIssue(env.INPUT_ISSUE);
+  const prNumber = requireIssue(env.INPUT_PR, 'INPUT_PR');
+  const [permission, info, pr] = await Promise.all([gh.permission(env.ACTOR ?? ''), gh.issue(issue), gh.pull(prNumber)]);
+  const branchSha = pr && flow.isIssueBranch(pr.branch, issue) ? await gh.branchHead(pr.branch) : null;
+  const verdict = flow.evaluateResumeGuard({ actorPermission: permission, ref: env.GITHUB_REF ?? '',
+    defaultBranch: env.DEFAULT_BRANCH ?? 'main', repo: env.GITHUB_REPOSITORY ?? '', issue,
+    issueState: info?.state ?? null, isPullRequest: Boolean(info?.isPullRequest), labels: info?.labels ?? [],
+    activeRuns: await countOtherActiveRuns(gh, issue, env.GITHUB_RUN_ID), runAttempt: Number(env.GITHUB_RUN_ATTEMPT ?? '1'),
+    pr, inputSha: env.INPUT_SHA ?? '', branchSha, remaining: env.INPUT_REMAINING ?? '' });
+  if (!verdict.proceed || !pr) {
+    out.setOutput('proceed', 'false');
+    out.summary(`未續做：${verdict.reason}`);
+    throw new Error(verdict.reason);
+  }
+  for (const label of ['blocked', 'human-review', 'claude-ready']) {
+    if (info?.labels.includes(label)) await gh.removeLabel(issue, label);
+  }
+  await gh.addLabels(issue, ['agent-working']);
+  out.setOutput('branch', pr.branch);
+  out.setOutput('body', info?.body ?? '');
+  // 鎖最後一步成功才輸出 proceed；backstop 以 guard job success 判定已取鎖。
+  out.setOutput('proceed', 'true');
+  try {
+    await gh.comment(issue, `續做授權：${env.ACTOR} 手動啟動；PR #${prNumber}；branch \`${pr.branch}\`；Source \`${branchSha}\`。\n\nRemaining：\n${env.INPUT_REMAINING}\n\nRun：${runUrlOf(env)}`);
+  } catch (error) {
+    // 留言失敗不可讓 guard 看似未取鎖，否則取消補收尾會漏掉 agent-working。
+    out.summary(`執行鎖已取得；授權留言失敗，dispatch inputs 仍留存在本 run：${errorText(error)}`);
+  }
+  return verdict;
 }
 
 /** Issue 入口：權限、狀態、重複派發檢查後取得執行鎖。 @param {Context} context */
@@ -234,7 +280,7 @@ export async function issueGuard({ env, gh, out }) {
 /** 模型 job 之後讀取遠端分支，固定要驗證的 head SHA。 @param {Context} context */
 export async function collect({ env, gh, out }) {
   const issue = requireIssue(env.ISSUE);
-  const branch = flow.checkRunBranch({ issue, runId: env.GITHUB_RUN_ID, actionBranch: env.ACTION_BRANCH ?? '' });
+  const branch = flow.checkRunBranch({ issue, runId: env.GITHUB_RUN_ID, actionBranch: env.ACTION_BRANCH ?? '', resumeBranch: env.RESUME_BRANCH ?? '' });
   if (!branch.ok) {
     out.log(branch.reason);
     return { collected: false };
@@ -259,7 +305,7 @@ export async function collect({ env, gh, out }) {
 async function recover({ env, gh, out }, input) {
   const { mode, issue, runId, actionBranch, stop, verification, execTurns } = input;
   const defaultBranch = env.DEFAULT_BRANCH ?? 'main';
-  const branch = flow.checkRunBranch({ issue, runId, actionBranch });
+  const branch = flow.checkRunBranch({ issue, runId, actionBranch, resumeBranch: env.RESUME_BRANCH ?? '' });
   let head = null;
   let aheadBy = 0;
   let message = '';
@@ -288,7 +334,7 @@ async function recover({ env, gh, out }, input) {
   }
   // 最後重讀 head：與驗證的 SHA 不同就不能 human-review。
   const finalSha = hasCommits ? await gh.branchHead(branch.branch) : head;
-  const decision = flow.decideFinal({
+  let decision = flow.decideFinal({
     mode,
     branchOk: branch.ok,
     branchReason: branch.reason,
@@ -300,12 +346,30 @@ async function recover({ env, gh, out }, input) {
     verification,
     existingPr: pr,
   });
+  const prUnavailable = () => ({
+    ...decision,
+    status: 'pr-unavailable',
+    label: 'blocked',
+    stop: { reason: 'environment', detail: 'PR 建立或 ready 失敗；驗證成功不能取代可審查的 PR。' },
+    pr: { ...decision.pr, draft: true, markReady: false },
+    next: flow.NEXT_STEPS['pr-unavailable'],
+  });
+  if (!pr && decision.status === 'complete') decision = prUnavailable();
   if (pr && decision.pr.markReady) {
     try {
       await gh.markReady(pr.nodeId);
       pr = { ...pr, draft: false };
     } catch (error) {
       notes.push(`PR 標記 ready 失敗，仍為 draft：${errorText(error)}`);
+      decision = prUnavailable();
+    }
+  }
+  if (pr && decision.label === 'blocked' && !pr.draft) {
+    try {
+      await gh.markDraft(pr.nodeId);
+      pr = { ...pr, draft: true };
+    } catch (error) {
+      notes.push(`PR 轉回 draft 失敗（仍 blocked，不可合併）：${errorText(error)}`);
     }
   }
   if (decision.label) {
@@ -343,6 +407,7 @@ export async function finalize(context) {
     actionConclusion: env.ACTION_CONCLUSION ?? '',
     execPresent: env.EXEC_PRESENT === 'true',
     execSubtype: env.EXEC_SUBTYPE ?? '',
+    execTurns: env.EXEC_TURNS ?? '',
     jobConclusion: claudeJob?.conclusion ?? env.CLAUDE_RESULT ?? '',
     jobMinutes: jobMinutes(claudeJob),
   });
@@ -362,17 +427,28 @@ export async function finalize(context) {
 export async function backstop(context) {
   const { env, gh, out } = context;
   const match = /^claude-issue-([1-9][0-9]{0,9})$/.exec(env.TARGET_TITLE ?? '');
+  const resumed = /^claude-resume-issue-([1-9][0-9]{0,9})-pr-([1-9][0-9]{0,9})$/.exec(env.TARGET_TITLE ?? '');
   const runId = String(env.TARGET_RUN_ID ?? '');
-  if (!match || !/^[1-9][0-9]*$/.test(runId)) {
+  if ((!match && !resumed) || !/^[1-9][0-9]*$/.test(runId)) {
     out.log('不是 claude-ready 的 Issue run，略過。');
     return { acted: false, code: 'not-issue-run' };
   }
-  const issue = Number(match[1]);
+  const issue = Number((match ?? resumed)?.[1]);
   const run = await gh.run(runId);
-  const trusted = run?.event === 'issues' && run?.repository?.full_name === env.GITHUB_REPOSITORY && (!run?.path || run.path === '.github/workflows/claude.yml');
+  const trusted = run?.repository?.full_name === env.GITHUB_REPOSITORY && (resumed
+    ? run.event === 'workflow_dispatch' && run.path === '.github/workflows/claude-resume.yml'
+    : run.event === 'issues' && (!run.path || run.path === '.github/workflows/claude.yml'));
   if (!trusted) {
     out.log('run metadata 不是本 repo 的 claude.yml issues run，略過。');
     return { acted: false, code: 'untrusted' };
+  }
+  let recoveryEnv = env;
+  if (resumed) {
+    const pr = await gh.pull(Number(resumed[2]));
+    if (!pr || pr.state !== 'open' || pr.merged || pr.headRepo !== env.GITHUB_REPOSITORY || pr.baseRepo !== env.GITHUB_REPOSITORY || pr.base !== (env.DEFAULT_BRANCH ?? 'main') || !flow.isIssueBranch(pr.branch, issue) || !pr.body.split('\n').some(line => line.trim() === `Refs #${issue}`)) {
+      return { acted: false, code: 'untrusted-pr' };
+    }
+    recoveryEnv = { ...env, RESUME_BRANCH: pr.branch };
   }
   const jobs = await gh.runJobs(runId);
   const info = await gh.issue(issue);
@@ -386,7 +462,7 @@ export async function backstop(context) {
   if (!verdict.act) return { acted: false, code: verdict.code };
   const claudeJob = jobs.find((job) => job.name === 'claude');
   const stop = flow.classifyStop({ jobConclusion: claudeJob?.conclusion ?? '', jobMinutes: jobMinutes(claudeJob) });
-  const result = await recover(context, { mode: 'backstop', issue, runId, actionBranch: '', stop, snapshotSha: '', verification: null, execTurns: '' });
+  const result = await recover({ ...context, env: recoveryEnv }, { mode: 'backstop', issue, runId, actionBranch: '', stop, snapshotSha: '', verification: null, execTurns: '' });
   return { acted: true, code: verdict.code, ...result };
 }
 
@@ -548,6 +624,7 @@ export function summarize({ env, out }) {
 
 /** @type {Record<string, (context: any) => unknown>} */
 export const COMMANDS = {
+  'resume-guard': resumeGuard,
   'issue-guard': issueGuard,
   collect,
   finalize,

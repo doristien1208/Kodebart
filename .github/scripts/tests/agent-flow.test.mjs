@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as flow from '../agent-flow.mjs';
-import { backstop, createGitHub, finalize, issueGuard, verifyOnlyReport } from '../agent-flow-cli.mjs';
+import { backstop, collect, createGitHub, finalize, issueGuard, resumeGuard, verifyOnlyReport } from '../agent-flow-cli.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
@@ -139,6 +139,7 @@ function fakeGitHub(state) {
     calls,
     permission: async () => state.permission ?? 'write',
     issue: async () => issue,
+    pull: async () => state.pull ?? null,
     openPullHeads: async () => state.openPullHeads ?? [],
     findOpenPull: async (/** @type {string} */ branch) => state.pulls?.[branch] ?? null,
     branchHead: async (/** @type {string} */ branch) => {
@@ -152,7 +153,11 @@ function fakeGitHub(state) {
       if (state.createPullError) throw new Error(state.createPullError);
       return { number: 42, draft: input.draft, url: 'https://example.invalid/pull/42', nodeId: 'PR_42' };
     },
-    markReady: async (/** @type {string} */ id) => calls.push(['markReady', id]),
+    markReady: async (/** @type {string} */ id) => {
+      calls.push(['markReady', id]);
+      if (state.markReadyError) throw new Error(state.markReadyError);
+    },
+    markDraft: async (/** @type {string} */ id) => calls.push(['markDraft', id]),
     addLabels: async (/** @type {number} */ number, /** @type {string[]} */ labels) => calls.push(['addLabels', number, labels]),
     removeLabel: async (/** @type {number} */ number, /** @type {string} */ label) => calls.push(['removeLabel', number, label]),
     comment: async (/** @type {number} */ number, /** @type {string} */ body) => calls.push(['comment', number, body]),
@@ -163,6 +168,29 @@ function fakeGitHub(state) {
   return gh;
 }
 
+const RESUME = 'claude/issue-5-20261007-0026';
+const resumePr = { number: 42, draft: true, url: '', nodeId: 'PR42', state: 'open', merged: false,
+  headRepo: 'owner/repo', baseRepo: 'owner/repo', base: 'main', branch: RESUME, sha: SHA, body: 'Refs #5\n' };
+const resumeInput = { actorPermission: 'write', ref: 'refs/heads/main', defaultBranch: 'main', repo: 'owner/repo',
+  issue: 5, issueState: 'open', isPullRequest: false, labels: ['blocked'], activeRuns: 0, runAttempt: 1,
+  pr: resumePr, inputSha: SHA, branchSha: SHA, remaining: '只修原 Issue 的收尾與測試' };
+test('續做：固定 PR/head 正確才放行，保留原分支', () => {
+  assert.equal(flow.evaluateResumeGuard(resumeInput).proceed, true);
+  assert.equal(flow.checkRunBranch({ issue: 5, runId: 999, resumeBranch: RESUME }).branch, RESUME);
+  assert.equal(flow.checkRunBranch({ issue: 5, runId: 999, resumeBranch: 'claude/issue-4-test' }).ok, false);
+  assert.equal(flow.checkRunBranch({ issue: 5, runId: 999, resumeBranch: RESUME, actionBranch: 'main' }).ok, false);
+});
+for (const [name, overrides] of Object.entries({
+  actor: { actorPermission: 'read' }, ref: { ref: 'refs/heads/unsafe' }, closed: { issueState: 'closed' },
+  approved: { labels: ['approved'] }, revision: { labels: ['revision-requested'] }, active: { activeRuns: 1 },
+  lock: { labels: ['agent-working'] }, rerun: { runAttempt: 2 }, missing: { pr: null },
+  merged: { pr: { ...resumePr, merged: true } }, closedPr: { pr: { ...resumePr, state: 'closed' } },
+  fork: { pr: { ...resumePr, headRepo: 'outsider/repo' } }, base: { pr: { ...resumePr, base: 'release' } },
+  wrongIssue: { pr: { ...resumePr, branch: 'claude/issue-4-test' } },
+  link: { pr: { ...resumePr, body: 'Refs #55' } }, stalePr: { pr: { ...resumePr, sha: OTHER_SHA } },
+  staleBranch: { branchSha: OTHER_SHA }, malformed: { inputSha: 'HEAD' }, empty: { remaining: ' ' },
+})) test(`續做拒絕：${name}`, () => assert.equal(flow.evaluateResumeGuard({ ...resumeInput, ...overrides }).proceed, false));
+
 const silent = { setOutput() {}, summary() {}, log() {} };
 const RUN_ID = '777';
 const BRANCH = flow.expectedBranch(5, RUN_ID) ?? '';
@@ -170,6 +198,77 @@ const baseEnv = { ISSUE: '5', GITHUB_RUN_ID: RUN_ID, GITHUB_REPOSITORY: 'owner/r
 const completeMessage = 'Checkpoint:\n- Completed: 全部\n\nKodeBart-Issue: 5\nKodeBart-Delivery: complete';
 /** @param {any} gh @param {string} name */
 const callsOf = (gh, name) => gh.calls.filter((/** @type {any[]} */ call) => call[0] === name);
+
+test('續做入口：沿用固定 PR/head、原 Issue 鎖及明示 Remaining，不建立 PR／分支', async () => {
+  const gh = fakeGitHub({ issue: { labels: ['blocked', 'human-review'] }, pull: resumePr, heads: { [RESUME]: SHA } });
+  const outputs = /** @type {Record<string, string>} */ ({});
+  const env = { ...baseEnv, INPUT_ISSUE: '5', INPUT_PR: '42', INPUT_SHA: SHA, INPUT_REMAINING: '補收尾測試', ACTOR: 'human', GITHUB_REF: 'refs/heads/main' };
+  const verdict = await resumeGuard({ env, gh: /** @type {any} */ (gh), out: { ...silent, setOutput: (name, value) => { outputs[name] = String(value); } } });
+  assert.equal(verdict.proceed, true);
+  assert.equal(outputs.branch, RESUME);
+  assert.equal(outputs.proceed, 'true');
+  assert.deepEqual(callsOf(gh, 'addLabels'), [['addLabels', 5, ['agent-working']]]);
+  assert.equal(callsOf(gh, 'createPull').length, 0);
+  assert.match(callsOf(gh, 'comment')[0][2], /補收尾測試/);
+});
+
+test('續做入口：過期 SHA 不修改任何標籤／留言', async () => {
+  const gh = fakeGitHub({ issue: { labels: ['blocked'] }, pull: resumePr, heads: { [RESUME]: OTHER_SHA } });
+  await assert.rejects(resumeGuard({ env: { ...baseEnv, INPUT_ISSUE: '5', INPUT_PR: '42', INPUT_SHA: SHA, INPUT_REMAINING: '修正', ACTOR: 'human', GITHUB_REF: 'refs/heads/main' }, gh: /** @type {any} */ (gh), out: silent }));
+  assert.equal(gh.calls.length, 0);
+});
+
+test('續做 collect/finalize：不是新 run 分支，沿原 PR 驗證新 head 與收尾', async () => {
+  const gh = fakeGitHub({ heads: { [RESUME]: SHA }, pulls: { [RESUME]: resumePr }, messages: { [SHA]: completeMessage } });
+  const env = { ...baseEnv, RESUME_BRANCH: RESUME, ACTION_BRANCH: RESUME, CLAUDE_OUTCOME: 'success', EXEC_PRESENT: 'true', EXEC_SUBTYPE: 'success', SNAPSHOT_SHA: SHA, VERIFY_RESULTS: JSON.stringify(VERIFICATIONS.$workflowPass) };
+  assert.equal((await collect({ env, gh: /** @type {any} */ (gh), out: silent })).head, SHA);
+  const result = await finalize({ env, gh: /** @type {any} */ (gh), out: silent });
+  assert.equal(result.pr?.number, 42);
+  assert.equal(result.decision.label, 'human-review');
+  assert.equal(callsOf(gh, 'createPull').length, 0);
+});
+
+test('續做 backstop：取消且鎖還在，可信 run/PR 才沿原分支 blocked，不執行 artifact', async () => {
+  const run = { event: 'workflow_dispatch', path: '.github/workflows/claude-resume.yml', repository: { full_name: 'owner/repo' } };
+  const jobs = [{ name: 'guard', conclusion: 'success' }, { name: 'claude', conclusion: 'cancelled' }];
+  const gh = fakeGitHub({ run, jobs, pull: resumePr, heads: { [RESUME]: SHA }, pulls: { [RESUME]: resumePr } });
+  const env = { ...baseEnv, TARGET_RUN_ID: '888', TARGET_TITLE: 'claude-resume-issue-5-pr-42' };
+  const result = await backstop({ env, gh: /** @type {any} */ (gh), out: silent });
+  assert.equal(result.acted, true);
+  assert.deepEqual(callsOf(gh, 'addLabels'), [['addLabels', 5, ['blocked']]]);
+  const outsider = fakeGitHub({ run, jobs, pull: { ...resumePr, headRepo: 'fork/repo' } });
+  assert.equal((await backstop({ env, gh: /** @type {any} */ (outsider), out: silent })).acted, false);
+  assert.equal(outsider.calls.length, 0);
+});
+
+test('續做 workflow：固定head checkout、guard branch、explicit prompt、共用鎖與模型限制', () => {
+  const yaml = readFileSync(join(ROOT, '.github/workflows/claude-resume.yml'), 'utf8');
+  assert.match(yaml, /workflow_dispatch:/);
+  assert.match(yaml, /group: claude-issue-\$\{\{ inputs.issue \}\}/);
+  assert.match(yaml, /CLAUDE_BRANCH: \$\{\{ needs.guard.outputs.branch \}\}/);
+  assert.match(yaml, /ref: \$\{\{ inputs.sha \}\}/);
+  assert.match(yaml, /resume-guard/);
+  assert.match(yaml, /prompt: \|/);
+  assert.match(yaml, /--max-turns 80/);
+  assert.match(yaml, /timeout-minutes: 60/);
+  assert.match(yaml, /RESUME_BRANCH:/);
+  assert.doesNotMatch(yaml, /branch_name_template:/);
+});
+
+test('驗證log：原始輸出與exit/SHA留存，artifact固定版本，只列指定驗證log', () => {
+  const yaml = readFileSync(join(ROOT, '.github/workflows/agent-verify.yml'), 'utf8');
+  assert.match(yaml, /code=\$\{PIPESTATUS\[0\]\}/);
+  assert.match(yaml, /exit=%s/);
+  assert.match(yaml, /sha=%s/);
+  assert.match(yaml, /upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02/);
+  assert.match(yaml, /verify-product-\$\{\{ inputs.sha \}\}/);
+  assert.doesNotMatch(yaml, /execution_file|EXEC_FILE|runner.temp \}\}\/\*/);
+});
+
+test('SDK success 卻超過80回合，不能視為正常完成', () => {
+  assert.equal(flow.classifyStop({ stepOutcome: 'success', execPresent: true, execSubtype: 'success', execTurns: '127' }).reason, 'max_turns');
+  assert.equal(flow.classifyStop({ stepOutcome: 'success', execPresent: true, execSubtype: 'success', execTurns: '80' }).reason, 'none');
+});
 
 test('finalize：完整交付＋同 SHA 全過 → 先建 draft PR，最後重讀 head 相同才標 ready 與 human-review', async () => {
   const gh = fakeGitHub({ heads: { [BRANCH]: SHA }, messages: { [SHA]: completeMessage } });
@@ -237,6 +336,30 @@ test('finalize：draft PR 建立失敗仍照常收尾（blocked＋留言附註�
   assert.match(body, /PR：沒有建立/);
   assert.match(body, /draft PR 建立失敗/);
   assert.match(body, /Allow GitHub Actions to create and approve pull requests/);
+});
+
+for (const failure of ['createPullError', 'markReadyError']) {
+  test(`finalize：同 SHA 全綠但 ${failure} → blocked、釋放鎖及留言，不宣稱完成`, async () => {
+    const gh = fakeGitHub({ heads: { [BRANCH]: SHA }, messages: { [SHA]: completeMessage }, [failure]: '403 forbidden' });
+    const env = { ...baseEnv, CLAUDE_OUTCOME: 'success', EXEC_PRESENT: 'true', EXEC_SUBTYPE: 'success', SNAPSHOT_SHA: SHA, VERIFY_RESULTS: JSON.stringify(VERIFICATIONS.$workflowPass) };
+    const result = await finalize({ env, gh: /** @type {any} */ (gh), out: silent });
+    assert.equal(result.decision.status, 'pr-unavailable');
+    assert.equal(result.decision.label, 'blocked');
+    assert.equal(result.decision.verification.state, 'pass');
+    assert.deepEqual(callsOf(gh, 'removeLabel'), [['removeLabel', 5, 'agent-working']]);
+    assert.deepEqual(callsOf(gh, 'addLabels'), [['addLabels', 5, ['blocked']]]);
+    assert.equal(callsOf(gh, 'comment').length, 1);
+    if (result.pr) assert.equal(result.pr.draft, true);
+  });
+}
+
+test('Issue 入口：revision-requested 未移除時拒絕，不清除 Human 狀態、不取得鎖', async () => {
+  const gh = fakeGitHub({ issue: { labels: ['claude-ready', 'revision-requested', 'blocked'] } });
+  const verdict = await issueGuard({ env: { ...baseEnv, ACTOR: 'human' }, gh: /** @type {any} */ (gh), out: silent });
+  assert.equal(verdict.code, 'revision');
+  assert.equal(verdict.proceed, false);
+  assert.deepEqual(callsOf(gh, 'removeLabel'), [['removeLabel', 5, 'claude-ready']]);
+  assert.equal(callsOf(gh, 'addLabels').length, 0);
 });
 
 test('verify-only：draft PR 建立失敗仍留言附註，不變更標籤', async () => {

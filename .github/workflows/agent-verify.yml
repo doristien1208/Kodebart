@@ -89,7 +89,12 @@ jobs:
         id: diff_check
         continue-on-error: true
         working-directory: delivery
-        run: git diff --check "$BASE" "$SHA"
+        run: |
+          set +e
+          git diff --check "$BASE" "$SHA" 2>&1 | tee "$RUNNER_TEMP/diff-check.log"
+          code=${PIPESTATUS[0]}
+          printf '\nexit=%s\nsha=%s\n' "$code" "$SHA" >> "$RUNNER_TEMP/diff-check.log"
+          exit "$code"
 
       - name: Document path references
         id: doc_refs
@@ -97,7 +102,24 @@ jobs:
         env:
           DELIVERY_DIR: delivery
           PLAN: ${{ steps.plan.outputs.plan }}
-        run: node trusted/.github/scripts/agent-flow-cli.mjs docs-check
+        run: |
+          set +e
+          node trusted/.github/scripts/agent-flow-cli.mjs docs-check 2>&1 | tee "$RUNNER_TEMP/doc-refs.log"
+          code=${PIPESTATUS[0]}
+          printf '\nexit=%s\nsha=%s\n' "$code" "$SHA" >> "$RUNNER_TEMP/doc-refs.log"
+          exit "$code"
+
+      - name: Save raw plan verification evidence
+        if: always()
+        # actions/upload-artifact v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verify-plan-${{ inputs.sha }}
+          path: |
+            ${{ runner.temp }}/diff-check.log
+            ${{ runner.temp }}/doc-refs.log
+          retention-days: 14
+          if-no-files-found: warn
 
   product:
     name: product
@@ -132,26 +154,45 @@ jobs:
       - name: npm ci
         id: npm_ci
         continue-on-error: true
-        run: npm ci --no-audit --no-fund
+        run: |
+          set +e
+          npm ci --no-audit --no-fund 2>&1 | tee "$RUNNER_TEMP/npm-ci.log"
+          code=${PIPESTATUS[0]}
+          printf '\nexit=%s\nsha=%s\n' "$code" "${{ inputs.sha }}" >> "$RUNNER_TEMP/npm-ci.log"
+          exit "$code"
 
       - name: tsc (app)
         id: tsc_app
         if: steps.npm_ci.outcome == 'success'
         continue-on-error: true
-        run: npx tsc -p tsconfig.app.json --noEmit
+        run: |
+          set +e
+          npx tsc -p tsconfig.app.json --noEmit 2>&1 | tee "$RUNNER_TEMP/tsc-app.log"
+          code=${PIPESTATUS[0]}
+          printf '\nexit=%s\nsha=%s\n' "$code" "${{ inputs.sha }}" >> "$RUNNER_TEMP/tsc-app.log"
+          exit "$code"
 
       - name: tsc (spec)
         id: tsc_spec
         if: steps.npm_ci.outcome == 'success'
         continue-on-error: true
-        run: npx tsc -p tsconfig.spec.json --noEmit
+        run: |
+          set +e
+          npx tsc -p tsconfig.spec.json --noEmit 2>&1 | tee "$RUNNER_TEMP/tsc-spec.log"
+          code=${PIPESTATUS[0]}
+          printf '\nexit=%s\nsha=%s\n' "$code" "${{ inputs.sha }}" >> "$RUNNER_TEMP/tsc-spec.log"
+          exit "$code"
 
       - name: ng build (production, zero warnings)
         id: ng_build
         if: steps.npm_ci.outcome == 'success'
         continue-on-error: true
         run: |
+          set +e
           npx ng build 2>&1 | tee "$RUNNER_TEMP/ng-build.log"
+          code=${PIPESTATUS[0]}
+          printf '\nexit=%s\nsha=%s\n' "$code" "${{ inputs.sha }}" >> "$RUNNER_TEMP/ng-build.log"
+          if [ "$code" -ne 0 ]; then exit "$code"; fi
           if grep -q '\[WARNING\]' "$RUNNER_TEMP/ng-build.log"; then
             echo "::error::ng build 有警告（CLAUDE.md 要求零警告）"
             exit 1
@@ -161,7 +202,27 @@ jobs:
         id: ng_test
         if: steps.npm_ci.outcome == 'success'
         continue-on-error: true
-        run: npx ng test --watch=false --browsers=ChromeHeadless
+        run: |
+          set +e
+          npx ng test --watch=false --browsers=ChromeHeadless 2>&1 | tee "$RUNNER_TEMP/ng-test.log"
+          code=${PIPESTATUS[0]}
+          printf '\nexit=%s\nsha=%s\n' "$code" "${{ inputs.sha }}" >> "$RUNNER_TEMP/ng-test.log"
+          exit "$code"
+
+      - name: Save raw product verification evidence (never model output)
+        if: always()
+        # actions/upload-artifact v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verify-product-${{ inputs.sha }}
+          path: |
+            ${{ runner.temp }}/npm-ci.log
+            ${{ runner.temp }}/tsc-app.log
+            ${{ runner.temp }}/tsc-spec.log
+            ${{ runner.temp }}/ng-build.log
+            ${{ runner.temp }}/ng-test.log
+          retention-days: 14
+          if-no-files-found: warn
 
   workflow:
     name: workflow
@@ -198,7 +259,11 @@ jobs:
         if: steps.actionlint_install.outcome == 'success'
         continue-on-error: true
         run: |
-          "$RUNNER_TEMP/bin/actionlint" -color
+          set +e
+          "$RUNNER_TEMP/bin/actionlint" -color 2>&1 | tee "$RUNNER_TEMP/actionlint.log"
+          code=${PIPESTATUS[0]}
+          printf '\nexit=%s\nsha=%s\n' "$code" "${{ inputs.sha }}" >> "$RUNNER_TEMP/actionlint.log"
+          exit "$code"
 
       - name: Offline flow decision tests
         id: flow_tests
@@ -210,7 +275,23 @@ jobs:
             echo "::error::找不到 .github/scripts/tests/*.test.mjs"
             exit 1
           fi
-          node --test "${tests[@]}"
+          set +e
+          node --test "${tests[@]}" 2>&1 | tee "$RUNNER_TEMP/flow-tests.log"
+          code=${PIPESTATUS[0]}
+          printf '\nexit=%s\nsha=%s\n' "$code" "${{ inputs.sha }}" >> "$RUNNER_TEMP/flow-tests.log"
+          exit "$code"
+
+      - name: Save raw workflow verification evidence (never model output)
+        if: always()
+        # actions/upload-artifact v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verify-workflow-${{ inputs.sha }}
+          path: |
+            ${{ runner.temp }}/actionlint.log
+            ${{ runner.temp }}/flow-tests.log
+          retention-days: 14
+          if-no-files-found: warn
 
   summary:
     name: summary

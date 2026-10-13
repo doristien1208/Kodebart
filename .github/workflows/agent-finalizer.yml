@@ -7,7 +7,7 @@ name: Claude finalizer (workflow_run)
 #   有提交 → 建立或沿用 draft PR；一律改為 blocked 並留言。不跑模型、不推送、不讀取或執行 artifact。
 on:
   workflow_run:
-    workflows: ["Claude (claude-ready)"]
+    workflows: ["Claude (claude-ready)", "Claude resume (fixed PR)"]
     types: [completed]
 
 permissions: {}
@@ -23,7 +23,7 @@ defaults:
 jobs:
   backstop:
     name: backstop
-    if: github.event.workflow_run.event == 'issues' && github.event.workflow_run.repository.full_name == github.repository && startsWith(github.event.workflow_run.display_title, 'claude-issue-')
+    if: github.event.workflow_run.repository.full_name == github.repository && ((github.event.workflow_run.event == 'issues' && startsWith(github.event.workflow_run.display_title, 'claude-issue-')) || (github.event.workflow_run.event == 'workflow_dispatch' && startsWith(github.event.workflow_run.display_title, 'claude-resume-issue-')))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

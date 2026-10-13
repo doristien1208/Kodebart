@@ -1,0 +1,61 @@
+name: Workflow engineering review
+
+# Bootstrap 的獨立 PR 檢查：只讀 head，不呼叫模型、不寫標籤、不提供 secrets。
+# 不把這個 workflow-only job 稱作產品 build/test 或真實模型端到端驗證。
+on:
+  pull_request:
+    paths:
+      - '.github/**'
+      - 'CLAUDE.md'
+      - 'doc/agent-workflow/**'
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  workflow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Offline flow tests
+        run: |
+          set +e
+          node --test .github/scripts/tests/*.test.mjs 2>&1 | tee "$RUNNER_TEMP/flow-tests.log"
+          code=${PIPESTATUS[0]}
+          printf '\nexit=%s\nsha=%s\n' "$code" "${{ github.event.pull_request.head.sha }}" >> "$RUNNER_TEMP/flow-tests.log"
+          exit "$code"
+      - name: Install pinned actionlint
+        run: GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+      - name: actionlint
+        run: |
+          set +e
+          "$RUNNER_TEMP/bin/actionlint" 2>&1 | tee "$RUNNER_TEMP/actionlint.log"
+          code=${PIPESTATUS[0]}
+          printf '\nexit=%s\nsha=%s\n' "$code" "${{ github.event.pull_request.head.sha }}" >> "$RUNNER_TEMP/actionlint.log"
+          exit "$code"
+      - name: Diff and document references
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --check "$BASE" "$SHA"
+          node --input-type=module -e 'import {plan,docsCheck} from "./.github/scripts/agent-flow-cli.mjs"; const out={setOutput(){},summary:console.log,log:console.log}; const p=plan({env:{...process.env,DELIVERY_DIR:".",DECLARED_PROFILE:"workflow"},out}); if(p.violations.length)process.exit(1); docsCheck({env:{DELIVERY_DIR:".",PLAN:JSON.stringify(p)},out});'
+      - name: Preserve raw checks (fixed head)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: workflow-review-${{ github.event.pull_request.head.sha }}
+          path: |
+            ${{ runner.temp }}/flow-tests.log
+            ${{ runner.temp }}/actionlint.log
+          retention-days: 14
+          if-no-files-found: warn

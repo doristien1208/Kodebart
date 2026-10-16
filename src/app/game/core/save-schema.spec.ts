@@ -43,6 +43,7 @@ import {
   ReturnVersion,
   SourceRecord,
   ReturnReceiptAttachment,
+  SAVE_VERSION,
 } from './types';
 
 /**
@@ -347,7 +348,7 @@ describe('isValidSave：不合法存檔', () => {
     ['version 8（v8 舊檔不是現行格式，即使帶 returns）', { ...initial, version: 8 }],
     ['version 9（v9 舊檔不是現行格式，即使帶 issueSchedule）', { ...initial, version: 9 }],
     ['version 10（v10 舊檔不是現行格式，即使帶 mailbox／profile）', { ...initial, version: 10 }],
-    ['version 13', { ...initial, version: 13 }],
+    [`version ${SAVE_VERSION + 1}（未來版本）`, { ...initial, version: SAVE_VERSION + 1 }],
     ['version 為字串 "11"', { ...initial, version: '11' }],
     ['version 缺', { ...initial, version: undefined }],
     /* dayId／taskId */

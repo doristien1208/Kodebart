@@ -50,6 +50,7 @@ import {
   LegacyReturnCaseV9,
   ReturnReceipt,
   SourceRecord,
+  SAVE_VERSION,
 } from '../core/types';
 import { validateRecord } from '../core/validate';
 import { generateReport, previewTransform, setTransformPolicy, submitAttachment, submitReport, submitTransform } from '../core/workday';
@@ -2283,8 +2284,8 @@ describe('SaveRepository', () => {
     });
   }
 
-  it('未來版本（v13）即使其餘欄位合法也不猜測 → 讀取失敗且不覆蓋', () => {
-    const raw = JSON.stringify({ ...createSave(1, DAY_DIRECTORY), version: 13 });
+  it(`未來版本（v${SAVE_VERSION + 1}）即使其餘欄位合法也不猜測 → 讀取失敗且不覆蓋`, () => {
+    const raw = JSON.stringify({ ...createSave(1, DAY_DIRECTORY), version: SAVE_VERSION + 1 });
     localStorage.setItem(SAVE_KEY, raw);
     expect(repo.load()).toEqual(READ_FAIL);
     expect(localStorage.getItem(SAVE_KEY)).toBe(raw);

@@ -15,9 +15,48 @@
 | 輪次 | 起點 | 內容 | 停止原因 |
 | --- | --- | --- | --- |
 | 第 1 輪（首次入口） | `f2e0fdb` | casework 純規則、案件檔案夾 presenter、具名條件、R2 | 回報 104 turns＞80，執行判定失敗；成果保留，不改寫失敗 |
-| 第 2 輪（同案續做） | `8f5edb5`（＝`404775d`＋Human 兩張原圖） | 本節「本輪完成」 | 主動 checkpoint（約 40 次工具互動評估點） |
+| 第 2 輪（同案續做） | `8f5edb5`（＝`404775d`＋Human 兩張原圖） | 「第 2 輪完成」一節 | 主動 checkpoint（約 40 次工具互動評估點） |
+| 第 3 輪（同案續做） | `96bbe48` | 「第 3 輪」一節：CI 九項回歸測試修正與回報（只改三個 spec＋本回報） | 本輪指定範圍完成後停止 |
 
-## 本輪完成（第 2 輪）
+## 第 3 輪：`96bbe48` 的 CI 九項回歸修正
+
+範圍依 Codex 覆核（[#11 留言](https://github.com/doristien1208/Kodebart/issues/11#issuecomment-6208594860)）收窄：只改 `core/save-migrate.spec.ts`、`core/save-schema.spec.ts`、`state/save-repository.spec.ts` 與本回報。產品程式、遷移 helper、schema 驗證與 Remaining A–D 都沒有動。
+
+### 真實 FAIL 證據（模型外 CI；本輪沒有重跑）
+
+- run `38846549624`、product job `116803099209`，固定 `96bbe48782f6f230bbd90521606cb2c62ce260e2`：
+  - app／spec tsc 與 production build 通過。
+  - `ng test`：`TOTAL: 9 FAILED, 2992 SUCCESS`，exit 1。product job 顯示 success，不代表測試通過。
+- 第 2 輪「既有測試只改現行版本號相關期待值」的處理不完整：v13 新增的 `inquiries`，以及 13 已是現行版本這件事，沒有反映到下列九項。
+
+### 原因與修正
+
+九項的對應是依 Codex 指出的位置，再對照本輪程式推得；本輪沒有讀 CI log 全文，測試名稱以 CI 原始 log 為準。
+
+| # | 測試 | 原因 | 修正 |
+| --- | --- | --- | --- |
+| 1–3 | `save-migrate.spec.ts`「migrateToCurrent：v5 → v11」的三個 fixture（Day 2 work、Day 3 work（草稿）、Day 6 end） | `body()` 沒排除 v13 才有的 `inquiries`，遷移結果多一個鍵 | `body()` 把 `inquiries` 列為 v13 專屬的排除欄位；`expectFreshV11Fields` 另外獨立驗 `inquiries` 為 `{}`；其餘歷史欄位仍逐字比較 |
+| 4 | 同檔「JSON 字串形式的 v5（localStorage 讀回）也能遷移」 | 同上 | 同上，並在該測試直接驗 `inquiries` 為 `{}` |
+| 5 | 同檔「沒有退件的 v9：v10 只補空 issueSchedule／readIssueReceipts…」 | 同上（`body(cur)` 對 `body(v9)`） | 同上（該測試已呼叫 `expectFreshV11Fields`） |
+| 6 | 同檔「v10（沒有退件）→ from 10…」 | 把 v13 現行 fixture 只改版本號，當成 v11 單步結果；現行新增鍵清單缺 `inquiries` | 新增真正 `SaveV11` 的 `v11Step`（從現行期望精確拿掉 `inquiries`、版本 11）。驗 `migrateV10ToV11` 回版本 11 且不含 `inquiries`；只有 `migrateToCurrent` 回 v13 並含 `inquiries`，現行新增鍵清單也列入 |
+| 7 | 同檔損壞資料清單的「version 13」 | 13 已是現行版本，合法的 v13 被當成未來版本 | 改成 `SAVE_VERSION + 1`（目前 14） |
+| 8 | `save-schema.spec.ts` 不合法清單的「version 13」 | 同上 | 同上 |
+| 9 | `save-repository.spec.ts`「未來版本（v13）即使其餘欄位合法也不猜測」 | 同上 | 同上；仍驗讀取失敗、原 localStorage 不被覆寫 |
+
+- 同一個 fixture 拆清：「每個舊版本各自回報正確的 from」原本用 v13 fixture 改版本號（帶著 `inquiries` 鍵）當 v11／v12 輸入，現在改用 `v11Step` 與 `{ ...v11Step, version: 12 }`。這兩例在 `96bbe48` 本來就通過，不是九項之一，也沒有放寬。
+- 沒有改的部分：
+  - production helper（`migrateV10ToV11` 等不會提早補 `inquiries`）、schema 驗證、`SAVE_VERSION`。
+  - 現行 v13 被接受、讀取失敗不覆寫原 localStorage 的斷言。
+  - 沒有刪測試，也沒有放寬物件比較。
+
+### 第 3 輪 Validation Results（Agent 局部檢查，不是獨立 CI）
+
+- **PASS**（本輪工作樹）：`npx tsc -p tsconfig.app.json --noEmit`、`npx tsc -p tsconfig.spec.json --noEmit`、`git diff --check`。
+- **FAIL**：本輪局部檢查沒有失敗。上一 head `96bbe48` 的 CI 測試失敗（9 項）見上。
+- **NOT RUN**：`npm ci`、`npx ng build`、`npx ng test --watch=false --browsers=ChromeHeadless`。本輪只跑 allowlist 准許的兩個 tsc 與 diff-check，完整檢查交模型外 CI；不請權、不重試、不輪詢。
+- **PENDING**：九項是否通過，要等模型外 CI 對本輪 head 的完整非 watch 測試；本輪不宣稱已通過。
+
+## 第 2 輪完成
 
 依 Codex 續做契約的順序 1，先完成「Save v13／舊終點明確續接」與 casework 工作種類在 core／state 的必要接線。內容 schema 與 M2 產品 JSON 尚未接入，**Day 7–10 仍不可玩**。
 
@@ -60,9 +99,10 @@
 | `state/m1-workday.spec.ts` | 現行版本 13 |
 | `content/text.spec.ts` | `tasks.kind／unit` 多 casework |
 
-## Validation Results（Agent 局部檢查，不是獨立 CI）
+## 第 2 輪 Validation Results（Agent 局部檢查，不是獨立 CI）
 
-- **PASS**（本輪最終工作樹）：
+- 事後的模型外 CI（固定 `96bbe48`）：tsc 與 build 通過，`ng test` 9 FAILED，見「第 3 輪」一節。下列是第 2 輪當時的局部檢查紀錄。
+- **PASS**（第 2 輪最終工作樹）：
   - `npx tsc -p tsconfig.app.json --noEmit`
   - `npx tsc -p tsconfig.spec.json --noEmit`
   - `git diff --check`
@@ -75,6 +115,8 @@
 - 第 1 輪的 PASS（`e677a36`：2992 tests、build 無警告）不適用於本輪 head。
 
 ## Remaining（同案續做；不擴大原 Issue）
+
+第 3 輪只修測試與回報，A–D 都沒有動，內容照舊。
 
 ### A. 內容 schema／M2 正式 JSON／舊終點 UI（本輪未完成部分）
 
@@ -121,11 +163,12 @@
 3. **v13 之後的可選欄位**：B 段的結果快照與早回送達時機，擬以 v13 可選欄位加入嚴格驗證，不再升版。
    - 理由：目前沒有任何 v13 存檔含案件進度，正式內容尚無 casework 工作。
    - 若 Codex 要求每次格式擴充都升版，請指示。
+4. **第 3 輪的 fixture 拆清**：九項之外，「每個舊版本各自回報正確的 from」的 v11／v12 輸入改用真正的舊格式（`v11Step`）。這兩例在 `96bbe48` 本來就通過，請確認可接受。
 
 ## Known Limits
 
 - Day 7–10、案件 UI、瀏覽器尚未接入。`CaseworkTaskPlan`、查詢驗證與 `continueChapter` 目前只由測試與合成日程使用；正式內容仍是六日、Day 6 為最後一天。
-- 本輪沒有任何執行中的測試或 build 證據（allowlist），也沒有 UI 操作證據；不宣稱測試通過或 UI 已驗收。
+- 測試證據：第 2 輪 head `96bbe48` 的模型外 CI 為 9 FAILED／2992 SUCCESS；第 3 輪修正後的完整測試與 build 待模型外 CI（PENDING）。沒有 UI 操作證據；不宣稱測試通過或 UI 已驗收。
 - 第 1 輪記錄的 R2 範圍外觀察（批次「不適用」在 `checkTransform` 視為缺漏）維持原狀：正式內容不可達，不順帶改後果。
 
 ## Human Review Checklist
@@ -136,7 +179,8 @@
 
 - 無新增。#5 的獨立工程問題維持原案，不混入本案。
 
-## 本輪收尾
+## 本輪收尾（第 3 輪）
 
-- Stop reason：主動 checkpoint，停在約 40 次工具互動的評估點。沒有超時；`ng test`／`ng build` 因 allowlist 為 NOT RUN。
-- Next step：同 Issue／PR／分支，從本輪 head 續做 Remaining A→B→C→D；完整產品檢查交模型外 CI。
+- Stop reason：完成，但只限本輪指定範圍（九項測試修正與回報）；整體 M2 仍是 checkpoint。依續做契約完成即 commit／push 並停止，沒有超時，也沒有到 40 次工具互動評估點。
+- Next step：模型外 CI 對本輪 head 跑完整非 watch 測試與 build，確認九項；Codex 覆核後，同 Issue／PR／分支續做 Remaining A→B→C→D。
+- 第 2 輪收尾：主動 checkpoint，停在約 40 次工具互動的評估點；`ng test`／`ng build` 因 allowlist 為 NOT RUN。

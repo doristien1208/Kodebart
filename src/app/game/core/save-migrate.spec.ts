@@ -167,9 +167,10 @@ function v9ToCurrent(v9: SaveV9, dir: DayDirectory): Save {
   return migrateV12ToV13(migrateV11ToV12(migrateV10ToV11(migrateV9ToV10(v9, dir), dir), dir));
 }
 
-/** R12：從 v10 以前遷移上來的存檔，v11 欄位的共同期望（沒有退件時）。 */
+/** R12：從 v10 以前遷移上來的存檔，v11 欄位的共同期望（沒有退件時）；另獨立驗現行 v13 的 inquiries 為空（舊檔沒有承辦查詢）。 */
 function expectFreshV11Fields(save: Save, context = ''): void {
   expect(save.version).withContext(context).toBe(13);
+  expect(save.inquiries).withContext(context).toEqual({});
   expect(save.mailbox).withContext(context).toEqual([]);
   expect(save.readMail).withContext(context).toEqual([]);
   expect(save.helpRequests).withContext(context).toEqual({});
@@ -745,7 +746,10 @@ const V5_FIXTURES: Array<[string, SaveV5]> = [
   ['Day 6 end', v5Day6End],
 ];
 
-/** 除了 version／chatReplies／waivedTasks／caseReviews／returns／issueSchedule／readIssueReceipts 與 v11 欄位之外的欄位。 */
+/**
+ * 除了 version／chatReplies／waivedTasks／caseReviews／returns／issueSchedule／readIssueReceipts、v11 欄位
+ * 與 v13 的 inquiries 之外的欄位。inquiries 不在這裡比較，由 expectFreshV11Fields 或各測試獨立驗為空。
+ */
 function body(s: unknown): Record<string, unknown> {
   const copy = { ...(s as Record<string, unknown>) };
   for (const key of [
@@ -762,6 +766,7 @@ function body(s: unknown): Record<string, unknown> {
     'helpRequests',
     'profile',
     'onboarding',
+    'inquiries',
   ]) {
     delete copy[key];
   }
@@ -844,6 +849,7 @@ describe('migrateToCurrent：v5 → v11', () => {
     const parsed: unknown = JSON.parse(JSON.stringify(v5Day3));
     const result = migrateToCurrent(parsed, DIR6)!;
     expect(result.from).toBe(5);
+    expect(result.save.inquiries).toEqual({});
     expect(body(result.save)).toEqual(body(v5Day3));
   });
 
@@ -893,7 +899,8 @@ describe('migrateToCurrent：v11、v10、v9、v8、v7、v6 與損壞資料', () 
     readMessages: ['msg.a'],
   };
   /**
-   * v10 → v11 的期望結果：沒有退件就沒有郵件；角色名 null、入職視為已完成；沒有詢問與修訂草稿；
+   * v10 遷移到現行格式（v13）的期望結果（變數名沿用 R11）：沒有退件就沒有郵件；角色名 null、入職視為已完成；
+   * 沒有詢問與修訂草稿；沒有承辦查詢（inquiries 為空）；
    * 舊回覆快照沒有 deliverAt → 視為已送達的已讀歷史（回應 ID 併入 readMessages，不重新亮紅點）。
    */
   const v11: Save = (() => {
@@ -910,6 +917,11 @@ describe('migrateToCurrent：v11、v10、v9、v8、v7、v6 與損壞資料', () 
       onboarding: { step: 0, complete: true },
       readMessages: ['msg.a', 'msg.test.r1'],
     };
+  })();
+  /** v10 → v11 單步的期望結果：真正的 SaveV11（版本 11），從現行期望精確拿掉 v13 才新增的 inquiries，其餘相同。 */
+  const v11Step: SaveV11 = (() => {
+    const { inquiries: _q, version: _v13, ...rest } = v11;
+    return { ...rest, version: 11 };
   })();
   const { issueSchedule: _is, readIssueReceipts: _ri, version: _v10, returns: _r10, ...v9Body } = v10;
   const v9: SaveV9 = { ...v9Body, version: 9, returns: [] };
@@ -940,9 +952,17 @@ describe('migrateToCurrent：v11、v10、v9、v8、v7、v6 與損壞資料', () 
     const result = migrateToCurrent(v10, DIR6)!;
     expect(result.from).toBe(10);
     expect(result.save).toEqual(v11);
-    expect(migrateV10ToV11(v10, DIR6)).toEqual({ ...v11, version: 11 });
-    const added = ['issueDrafts', 'mailbox', 'readMail', 'helpRequests', 'profile', 'onboarding'];
-    expect(Object.keys(result.save).sort()).toEqual([...Object.keys(v10).filter((k) => k !== 'readIssueReceipts'), ...added].sort());
+    // v10 → v11 單步仍是真正的 v11：版本 11、沒有 inquiries；只有遷移到現行格式（v13）才補上
+    const step = migrateV10ToV11(v10, DIR6);
+    expect(step).toEqual(v11Step);
+    expect(step.version).toBe(11);
+    expect('inquiries' in step).toBeFalse();
+    const keptV10 = Object.keys(v10).filter((k) => k !== 'readIssueReceipts');
+    const addedV11 = ['issueDrafts', 'mailbox', 'readMail', 'helpRequests', 'profile', 'onboarding'];
+    const addedCurrent = [...addedV11, 'inquiries'];
+    expect(Object.keys(step).sort()).toEqual([...keptV10, ...addedV11].sort());
+    expect(Object.keys(result.save).sort()).toEqual([...keptV10, ...addedCurrent].sort());
+    expect(result.save.inquiries).toEqual({});
     // 輸入不變
     expect(v10.readMessages).toEqual(['msg.a']);
     expect('readIssueReceipts' in v10).toBeTrue();
@@ -1006,9 +1026,9 @@ describe('migrateToCurrent：v11、v10、v9、v8、v7、v6 與損壞資料', () 
       [v8, 8],
       [v9, 9],
       [v10, 10],
-      // M1：v11 存檔（與現行同結構、版本號 11）→ from 11；現行 v12 → from 12
-      [{ ...v11, version: 11 }, 11],
-      [{ ...v11, version: 12, inquiries: undefined }, 12],
+      // M1：v11 存檔（真正的 SaveV11）→ from 11；v12（與 v11 同結構、版本號 12）→ from 12；現行 v13 → from 13
+      [v11Step, 11],
+      [{ ...v11Step, version: 12 }, 12],
       [v11, 13],
     ];
     for (const [input, from] of cases) {
@@ -1063,7 +1083,7 @@ describe('migrateToCurrent：v11、v10、v9、v8、v7、v6 與損壞資料', () 
     ['{"version":9}', { version: 9 }],
     ['{"version":10}', { version: 10 }],
     ['{"version":11}', { version: 11 }],
-    ['version 13', { ...v11, version: 13 }],
+    [`version ${SAVE_VERSION + 1}（未來版本）`, { ...v11, version: SAVE_VERSION + 1 }],
     ['v9 形狀但標為 version 10', { ...v9, version: 10 }],
     ['v10 形狀但標為 version 11', { ...v10, version: 11 }],
     ['v10 缺 issueSchedule', omitKey(v10, 'issueSchedule')],

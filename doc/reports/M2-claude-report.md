@@ -162,7 +162,7 @@
 3. **Day 10 標籤**：`ui.workbench.dayTagTemplate` 是 `"DAY / 0{day}"`，第十日會顯示「DAY / 010」。
    - 擬把模板改成 `"DAY / {day}"`，由程式補兩位數，第 1–9 日顯示不變。這會改內容字串，請確認。
 4. **內容包沒有、但嚴格 schema 必填的玩家可見字**：
-   - `ui.workbench.dayName.7`～`10`。擬沿用既有「第N日」樣式。
+   - `ui.workbench.dayName.7`～`10`。既有值是漢字數字「一」～「六」，配合 `docTitleTemplate`「第{dayName}日」；擬補「七／八／九／十」。
    - `ui.tasks.kind.casework`、`ui.tasks.unit.casework`、`ui.executionLog.command.casework`。
    - Day 10 計數的四個分母標籤。內容包只有「程序已完成／窗口已收件／未附本人回覆／待補」，沒有「清單列數」「未決項目數」的標籤文字。
    - 請 Codex 供字，或核准沿用既有格式。

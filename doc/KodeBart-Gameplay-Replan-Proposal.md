@@ -1,6 +1,6 @@
 # KodeBart 十日玩法重整提案
 
-狀態：**第一至十一節為歷史提案／研究；第十二節是 2026-10-08 Human 創作委任後 Codex 選定的 M1 實作方向。尚未實作、未試玩、未驗收。當輪工程交辦仍只讀 COLLABORATION。**
+最新狀態（2026-10-16）：**本文件保留歷史提案／研究。M1 的 Day 3–6 已實作，PR #10 已由 Human 手動合併至 `main@a366226cb10f2a143cb03b2ca391de6a4cd2f364`；工程完成不等於 Human 已驗收體驗。下一完整製作規格移至 [M2：同一家公司，不同的人](KodeBart-M2-Chapter-Plan.md) 與 [內容包](content/M2-shared-city-content.json)，兩者尚未實作／試玩。Action 以 Issue 交辦；下文舊本機／worktree／COLLABORATION 執行安排已被現行流程取代，不再執行。自動化規則本輪不變。**
 
 最新授權：Human 要求改以完整遊戲里程碑交付，委任 Codex／Claude 在既定世界觀內創作；不再要求每句文案或每項低風險設計另行核准。下文「目前只補 #7」「新版玩法尚未交辦」是之前的停止點，已被第十二節及新的 COLLABORATION 取代。這不表示舊版 #7 或未選取的研究候選已 Human 驗收。
 

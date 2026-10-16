@@ -1,6 +1,6 @@
 # KodeBart · 錯誤世界（ERROR OF THE WORLD）
 
-單人 Web 劇情向 RPG 的 Angular 正式 Demo（兩日試作「入職」）。
+單人 Web 劇情向遊戲的 Angular Demo。目前 main 已包含 Day 1–6 的工作、文件／附件、混合批次與跨日回聲；M2 第 7–10 日章節已有企劃與內容包，尚未實作／試玩。
 世界觀、玩法規格與設計規範見 [`doc/`](doc/)；本 repo 是由 Codex 交接包（`kodebart-handoff`）移植而來的 Angular 19 CSR 實作。
 
 > 本版為試作：新增人名、案件與流程均為 Demo 提案，不自動升格為正史。詳見 `doc/KodeBart-Game-Plan.md` §2。
@@ -13,6 +13,8 @@
 | `KodeBart-Demo-Spec.md` | 兩天逐步玩法、文案、資料規則、結果矩陣與驗收條件 |
 | `Claude-Handoff.md` | 開發範圍與整合指令 |
 | `DESIGN.md` | 冷色像素風設計 token 與 UI 規範 |
+| `KodeBart-M2-Chapter-Plan.md` | 下一完整章節的故事、玩法、UI 與交付目標（未實作） |
+| `content/M2-shared-city-content.json` | Codex 提供的四日內容包與新資料契約（待 Claude 接線） |
 | `Artwork-Brief.md` | 封面構圖、素材用途與生成提示詞 |
 | `Verification.md` | 原型的驗證範圍與限制 |
 | `README.md` | 原交接包說明 |

@@ -1,0 +1,297 @@
+{
+  "id": "content.m2-shared-city",
+  "schemaVersion": 1,
+  "note": "Codex 2026-10-16 內容包，未實作／未測試。messages、replyPrompt、case-source、interludes 沿既有模板；casework、webPages、caseMail、savedBindings 為本輪明示新增契約，須補正式型別與嚴格驗證，不把整包當既有 DayContent 載入。不改 Agent 流程。",
+  "title": "同一家公司，不同的人",
+  "ui": {
+    "casework": {
+      "purpose": "這次要完成的事",
+      "recipient": "交接窗口",
+      "sources": "來源與歷程",
+      "packet": "本次送件包",
+      "cite": "引用這一欄",
+      "removeCitation": "移除引用",
+      "citationOrigin": "引用來源",
+      "noCitations": "尚未加入引用。來源原件仍會留在本機工作歷程。",
+      "chooseAction": "處理方式",
+      "preview": "預覽本次輸出",
+      "saveDraft": "暫存",
+      "submit": "交付",
+      "ask": "詢問承辦窗口",
+      "asked": "已送出詢問，回覆抵達時會通知你。",
+      "laterReply": "回覆尚未抵達。可以先用現有材料處理，或保留待補。",
+      "saved": "送件包已保存並加入交接佇列。",
+      "failed": "本次交付未保存。輸入與引用已保留，請重試。",
+      "sourceMissing": "舊批次未附在這份存檔中；請保留缺漏，交由窗口補件。",
+      "needCitation": "請加入至少一段要交給接手窗口的資料。",
+      "needAction": "請選擇處理方式。",
+      "readOnly": "已交付副本，僅供檢閱。",
+      "continueChapter": "繼續工作",
+      "continueChapterHint": "從已保存的交接接續下一個工作日，不重做前六日。",
+      "procedureComplete": "程序已完成",
+      "windowReceived": "窗口已收件",
+      "personReplyMissing": "未附本人回覆",
+      "pending": "待補",
+      "input": "來源",
+      "decision": "本次引用與處理",
+      "output": "交付輸出"
+    },
+    "browser": {
+      "appName": "瀏覽器",
+      "home": "首頁",
+      "back": "返回上一頁",
+      "forward": "前往下一頁",
+      "address": "遊戲內頁面位址",
+      "source": "資料來源",
+      "updated": "更新日期",
+      "unavailable": "這個頁面尚未發布。",
+      "missing": "找不到這個遊戲內頁面。",
+      "scope": "僅供瀏覽公司與城市的遊戲內頁面。"
+    },
+    "batchFieldMeaning": {
+      "sourceRefusalNull": "sourceRefusal 的 null：來源未提供拒絕紀錄。",
+      "adoptedRefusalNull": "adoptedRefusal 的 null：採用值仍未確認；是否送覆核請看 origin 與處理去向。",
+      "outputRefusalNull": "輸出 refusal 的 null：本次輸出保留未確認，不代表本人已回覆。",
+      "notApplicable": "不適用的資料另列不適用，不用未提供或未確認代替。"
+    }
+  },
+  "savedBindings": [
+    {"id":"binding.m2.h204-code","source":"archived-record","recordId":"record.day3-h204","field":"archiveCode","fallback":"未附已歸檔編號"},
+    {"id":"binding.m2.h204-basis","source":"case-decision","caseId":"case.day3.h204","field":"basisDocumentId","fallback":"未附舊版依據"},
+    {"id":"binding.m2.import-rows","source":"field-map-output","taskId":"task.day6.field-map","field":"rows","fallback":"舊批次未附"},
+    {"id":"binding.m2.day6-report","source":"report-snapshot","taskId":"task.day6.m1-report","field":"snapshot","fallback":"舊交接報告未附"},
+    {"id":"binding.m2.notice-scope","source":"casework-output","taskId":"task.day7.m2-notice-scope","field":"snapshot","fallback":"本次尚未交付"},
+    {"id":"binding.m2.h204-notice","source":"casework-output","taskId":"task.day7.m2-h204-notice","field":"snapshot","fallback":"本次尚未交付"},
+    {"id":"binding.m2.h204-followup","source":"casework-output","taskId":"task.day8.m2-h204-followup","field":"snapshot","fallback":"後續尚未交接"},
+    {"id":"binding.m2.scope-handoff","source":"casework-output","taskId":"task.day9.m2-scope-handoff","field":"snapshot","fallback":"通知範圍尚未交接"},
+    {"id":"binding.m2.r27-proposal","source":"casework-output","taskId":"task.day8.m2-r27-proposal","field":"snapshot","fallback":"本次尚未交付"},
+    {"id":"binding.m2.r27-packet","source":"casework-output","taskId":"task.day9.m2-r27-packet","field":"snapshot","fallback":"本次尚未交付"}
+  ],
+  "webPages": [
+    {
+      "id":"web.company.home","address":"kb://company/home","site":"柯迪巴特","visibleFrom":"day.07","updatedAt":"9 月 23 日","title":"讓彼此更靠近，從日常開始",
+      "paragraphs":["柯迪巴特相信，人類與巴特族都應有安穩生活的機會。從資訊整理、服務轉介到生活資源，我們協助不同需求找到合適的窗口。","改變不必從很大的事情開始。一次準時的通知、一份清楚的紀錄，都能讓下一位接手的人少走一段路。"],
+      "links":[{"label":"本週共存交流活動","pageId":"web.company.together"},{"label":"服務如何聯繫","pageId":"web.company.contact"},{"label":"城市生活資訊","pageId":"web.city.life"}]
+    },
+    {
+      "id":"web.company.together","address":"kb://company/together","site":"柯迪巴特","visibleFrom":"day.07","updatedAt":"9 月 23 日","title":"同一座城市｜週末交流日",
+      "paragraphs":["本週六在服務據點舉辦交流日，歡迎人類與巴特族居民參加。現場安排生活用品介紹、合作店家攤位與服務諮詢。","員工可自由報名協助場務，或以一般來賓身分參加。活動不在辦公大樓舉行，請依報名回函前往指定入口。","現場備有飲水與休息區。雨天照常舉行，戶外攤位將移至棚下。"],
+      "links":[{"label":"公司首頁","pageId":"web.company.home"},{"label":"週末交通與天氣提醒","pageId":"web.city.life"}]
+    },
+    {
+      "id":"web.company.contact","address":"kb://company/contact","site":"柯迪巴特","visibleFrom":"day.07","updatedAt":"9 月 23 日","title":"把需求交給適合的窗口",
+      "paragraphs":["如需更改通知時間或補充資料，請洽原服務窗口。我們會由熟悉案件的同仁彙整需求，再轉交安排單位。","為避免不同單位重複聯繫，資料作業同仁不直接致電服務對象。窗口會保留當事人提供的補充內容。","收到通知不代表已完成服務。如對安排有疑問，請於回覆欄註明可聯繫的時間。"],
+      "links":[{"label":"週末交流日","pageId":"web.company.together"},{"label":"公司首頁","pageId":"web.company.home"}]
+    },
+    {
+      "id":"web.city.life","address":"kb://city/life","site":"城市生活資訊","visibleFrom":"day.07","updatedAt":"9 月 23 日","title":"這週出門，傘別留在辦公室",
+      "paragraphs":["近期午後容易下雨，部分站點的遮雨棚正在維修。通勤族可以提早查看候車處公告。","週末服務據點周邊有市集與交流活動。附近店家提醒，棚下通道請留給行人，取餐後不要停在出入口聊天。","有讀者推薦把備用傘放在公司。另一位讀者回覆：放了三把，現在家裡一把也沒有。"],
+      "links":[{"label":"租屋留言板","pageId":"web.city.rent"},{"label":"交流日活動資訊","pageId":"web.company.together"},{"label":"週末交流日後記","pageId":"web.city.weekend"}]
+    },
+    {
+      "id":"web.city.rent","address":"kb://city/rent","site":"城市生活資訊","visibleFrom":"day.08","updatedAt":"9 月 24 日","title":"租屋閒聊：照片裡的窗到底在哪裡",
+      "paragraphs":["有人分享看房經驗：照片裡的窗很大，到現場才知道拍的是公共走廊。","回覆有人說，至少照片沒騙你，那扇窗真的在。也有人提醒先問清楚洗衣機與垃圾放哪裡，搬進去才發現比窗戶更麻煩。","看房最好先約白天，晚上再走一趟附近的路。也歡迎分享照片裡看不出來、搬進去才知道的小事。"],
+      "links":[{"label":"回到城市生活資訊","pageId":"web.city.life"}]
+    },
+    {
+      "id":"web.city.weekend","address":"kb://city/weekend","site":"城市生活資訊","visibleFrom":"day.10","updatedAt":"9 月 28 日","title":"交流日雨中結束，攤商收攤忙到傍晚",
+      "paragraphs":["週末的共存交流日照常舉行，午後大雨讓部分攤位移到棚下。主辦方感謝居民與員工協助清理場地。","有店家說，賣得最好的不是原先主打的用品，而是臨時拿出來的雨具。參與者對入口分流與指示方式意見不一，主辦方表示下次會調整。","周邊店家今日恢復平日營業時間。週末活動的遺失物，仍可向服務台詢問。"],
+      "links":[{"label":"原活動介紹","pageId":"web.company.together"},{"label":"公司首頁","pageId":"web.company.home"}]
+    }
+  ],
+  "caseDocuments": [
+    {"id":"doc.day7.m2-h204-registry","kind":"case-source","recordIds":["record.day3-h204"],"text":{"heading":"參訪通知｜原聯絡名冊","fields":[{"label":"姓名","value":"黃品蓉"},{"label":"原登記編號","value":"H-204"},{"label":"通知窗口","value":"新人報到窗口"},{"label":"資料日期","value":"9 月 17 日 08:42"},{"label":"用途","value":"新進同仁參訪通知轉送"}]}},
+    {"id":"doc.day7.m2-h204-supplement","kind":"case-source","recordIds":["record.day3-h204"],"text":{"heading":"參訪通知｜補件節錄","fields":[{"label":"姓名","value":"黃品蓉"},{"label":"補件編號","value":"H-205"},{"label":"補充內容","value":"下週起通知請轉交培訓窗口，原報到窗口不再代收。"},{"label":"資料日期","value":"9 月 17 日 09:06"},{"label":"生效日","value":"9 月 21 日"}]}},
+    {"id":"doc.day7.m2-h204-current","kind":"case-source","recordIds":["record.day3-h204"],"text":{"heading":"承辦查覆｜聯絡名冊工作副本","fields":[{"label":"姓名","value":"黃品蓉"},{"label":"目前通知窗口","value":"培訓窗口"},{"label":"編號核定","value":"尚未回傳；請保留實際歸檔編號。"},{"label":"承辦說明","value":"聯絡窗口異動已生效，這份副本不核定人員編號。"},{"label":"查覆日期","value":"9 月 23 日"}]}},
+    {"id":"doc.day8.m2-r27-request","kind":"case-source","recordIds":["record.day8-m2-r27"],"text":{"heading":"R-27｜服務安排申請節錄","fields":[{"label":"對象編號","value":"0742"},{"label":"補充備註","value":"上午不方便，若有下午時段請先通知。"},{"label":"聯繫方式","value":"由原服務窗口轉達"},{"label":"本人回覆附件","value":"未附"},{"label":"資料日期","value":"9 月 23 日"}]}},
+    {"id":"doc.day8.m2-r27-list","kind":"case-source","recordIds":["record.day8-m2-r27"],"text":{"heading":"R-27｜代理窗口安排清單","fields":[{"label":"對象編號","value":"0742"},{"label":"預排時段","value":"10:30"},{"label":"發出單位","value":"原服務窗口"},{"label":"清單用途","value":"建立本輪待轉送通知；不作為本人出席確認。"},{"label":"資料日期","value":"9 月 24 日 08:10"}]}},
+    {"id":"doc.day8.m2-r27-slot","kind":"case-source","recordIds":["record.day8-m2-r27"],"text":{"heading":"承辦查覆｜本輪改期方式","fields":[{"label":"參照單號","value":"R-27"},{"label":"可提出的替代時段","value":"15:00"},{"label":"處理方式","value":"資料作業組可送改期建議，由原窗口確認後再通知。"},{"label":"限制","value":"提出建議不代表時段已保留，也不代表本人同意。"},{"label":"查覆日期","value":"9 月 24 日"}]}},
+    {"id":"doc.day9.m2-r27-delivery","kind":"case-source","recordIds":["record.day8-m2-r27"],"text":{"heading":"R-27｜最新窗口回條","fields":[{"label":"參照單號","value":"R-27"},{"label":"本輪處理","value":"未附本輪送件副本"},{"label":"窗口狀態","value":"已收到資料作業組送件"},{"label":"本人回覆","value":"未附"}]}},
+    {"id":"doc.day9.m2-scope-receipt","kind":"case-source","recordIds":["record.b102","record.day3-b314","record.day3-b521"],"text":{"heading":"通知範圍｜窗口收件清單","fields":[{"label":"輸入批次","value":"未附通知範圍副本"},{"label":"窗口狀態","value":"清單已收件"},{"label":"資料用途","value":"交接下一輪轉送與待補事項"},{"label":"本人回覆","value":"本回條不包含本人回覆統計"}]}}
+  ],
+  "generatedDocumentFields": [
+    {"documentId":"doc.day9.m2-r27-delivery","fieldIndex":1,"bindingId":"binding.m2.r27-proposal","render":"saved-choice-label"},
+    {"documentId":"doc.day9.m2-scope-receipt","fieldIndex":0,"bindingId":"binding.m2.notice-scope","render":"source-version-and-scope"}
+  ],
+  "caseOutcomeRules": [
+    {"taskId":"task.day7.m2-h204-notice","kind":"unresolved-code","bindingId":"binding.m2.h204-code","providedCodes":["H-204","H-205"],"otherwiseState":"pending-code","otherwiseNote":"本次保存的編號不在這兩份文件內，請承辦核對；原值留存，不自動修正。","knownState":"awaiting-code-ratification","knownNote":"聯絡路徑與編號核定分開處理；收件不是編號核定。"}
+  ],
+  "inquiries": [
+    {"id":"inquiry.m2.h204-contact","caseId":"case.day7.m2-h204-notice","eventId":"m2.inquiry.h204-contact","requestedOn":"day.07","earlyAfterTask":"task.day7.m2-notice-scope","guaranteedBy":"day.08","documentId":"doc.day7.m2-h204-current","sender":"新人報到窗口","subject":"黃品蓉聯絡窗口查覆","lines":["聯絡窗口已異動至培訓窗口，工作副本附上。","編號核定另在處理；這封回覆只確認通知要轉給哪個窗口。"],"availabilityVariants":["after-current-work","next-arrival"]},
+    {"id":"inquiry.m2.r27-slot","caseId":"case.day8.m2-r27-proposal","eventId":"m2.inquiry.r27-slot","requestedOn":"day.08","earlyAfterTask":"task.day8.m2-h204-followup","guaranteedBy":"day.09","documentId":"doc.day8.m2-r27-slot","sender":"原服務窗口","subject":"R-27 改期方式查覆","lines":["這輪可以提出 15:00 的改期建議，請附上原申請備註。","還要再確認時段，先不要把通知寫成已約定。"],"availabilityVariants":["after-current-work","next-arrival"]}
+  ],
+  "cases": [
+    {
+      "id":"case.day7.m2-notice-scope","taskId":"task.day7.m2-notice-scope","variant":"batch-scope","purpose":"將前日服務銜接表整理成窗口待轉送清單，保留仍缺資料的項目。","recipient":"服務轉送窗口","bindingIds":["binding.m2.import-rows","binding.m2.day6-report"],"documentIds":[],"minimumCitations":0,
+      "choices":[
+        {"id":"all-imported","label":"整批交給窗口，待補狀態另列","description":"讓窗口一次拿到本次實際匯入的全部列；未確認的資料仍標待補。","output":{"route":"window-all","pendingDisposition":"included-and-marked"}},
+        {"id":"ready-first","label":"先交可轉送列，待補另列交接","description":"本輪清單不含待補列；另存一份待補清單，不刪除原資料。","output":{"route":"window-ready","pendingDisposition":"separate-list"}},
+        {"id":"request-source","label":"保留本輪清單，請窗口補齊舊批次","description":"適用舊批次未附或暫不沿用的情況；留下人工補件項目，仍可進行其他工作。","output":{"route":"source-review","pendingDisposition":"source-requested"}}
+      ],
+      "note":"前兩路的列與數量一律由保存的 field-map 輸出解析。待補判定沿既有保存狀態／origin；不以固定標準答案重算。缺舊批次時前兩路不可造空的成功輸出，仍提供 request-source。"
+    },
+    {
+      "id":"case.day7.m2-h204-notice","taskId":"task.day7.m2-h204-notice","variant":"contact-route","purpose":"替黃品蓉轉送新人參訪通知。請決定這次使用的聯絡窗口，保留當時歸檔編號。","recipient":"新人參訪承辦","bindingIds":["binding.m2.h204-code","binding.m2.h204-basis"],"documentIds":["doc.day7.m2-h204-registry","doc.day7.m2-h204-supplement","doc.day7.m2-h204-current"],"inquiryId":"inquiry.m2.h204-contact","minimumCitations":0,
+      "choices":[
+        {"id":"registry-window","label":"轉給原報到窗口","description":"沿原名冊聯絡；可能需要由原窗口再轉寄。","output":{"route":"registry-window","noticeState":"queued"}},
+        {"id":"training-window","label":"依補件轉給培訓窗口","description":"採用已載明生效日的窗口異動；人員編號仍取自原保存紀錄。","output":{"route":"training-window","noticeState":"queued"}},
+        {"id":"clarify-first","label":"先請承辦核對，再轉送通知","description":"保留本輪通知草案，建立人工核對待辦，不假稱已通知。","output":{"route":"manual-check","noticeState":"pending"}}
+      ],
+      "note":"聯絡路徑與人員編號是兩個不同欄位；選新窗口不能悄悄把 H-204／任意輸入改成 H-205。缺舊編號仍保存缺漏並走人工核對。"
+    },
+    {
+      "id":"case.day8.m2-h204-followup","taskId":"task.day8.m2-h204-followup","variant":"receipt-followup","purpose":"處理昨日參訪通知的窗口回條，交接仍需轉寄或核定的部分。","recipient":"新人參訪承辦","bindingIds":["binding.m2.h204-notice","binding.m2.h204-code"],"documentIds":["doc.day7.m2-h204-current"],"minimumCitations":0,
+      "choices":[
+        {"id":"continue-current","label":"依最新聯絡窗口續送，保留原編號","description":"建立新送件版本；原通知副本與回條留存，未核定的編號仍不改寫。","output":{"route":"continue-current","noticeState":"forwarding"}},
+        {"id":"handoff-clarification","label":"通知與編號疑義一起交回承辦","description":"由承辦核對後處理；留下待補，不標本人已收通知。","output":{"route":"handoff-clarification","noticeState":"pending"}}
+      ]
+    },
+    {
+      "id":"case.day8.m2-r27-proposal","taskId":"task.day8.m2-r27-proposal","variant":"service-proposal","purpose":"整理 R-27 的通知草案。代理清單與申請備註對時段有不同資訊，請選本輪處理方式。","recipient":"原服務窗口","bindingIds":[],"documentIds":["doc.day8.m2-r27-request","doc.day8.m2-r27-list","doc.day8.m2-r27-slot"],"inquiryId":"inquiry.m2.r27-slot","minimumCitations":0,
+      "choices":[
+        {"id":"morning-list","label":"沿代理清單建立 10:30 通知草案","description":"保留本輪預排；只建立待轉送通知，不表示本人已確認時間。","output":{"route":"morning-draft","proposedTime":"10:30","personConfirmation":"not-provided"}},
+        {"id":"afternoon-request","label":"依申請備註送出下午改期建議","description":"向窗口提出下午需求；查覆若已到，可附 15:00 建議，未到則只寫下午、不編造可用時段。","output":{"route":"afternoon-request","proposedTimeSource":"available-inquiry-or-afternoon-note","personConfirmation":"not-provided"}},
+        {"id":"clarify-before-notice","label":"暫不建立通知，請窗口補齊安排","description":"本輪先留待補，之後仍要處理窗口回條。","output":{"route":"awaiting-arrangement","proposedTime":null,"personConfirmation":"not-provided"}}
+      ]
+    },
+    {
+      "id":"case.day9.m2-r27-packet","taskId":"task.day9.m2-r27-packet","variant":"citation-packet","purpose":"接手窗口只會收到本次送件包。請從來源欄位引用要交接的內容，再選轉送方式。","recipient":"下一班服務窗口","bindingIds":["binding.m2.r27-proposal"],"documentIds":["doc.day8.m2-r27-request","doc.day8.m2-r27-list","doc.day8.m2-r27-slot","doc.day9.m2-r27-delivery"],"minimumCitations":1,
+      "choices":[
+        {"id":"standard","label":"按一般交接轉送本次引用","description":"讓接手窗口沿摘要繼續；未引用的段落不會附在這份送件包，本機原件仍保留。","output":{"route":"standard-packet"}},
+        {"id":"manual-read","label":"請窗口先檢閱引用，再繼續安排","description":"留下人工檢閱待辦；不是自動修正或保證取得本人回覆。","output":{"route":"manual-read-packet"}}
+      ],
+      "note":"下游實際得到的是玩家引用的 documentId＋版本＋fieldIndex＋文字快照，不按選項名稱自動補上下午備註。能引用代碼、清單、申請備註或回條；不以語意正確性擋提交。"
+    },
+    {
+      "id":"case.day9.m2-scope-handoff","taskId":"task.day9.m2-scope-handoff","variant":"batch-followup","purpose":"將第七日通知範圍的實際窗口回條與待補清單交接。清單收件不能當作本人回覆。","recipient":"資料作業下一班","bindingIds":["binding.m2.notice-scope"],"documentIds":["doc.day9.m2-scope-receipt"],"minimumCitations":0,
+      "choices":[
+        {"id":"receipt-only","label":"交窗口收件回條，待補留在本組","description":"接手者可看本輪收件；待補未交出去，下一班仍需向本組索取。","output":{"route":"receipt-only","pendingTransferred":false}},
+        {"id":"include-pending","label":"收件回條與待補清單一起交接","description":"接手者能看到本輪範圍與未決項目；保留各自狀態，不合併成完成數。","output":{"route":"receipt-and-pending","pendingTransferred":true}}
+      ]
+    },
+    {
+      "id":"case.day10.m2-report","taskId":"task.day10.m2-report","variant":"report-framing","purpose":"以本章實際副本整理交接。數字固定取自保存結果，請選擇標題與交接重點。","recipient":"資料作業窗口","bindingIds":["binding.m2.notice-scope","binding.m2.scope-handoff","binding.m2.h204-notice","binding.m2.h204-followup","binding.m2.r27-proposal","binding.m2.r27-packet"],"documentIds":[],"minimumCitations":0,
+      "choices":[
+        {"id":"department-template","label":"沿部門模板：程序完成紀錄","description":"以已驗證、已交付的工作項目為主；附件仍列窗口收件與未決事項，不能假稱全部本人已回覆。","output":{"heading":"程序完成紀錄","focus":"procedure"}},
+        {"id":"window-status","label":"改用交接標題：已送窗口與待辦","description":"以實際轉送、待補及接手狀態為主；不變更原始筆數與前次決定。","output":{"heading":"已送窗口與待辦","focus":"window-status"}},
+        {"id":"open-questions","label":"交接未決事項：請接手者先看","description":"把仍需釐清的聯絡版本、時段或引用缺口列在前面；完整清單仍附上。","output":{"heading":"交接未決事項","focus":"open-questions"}}
+      ],
+      "note":"顯示數字必須分母清楚：工作項目完成數、清單列數、窗口收件列數、未決項目數不能相加或互相冒稱。只對本章範圍計數，不替整間公司生成成功率。"
+    }
+  ],
+  "caseMail": [
+    {"id":"mail.day8.m2-h204-old","dayId":"day.08","fromTask":"task.day7.m2-h204-notice","when":{"choiceId":"registry-window"},"sender":"新人報到窗口","subject":"黃品蓉通知需轉寄","lines":["原報到窗口已不代收這份參訪通知，請改轉培訓窗口。","我們保留了本次實際使用的編號與原通知副本。這次是轉送窗口異動，編號核定尚未回傳。"],"attachment":"source-submission","followupTaskId":"task.day8.m2-h204-followup"},
+    {"id":"mail.day8.m2-h204-new","dayId":"day.08","fromTask":"task.day7.m2-h204-notice","when":{"choiceId":"training-window"},"sender":"培訓窗口","subject":"黃品蓉通知已收件，編號仍待核定","lines":["培訓窗口已收到參訪通知，會沿本次副本處理。","名冊的兩個編號還在核對，請在交接中保留當時使用的值，不要以這封收件信當作編號核定。"],"attachment":"source-submission","followupTaskId":"task.day8.m2-h204-followup"},
+    {"id":"mail.day8.m2-h204-hold","dayId":"day.08","fromTask":"task.day7.m2-h204-notice","when":{"choiceId":"clarify-first"},"sender":"新人參訪承辦","subject":"黃品蓉通知暫留人工核對","lines":["已收到核對需求，聯絡窗口應轉培訓窗口。","本輪尚未轉送通知。請由最新待辦續送，或將編號疑義一併交回承辦。"],"attachment":"source-submission","followupTaskId":"task.day8.m2-h204-followup"},
+    {"id":"mail.day9.m2-r27-morning","dayId":"day.09","fromTask":"task.day8.m2-r27-proposal","when":{"choiceId":"morning-list"},"sender":"原服務窗口","subject":"R-27｜上午通知草案已收","lines":["已收到 10:30 通知草案，列入本輪轉達清單。","目前沒有本人回覆附件。下一班若需了解原申請內容，請將相關備註引用到交接包。"],"attachment":"source-submission","followupTaskId":"task.day9.m2-r27-packet"},
+    {"id":"mail.day9.m2-r27-afternoon","dayId":"day.09","fromTask":"task.day8.m2-r27-proposal","when":{"choiceId":"afternoon-request"},"sender":"原服務窗口","subject":"R-27｜下午改期建議已收","lines":["已收到下午改期需求，另列時段確認待辦，尚未發出已約定通知。","下一班會接手確認；請附上你本次採用的申請內容與查覆，不要只交一個時間。"],"attachment":"source-submission","followupTaskId":"task.day9.m2-r27-packet"},
+    {"id":"mail.day9.m2-r27-hold","dayId":"day.09","fromTask":"task.day8.m2-r27-proposal","when":{"choiceId":"clarify-before-notice"},"sender":"原服務窗口","subject":"R-27｜安排待補，尚未建立通知","lines":["收到補件需求，這筆尚未排入本輪通知。","已取得可提出的下午時段說明；請交接原需求與目前缺漏，由下一班確認後續。"],"attachment":"source-submission","followupTaskId":"task.day9.m2-r27-packet"},
+    {"id":"mail.day10.m2-r27-note","dayId":"day.10","fromTask":"task.day9.m2-r27-packet","when":{"cites":{"documentId":"doc.day8.m2-r27-request","fieldIndex":1}},"sender":"下一班服務窗口","subject":"R-27｜已看到下午需求","lines":["你附的原備註已收到，交接中保留下午需求。","我們會按你送來的處理方式接續，目前仍未取得本人回覆。"],"attachment":"source-submission"},
+    {"id":"mail.day10.m2-r27-no-note","dayId":"day.10","fromTask":"task.day9.m2-r27-packet","when":{"notCites":{"documentId":"doc.day8.m2-r27-request","fieldIndex":1}},"sender":"下一班服務窗口","subject":"R-27｜請補充時段需求依據","lines":["收到這份交接包了，但引用內容沒有原申請的時段備註。","請下一班向本組調閱原件。這不會刪除你留存的來源，接手者目前只是沒有收到那一段。"],"attachment":"source-submission"},
+    {"id":"mail.day10.m2-report-procedure","dayId":"day.10","fromTask":"task.day10.m2-report","when":{"choiceId":"department-template"},"sender":"資料作業窗口","subject":"程序完成紀錄已收","lines":["收到程序完成紀錄，先依這份辦理本輪交接。","待補資料請本組繼續留存，需要原件時我們會再調閱。"],"attachment":"source-submission"},
+    {"id":"mail.day10.m2-report-window","dayId":"day.10","fromTask":"task.day10.m2-report","when":{"choiceId":"window-status"},"sender":"資料作業窗口","subject":"轉送與待辦清單已收","lines":["收到，下一班會沿這份轉送與待辦清單接手。","窗口收件的項目先對照回條；未附回覆的仍保留原狀態。"],"attachment":"source-submission"},
+    {"id":"mail.day10.m2-report-open","dayId":"day.10","fromTask":"task.day10.m2-report","when":{"choiceId":"open-questions"},"sender":"資料作業窗口","subject":"未決事項已列入下一班","lines":["未決事項已收到，下一班會先看這一段。","若原件沒有附在送件包中，我們會再向本組調閱，不以完成紀錄代替原件。"],"attachment":"source-submission"}
+  ],
+  "conditions": [
+    {"id":"cond.m2.bart.asked","kind":"chat-choice","promptId":"prompt.day7.m2-together","choiceIds":["ask-colleagues"]},
+    {"id":"cond.m2.bart.not-asked","kind":"not-chat-choice","promptId":"prompt.day7.m2-together","choiceIds":["ask-colleagues"]},
+    {"id":"cond.m2.coat.lent","kind":"chat-choice","promptId":"prompt.day6.m1-week-start","choiceIds":["spare"]},
+    {"id":"cond.m2.coat.not-lent","kind":"not-chat-choice","promptId":"prompt.day6.m1-week-start","choiceIds":["spare"]},
+    {"id":"cond.m2.r27.afternoon-cited","kind":"case-citation","taskId":"task.day9.m2-r27-packet","documentId":"doc.day8.m2-r27-request","fieldIndex":1},
+    {"id":"cond.m2.r27.afternoon-not-cited","kind":"not-case-citation","taskId":"task.day9.m2-r27-packet","documentId":"doc.day8.m2-r27-request","fieldIndex":1}
+  ],
+  "days": [
+    {
+      "id":"day.07","day":7,"nextDayId":"day.08","chatDateLabel":"9 月 23 日",
+      "workbench":{"greeting":"早安，前日交付已回傳，今天接著整理轉送通知。","workHeading":"今日工作"},
+      "aside":{"heading":"通知轉送","body":"保留已保存的資料與未決事項，將通知交給合適的窗口。"},
+      "records":[],"documents":[],
+      "tasks":[
+        {"id":"task.day7.m2-notice-scope","kind":"casework","caseId":"case.day7.m2-notice-scope","recordIds":[],"documentIds":[],"text":{"eyebrow":"NOTICE / SCOPE","heading":"本輪通知範圍","instruction":"查看前日實際交付結果，再決定本輪清單與待補項目的交接方式。"}},
+        {"id":"task.day7.m2-h204-notice","kind":"casework","caseId":"case.day7.m2-h204-notice","recordIds":["record.day3-h204"],"documentIds":["doc.day7.m2-h204-registry","doc.day7.m2-h204-supplement","doc.day7.m2-h204-current"],"text":{"eyebrow":"NOTICE / CONTACT","heading":"黃品蓉參訪通知","instruction":"核對聯絡版本。通知窗口和已歸檔編號分開處理。"}}
+      ],
+      "messages":[
+        {"id":"msg.day7.m2-work","channelId":"channel.department.data-ops","actorId":"actor.lin-yuan","time":"08:24","visibleFrom":"day.07","unlock":[],"lines":["今天接通知轉送。前天的批次不用重打一份，從已保存的交付結果接就好。","黃品蓉那件聯絡窗口有補充，文件已放在工作單。"]},
+        {"id":"msg.day7.m2-umbrella","channelId":"channel.group.lunch-chat","actorId":"actor.wu-wan-ting","time":"09:16","visibleFrom":"day.07","unlock":[],"lines":["誰把傘放在印表機旁邊？我剛差點拿去當自己的。"],"replyPrompt":{"id":"prompt.day7.m2-umbrella","availableThrough":"day.07","choices":[{"id":"mine","text":"是我的，謝謝妳沒拿走。","responses":[{"id":"msg.day7.m2-umbrella-mine","actorId":"actor.wu-wan-ting","time":"09:17","lines":["來不及，我已經拿去茶水間又放回來了。沒有出大樓，放心。"]}]},{"id":"collection","text":"那邊已經三把了，要不要貼名字？","responses":[{"id":"msg.day7.m2-umbrella-collection","actorId":"actor.yang-zi-qian","time":"09:17","lines":["先不要。有一把是我的，但我也忘了是哪把。"]}]}]}},
+        {"id":"msg.day7.m2-together","channelId":"channel.group.lunch-chat","actorId":"actor.wu-wan-ting","time":"11:48","visibleFrom":"day.07","unlock":[],"lines":["週六那個交流日你們有人要去嗎？我可能去看看，順便找附近的房子。","公司首頁有活動連結，說下雨也辦。"],"replyPrompt":{"id":"prompt.day7.m2-together","availableThrough":"day.07","choices":[{"id":"ask-colleagues","text":"公司裡也有巴特族同事嗎？我好像都沒碰過。","responses":[{"id":"msg.day7.m2-together-yang","actorId":"actor.yang-zi-qian","time":"11:49","lines":["你是說坐我們旁邊一起上班那種？別鬧了。"]},{"id":"msg.day7.m2-together-lin","actorId":"actor.lin-yuan","time":"11:50","lines":["我們這層我沒遇過，其他地方我不清楚。活動是在服務據點，不是這棟。"]},{"id":"msg.day7.m2-together-wu","actorId":"actor.wu-wan-ting","time":"11:51","lines":["你要去的話看一下回函，入口跟員工上班不是同一個。對了，你們有人知道附近哪條街比較好走嗎？"]}]},{"id":"been-before","text":"你們以前去過嗎？","responses":[{"id":"msg.day7.m2-together-before-yang","actorId":"actor.yang-zi-qian","time":"11:49","lines":["去年去搬過桌子。送的傘撐兩次就反了。"]},{"id":"msg.day7.m2-together-before-wu","actorId":"actor.wu-wan-ting","time":"11:50","lines":["那我今年不為了傘去了。主要還是看房子，房東只肯約週末。"]}]}]}},
+        {"id":"msg.day7.m2-side-dm","channelId":"channel.dm.lin-yuan","actorId":"actor.lin-yuan","time":"14:06","visibleFrom":"day.07","unlock":["cond.m2.bart.asked"],"lines":["剛才不是說你不能問。子謙講話就那樣，你不用接他的玩笑。","你問公司其他地方有沒有，我真的不知道。我平常也只跟幾個窗口聯絡。"],"replyPrompt":{"id":"prompt.day7.m2-side-dm","availableThrough":"day.07","choices":[{"id":"serious","text":"嗯，我只是認真問問。","responses":[{"id":"msg.day7.m2-side-serious","actorId":"actor.lin-yuan","time":"14:07","lines":["知道。你要找公開活動資訊就看首頁，內部名冊不是拿來查這個的。"]}]},{"id":"leave-it","text":"沒事，先忙工作吧。","responses":[{"id":"msg.day7.m2-side-leave","actorId":"actor.lin-yuan","time":"14:07","lines":["好。有通知轉錯窗口的再丟我，我看得懂的會幫你看。"]}]}]}}
+      ],
+      "transition":{"id":"transition.day7.wrap","text":{"docTitle":"本日交接","eyebrow":"HANDOFF","heading":"通知與待補已留存。","body":"本次引用與轉送路徑保存在送件副本。","backToCover":"返回開始頁"}}
+    },
+    {
+      "id":"day.08","day":8,"nextDayId":"day.09","chatDateLabel":"9 月 24 日",
+      "workbench":{"greeting":"早安，昨日窗口回條已送達。","workHeading":"今日工作"},
+      "aside":{"heading":"回條與安排","body":"先前通知與新的時段需求可以分開處理。"},
+      "records":[{"id":"record.day8-m2-r27","key":"M2R27","name":null,"code":"0742","refusal":null,"refusalApplies":false}],"documents":[],
+      "tasks":[
+        {"id":"task.day8.m2-h204-followup","kind":"casework","caseId":"case.day8.m2-h204-followup","recordIds":["record.day3-h204"],"documentIds":["doc.day7.m2-h204-current"],"text":{"eyebrow":"NOTICE / FOLLOW-UP","heading":"參訪通知後續","instruction":"開啟昨日實際回條，續送通知或交回人工核對；原副本不覆寫。"}},
+        {"id":"task.day8.m2-r27-proposal","kind":"casework","caseId":"case.day8.m2-r27-proposal","recordIds":["record.day8-m2-r27"],"documentIds":["doc.day8.m2-r27-request","doc.day8.m2-r27-list","doc.day8.m2-r27-slot"],"text":{"eyebrow":"SERVICE / R-27","heading":"R-27 通知草案","instruction":"清單列上午，申請備註提到下午。請查閱各自用途，再決定本輪送件方式。"}}
+      ],
+      "messages":[
+        {"id":"msg.day8.m2-coat-lent","channelId":"channel.dm.wu-wan-ting","actorId":"actor.wu-wan-ting","time":"08:31","visibleFrom":"day.08","unlock":["cond.m2.coat.lent"],"lines":["外套放回你椅背了，謝謝。","我今天真的帶了自己的，你可以檢查。"]},
+        {"id":"msg.day8.m2-coat-other","channelId":"channel.dm.wu-wan-ting","actorId":"actor.wu-wan-ting","time":"08:31","visibleFrom":"day.08","unlock":["cond.m2.coat.not-lent"],"lines":["今天外套終於有帶。昨天出門前還特地掛在包包上。","現在換成忘記帶午餐。"]},
+        {"id":"msg.day8.m2-help","channelId":"channel.department.data-ops","actorId":"actor.yang-zi-qian","time":"10:23","visibleFrom":"day.08","unlock":[],"lines":["我下午會經過報到窗口。黃品蓉那件如果還要人工核對，把最新送件編號給我，順路問。","別丟前天那份，我不想現場再打電話回來找。"]},
+        {"id":"msg.day8.m2-viewing","channelId":"channel.group.lunch-chat","actorId":"actor.wu-wan-ting","time":"12:02","visibleFrom":"day.08","unlock":[],"lines":["房東說有大窗戶，我問是在房間裡嗎，他回『公共空間很明亮』。","感覺不用去看了。"],"replyPrompt":{"id":"prompt.day8.m2-viewing","availableThrough":"day.08","choices":[{"id":"ask-photo","text":"請他拍一張站在床邊看窗戶的照片。","responses":[{"id":"msg.day8.m2-viewing-photo","actorId":"actor.wu-wan-ting","time":"12:03","lines":["好主意。我剛傳了，現在已讀不回。"]}]},{"id":"still-go","text":"都約好了，就當去熟悉附近。","responses":[{"id":"msg.day8.m2-viewing-go","actorId":"actor.wu-wan-ting","time":"12:03","lines":["也是，順便看一下晚上回來那條路。我還沒走過。"]}]}]}},
+        {"id":"msg.day8.m2-bart-followup","channelId":"channel.dm.lin-yuan","actorId":"actor.lin-yuan","time":"14:48","visibleFrom":"day.08","unlock":["cond.m2.bart.asked"],"lines":["你昨天問的，我中午想到另一件事：活動的服務對象跟員工名冊本來就是分開的。","我以前沒特別想過是不是也有人會來應徵。"],"replyPrompt":{"id":"prompt.day8.m2-bart-followup","availableThrough":"day.08","choices":[{"id":"thought-so","text":"我原本以為公司說共存，也會包含一起工作。","responses":[{"id":"msg.day8.m2-bart-thought","actorId":"actor.lin-yuan","time":"14:49","lines":["嗯，我之前只把它當服務活動看。人事的事我就不清楚了。"]}]},{"id":"no-answer","text":"可能是我把兩件事想在一起了。","responses":[{"id":"msg.day8.m2-bart-no-answer","actorId":"actor.lin-yuan","time":"14:49","lines":["不一定。我也沒有比較清楚，只能跟你說我碰過的。"]}]}]}},
+        {"id":"msg.day8.m2-r27","channelId":"channel.dm.lin-yuan","actorId":"actor.lin-yuan","time":"15:03","visibleFrom":"day.08","unlock":[],"lines":["R-27 那份是窗口先排的，不是已經約好。你可以照清單做通知草案，也可以把下午需求交回去。","要改期說明就從工作單問承辦。我手上沒時段表，不能替他答。"],"replyPrompt":{"id":"prompt.day8.m2-r27","availableThrough":"day.08","choices":[{"id":"will-check","text":"好，我先把兩份文件比一下。","responses":[{"id":"msg.day8.m2-r27-check","actorId":"actor.lin-yuan","time":"15:04","lines":["嗯。窗口回得慢也先留著，不用為了等這件把其他回條全擱著。"]}]},{"id":"direct-contact","text":"不能直接問本人方便什麼時候嗎？","responses":[{"id":"msg.day8.m2-r27-direct","actorId":"actor.lin-yuan","time":"15:04","lines":["我們沒有直接聯絡資料，得經原窗口。你看到那句下午需求，也是一開始由窗口收進來的。"]}]}]}}
+      ],
+      "transition":{"id":"transition.day8.wrap","text":{"docTitle":"本日交接","eyebrow":"HANDOFF","heading":"通知草案與補件需求已交接。","body":"通知草案與本輪補件需求保存在各自送件副本。","backToCover":"返回開始頁"}}
+    },
+    {
+      "id":"day.09","day":9,"nextDayId":"day.10","chatDateLabel":"9 月 25 日",
+      "workbench":{"greeting":"早安，今天整理給下一班使用的送件包。","workHeading":"今日工作"},
+      "aside":{"heading":"交接內容","body":"原件留存與接手者收到哪些內容，是兩件不同的事。"},
+      "records":[],"documents":[],
+      "tasks":[
+        {"id":"task.day9.m2-r27-packet","kind":"casework","caseId":"case.day9.m2-r27-packet","recordIds":["record.day8-m2-r27"],"documentIds":["doc.day8.m2-r27-request","doc.day8.m2-r27-list","doc.day8.m2-r27-slot","doc.day9.m2-r27-delivery"],"text":{"eyebrow":"PACKET / R-27","heading":"R-27 下一班送件包","instruction":"打開文件，引用要交接的段落。預覽接手者實際會拿到的內容，再交付。"}},
+        {"id":"task.day9.m2-scope-handoff","kind":"casework","caseId":"case.day9.m2-scope-handoff","recordIds":[],"documentIds":["doc.day9.m2-scope-receipt"],"text":{"eyebrow":"PACKET / NOTICE","heading":"通知範圍交接","instruction":"回查第七日實際輸出，決定待補是否一併交給下一班。"}}
+      ],
+      "messages":[
+        {"id":"msg.day9.m2-weekend","channelId":"channel.group.lunch-chat","actorId":"actor.wu-wan-ting","time":"09:04","visibleFrom":"day.09","unlock":[],"lines":["明天看房跟交流日湊在一起，我可能整天都在那附近。","有人要去的話，下雨可以一起找地方吃飯。"],"replyPrompt":{"id":"prompt.day9.m2-weekend","availableThrough":"day.09","choices":[{"id":"join","text":"我可能去看看，到時再聯絡。","responses":[{"id":"msg.day9.m2-weekend-join","actorId":"actor.wu-wan-ting","time":"09:05","lines":["好。我看完房跟你說，不要等我才出門，房東很會拖。"]}]},{"id":"rest","text":"這週想休息一下，你看房順利。","responses":[{"id":"msg.day9.m2-weekend-rest","actorId":"actor.wu-wan-ting","time":"09:05","lines":["謝啦。希望不是去看走廊的大窗戶。"]}]}]}},
+        {"id":"msg.day9.m2-yang-packet","channelId":"channel.department.data-ops","actorId":"actor.yang-zi-qian","time":"10:12","visibleFrom":"day.09","unlock":[],"lines":["窗口昨天問的是你最新那份，不是原表。","今天交下一班的話，把需要他看的段落真的附進去，口頭說有一份文件不算附上。"]},
+        {"id":"msg.day9.m2-old-job","channelId":"channel.group.lunch-chat","actorId":"actor.yang-zi-qian","time":"12:11","visibleFrom":"day.09","unlock":[],"lines":["以前我交接只寫『同前次』，接我的人休假回來根本不知道前次是哪次。","他把整封退回來，只回我兩個字：哪次。"],"replyPrompt":{"id":"prompt.day9.m2-old-job","availableThrough":"day.09","choices":[{"id":"fair","text":"這兩個字滿合理的。","responses":[{"id":"msg.day9.m2-old-job-fair","actorId":"actor.yang-zi-qian","time":"12:12","lines":["對，所以我沒回嘴。只是又找了一下午。"]}]},{"id":"now-clear","text":"難怪你現在都會寫送件編號。","responses":[{"id":"msg.day9.m2-old-job-clear","actorId":"actor.yang-zi-qian","time":"12:12","lines":["被退過就會了。你別學我那次就好。"]}]}]}},
+        {"id":"msg.day9.m2-busy","channelId":"channel.dm.wu-wan-ting","actorId":"actor.wu-wan-ting","time":"16:07","visibleFrom":"day.09","unlock":[],"lines":["我剛發現租屋頁面有人遇過跟我一樣的窗戶。已經傳給房東了。","現在換他問我是在哪裡看到的。"]}
+      ],
+      "transition":{"id":"transition.day9.wrap","text":{"docTitle":"本日交接","eyebrow":"HANDOFF","heading":"送件包已保存。","body":"本次送件包與完整來源已分別留存。","backToCover":"返回開始頁"}}
+    },
+    {
+      "id":"day.10","day":10,"nextDayId":null,"chatDateLabel":"9 月 28 日",
+      "workbench":{"greeting":"早安，上一班回覆與週末公開頁面已更新。","workHeading":"今日工作"},
+      "aside":{"heading":"本輪交接","body":"按實際保存結果整理，不將程序完成與本人回覆合成同一個數字。"},
+      "records":[],"documents":[],
+      "tasks":[
+        {"id":"task.day10.m2-report","kind":"casework","caseId":"case.day10.m2-report","recordIds":[],"documentIds":[],"text":{"eyebrow":"REPORT / HANDOFF","heading":"本輪工作交接","instruction":"檢視兩條案件線與窗口回問，選擇交接重點；預覽後的每個數字都應能回查副本。"}}
+      ],
+      "messages":[
+        {"id":"msg.day10.m2-house","channelId":"channel.group.lunch-chat","actorId":"actor.wu-wan-ting","time":"08:43","visibleFrom":"day.10","unlock":[],"lines":["看完了，窗戶真的不在房間裡。","不過附近那家麵不錯，至少沒有白跑。"],"replyPrompt":{"id":"prompt.day10.m2-house","availableThrough":"day.10","choices":[{"id":"next-time","text":"房子再找，店名先給我。","responses":[{"id":"msg.day10.m2-house-food","actorId":"actor.wu-wan-ting","time":"08:44","lines":["我把位置留給你，下次一起去。不要週末，週末排很長。"]}]},{"id":"tiring","text":"下雨還跑一整天，辛苦了。","responses":[{"id":"msg.day10.m2-house-tired","actorId":"actor.wu-wan-ting","time":"08:44","lines":["對，鞋子到今天都還沒乾。下次先叫他拍房間四面給我。"]}]}]}},
+        {"id":"msg.day10.m2-event","channelId":"channel.group.lunch-chat","actorId":"actor.lin-yuan","time":"09:16","visibleFrom":"day.10","unlock":[],"lines":["交流日的消息上城市頁了。那天棚下滿滿都是人，我只去拿了張資料。","有兩個入口，排錯還要繞回去，難怪一直有人問路。"]},
+        {"id":"msg.day10.m2-r27-note","channelId":"channel.dm.lin-yuan","actorId":"actor.lin-yuan","time":"10:37","visibleFrom":"day.10","unlock":["cond.m2.r27.afternoon-cited"],"lines":["R-27 接手窗口看到下午那句了，交接有留著。","後面時段還要他們確認。我們這邊先把收到的回條附上。"]},
+        {"id":"msg.day10.m2-r27-no-note","channelId":"channel.dm.lin-yuan","actorId":"actor.lin-yuan","time":"10:37","visibleFrom":"day.10","unlock":["cond.m2.r27.afternoon-not-cited"],"lines":["R-27 接手窗口在問時段需求的原件，你那份包裡沒附那一段。","原件還在，我下一班幫忙轉。交接上先留這件，不要標成已補。"]},
+        {"id":"msg.day10.m2-checkin","channelId":"channel.dm.lin-yuan","actorId":"actor.lin-yuan","time":"15:52","visibleFrom":"day.10","unlock":[],"lines":["做到這裡還習慣嗎？前幾天你問的那些，我剛來時也沒有全搞懂。"],"replyPrompt":{"id":"prompt.day10.m2-checkin","availableThrough":"day.10","choices":[{"id":"people","text":"操作比較熟了，但有時不知道最後是誰收到。","responses":[{"id":"msg.day10.m2-checkin-people","actorId":"actor.lin-yuan","time":"15:53","lines":["我也只看得到窗口回到我們這邊的部分。有要追的，先把案號跟版本留下。"]}]},{"id":"work","text":"至少現在知道交接要附哪一份了。","responses":[{"id":"msg.day10.m2-checkin-work","actorId":"actor.lin-yuan","time":"15:53","lines":["那就有進步。下班前再看一下有沒有沒保存的草稿，其他明天接。"]}]}]}}
+      ],
+      "transition":{"id":"transition.day10.end","text":{"docTitle":"第一章試玩結束","eyebrow":"CHAPTER / 01","heading":"本輪交接已保存。","body":"已交付副本、接手回覆與未決項目留在工作歷程。","summary":"這是一段工作日的結束，不是所有案件的結案。","thanks":"感謝你的協助。","outro":"第一章試玩結束","backToCover":"返回開始頁"}}
+    }
+  ],
+  "interludes": [
+    {"afterDay":"day.06","beforeDay":"day.07","leave":["電梯門關上前，有人問明天早餐要不要一起訂。","你說還不知道。他點點頭，低頭繼續看手機。"],"arrive":["桌上多了一張交流日的小卡。","你把它移到鍵盤旁，開啟昨天的交接。"]},
+    {"afterDay":"day.07","beforeDay":"day.08","leave":["下班時雨又大了。","子謙在門口翻了半天，才認出自己的傘。"],"arrive":["還沒坐下，通訊軟體先亮了紅點。","昨天送出的通知有了回覆。"]},
+    {"afterDay":"day.08","beforeDay":"day.09","leave":["婉庭邊走邊回房東訊息，差點錯過電梯。","你替她按住開門。她說謝謝，這次終於把外套一起帶走了。"],"arrive":["辦公室有人在討論週末會不會下雨。","你開啟要交給下一班的文件。"]},
+    {"afterDay":"day.09","beforeDay":"day.10","leave":["下班前，婉庭把看房地址抄在便條上。","紙太小，最後一行寫到了背面。"],"arrive":["隔了兩天，傘架還是沒有空位。","城市頁面換了週末活動的消息，郵件裡有下一班的回覆。"]},
+    {"afterDay":"day.10","beforeDay":null,"leave":["你確認交接已保存，關掉工作視窗。","候車處的廣告還是那句『讓彼此更靠近』。","旁邊有人問這班車是不是到市中心。你看了看站牌，指給他看。"],"arrive":[]}
+  ],
+  "integrationNotes": [
+    "先將 Day 6 的 nextDayId 改為 day.07，換成既有 WrapTransitionText 形狀；不可只是加 nextDayId 而保留 EndTransitionText 的 summary/outro 導致嚴格驗證失敗。新的最後一日為 day.10。",
+    "caseDocuments 可依所屬日拆入正式 day documents，但須維持跨日引用與版本。inquiry-only 的文件（h204-current、r27-slot）抵達前不可從一般文件列表、全文或 JSON 偷讀；次日仍可靠解鎖。",
+    "Day 8 的 h204-current 必定可查，不論第七日有沒有詢問；Day 9 的 r27-slot 同理。詢問只改提早取得的機會，不剝奪必要資訊。",
+    "generatedDocumentFields 的兩個欄位從 savedBindings／來源送件版本建立生成副本，原文 value 是缺漏 fallback。來源／窗口狀態也須與真實輸出相符：source-requested 不可生成『清單已收件』，改用『補件需求已收件』。",
+    "caseOutcomeRules 只在後日回條／交接揭露編號需核對，不在當日驗證擋送。已提供的兩個代碼仍未核定唯一真值；未知／缺漏則另外保留 pending-code，真實影響後續待辦與報告，不只顯示不同編號。",
+    "caseMail 綁定 fromTask 的保存 choice／引用；同一來源版本只產生一次，實際附件為不可變 source-submission 副本。R-27 note/no-note 兩封互斥；不能按目前草稿或任意 UI 選項推斷。",
+    "Casework 正式規則與輸出只使用已定義 enum／合法引用，禁止 eval、任意程式碼、任意外網。savedBindings 是白名單資料查詢，不是可執行表達式。",
+    "Day 10 報告先依實際資料生成不可變計數，再由選定 focus 排列；不改數字。不明／未附另列，不能在 absence 時寫成 0 個問題或全數完成。",
+    "第七日因舊存檔缺 Day 6 輸出而走 request-source 時，後續是可交接的缺來源待辦，不用預設八筆標準資料補造；仍能通過第十日，但報告必須承認未附。",
+    "所有引用保存 documentId／版本／fieldIndex／label／value 快照；原文件後續異動不得回寫舊包。新 source lookup 的 schema／migration 要驗未知 ID 的安全 fallback 與範圍，不把字串值當 TS 路徑執行。",
+    "replyPrompt 全部有既有不回覆功能；not-chat-choice 包含 skipped／未回答，不能生成不存在的承諾。新 condition 僅讀保存紀錄，不靠目前聊天室判斷。",
+    "公開頁面 visibleFrom 與內部查詢解鎖不同：網站可以由頁面歷史回看，但未發布頁不偷看；對未發布目標先不顯示其連結，到發布日才出現。瀏覽器首頁提供已發布頁面索引，六頁都可從正常連結抵達；不把遊戲日期文字當真實系統日期計算。",
+    "全部 UI、回覆、信件與文件文字由本包提供。需新文字或發現矛盾先原 Issue 交 Codex，不新增巴特身分對照、0102 名字、秘密部門或實驗暗號。"
+  ]
+}

@@ -197,6 +197,74 @@ export function choiceOutputOf(plan: CaseworkPlan, choiceId: string): CaseChoice
   return plan.choices.find((c) => c.id === choiceId)?.output ?? null;
 }
 
+/* ---------- 送件版本：已交付副本唯讀，最新修訂獨立 ---------- */
+
+/** 案件工作的一個交付版本（只附加，不覆寫已交付的副本）。 */
+export interface CaseworkVersion {
+  /** 0＝原送件；之後的修訂依序加一。 */
+  index: number;
+  choiceId: string;
+  /** 交付當下的選項輸出快照；內容檔日後修改也不改寫。 */
+  output: CaseChoiceOutput;
+  /** 實際交給接手窗口的引用（不可變快照）。 */
+  citations: readonly CaseCitation[];
+  dayId: DayId;
+}
+
+/** 案件工作的進度：開啟過、暫存的草稿（選項與引用），以及交付版本。 */
+export interface CaseworkProgress {
+  kind: 'casework';
+  opened: boolean;
+  draft: CaseworkInput;
+  versions: readonly CaseworkVersion[];
+}
+
+export function emptyCaseworkProgress(): CaseworkProgress {
+  return { kind: 'casework', opened: false, draft: { citations: [] }, versions: [] };
+}
+
+export function latestCaseworkVersion(p: CaseworkProgress): CaseworkVersion | undefined {
+  return p.versions[p.versions.length - 1];
+}
+
+/** 暫存草稿：只改草稿，不動已交付的版本。 */
+export function withCaseworkDraft(p: CaseworkProgress, draft: CaseworkInput): CaseworkProgress {
+  return { ...p, draft: { ...(draft.choiceId !== undefined ? { choiceId: draft.choiceId } : {}), citations: [...draft.citations] } };
+}
+
+export type CaseworkSubmitResult =
+  | { ok: true; progress: CaseworkProgress; version: CaseworkVersion }
+  | { ok: false; error: CaseworkInputError | 'stale' };
+
+/**
+ * 交付或修訂（不可變附加）：expectedLatest＝畫面開始操作時看到的最新版本序號（第一次交付為 null）。
+ * 與目前最新版本不符代表畫面已過期（重複送出、另一個視窗已交付），回傳 stale，不覆寫任何副本。
+ * 交付成功後清空草稿；錯值照樣保存並往下游傳遞，不改已發生的後果。
+ */
+export function submitCaseworkVersion(
+  plan: CaseworkPlan,
+  p: CaseworkProgress,
+  input: CaseworkInput,
+  ctx: CaseworkCheckContext,
+  dayId: DayId,
+  expectedLatest: number | null,
+): CaseworkSubmitResult {
+  const latest = latestCaseworkVersion(p);
+  if ((latest?.index ?? null) !== expectedLatest) return { ok: false, error: 'stale' };
+  const error = caseworkInputError(plan, input, ctx);
+  if (error) return { ok: false, error };
+  const output = choiceOutputOf(plan, input.choiceId ?? '');
+  if (!output) return { ok: false, error: 'needAction' };
+  const version: CaseworkVersion = {
+    index: latest ? latest.index + 1 : 0,
+    choiceId: input.choiceId ?? '',
+    output,
+    citations: input.citations.map((c) => ({ ...c })),
+    dayId,
+  };
+  return { ok: true, version, progress: { ...p, draft: { citations: [] }, versions: [...p.versions, version] } };
+}
+
 /* ---------- 承辦查詢：早回／次日回 ---------- */
 
 export type InquiryTiming = 'after-current-work' | 'next-arrival';

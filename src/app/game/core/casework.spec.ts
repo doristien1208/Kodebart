@@ -12,12 +12,16 @@ import {
   citationOf,
   citesField,
   codeStateOf,
+  emptyCaseworkProgress,
   generatedVersionOf,
   inquiryReplyArrived,
+  latestCaseworkVersion,
   removeCitation,
   rollInquiryTiming,
   scopeListCount,
   scopeResultOf,
+  submitCaseworkVersion,
+  withCaseworkDraft,
 } from './casework';
 
 const REQUEST: CaseDocument = {
@@ -175,6 +179,57 @@ describe('casework：交付前的程序驗證', () => {
   it('choiceOutputOf 回傳內容 enum；未知選項為 null', () => {
     expect(choiceOutputOf(SCOPE, 'ready-first')).toEqual({ variant: 'batch-scope', route: 'window-ready', pendingDisposition: 'separate-list' });
     expect(choiceOutputOf(SCOPE, 'x')).toBeNull();
+  });
+});
+
+describe('casework：送件版本（已交付副本唯讀、最新修訂獨立）', () => {
+  const ctx = { document: docs(REQUEST, LIST), sourceAttached: true };
+  const note = citationOf(REQUEST, 1)!;
+  const list = citationOf(LIST, 1)!;
+
+  it('第一次交付建立第 0 版並清空草稿；草稿暫存不動已交付版本', () => {
+    let p = withCaseworkDraft(emptyCaseworkProgress(), { choiceId: 'standard', citations: [list] });
+    expect(p.versions.length).toBe(0);
+    const r = submitCaseworkVersion(PACKET, p, p.draft, ctx, 'day.09', null);
+    if (!r.ok) throw new Error(r.error);
+    p = r.progress;
+    expect(r.version).toEqual({
+      index: 0,
+      choiceId: 'standard',
+      output: { variant: 'citation-packet', route: 'standard-packet' },
+      citations: [list],
+      dayId: 'day.09',
+    });
+    expect(p.draft).toEqual({ citations: [] });
+    expect(latestCaseworkVersion(p)?.index).toBe(0);
+  });
+
+  it('修訂附加新版本，舊版本原樣保留；之後改草稿不回寫已交付副本', () => {
+    const first = submitCaseworkVersion(PACKET, emptyCaseworkProgress(), { choiceId: 'standard', citations: [list] }, ctx, 'day.09', null);
+    if (!first.ok) throw new Error(first.error);
+    const second = submitCaseworkVersion(PACKET, first.progress, { choiceId: 'manual-read', citations: [list, note] }, ctx, 'day.09', 0);
+    if (!second.ok) throw new Error(second.error);
+    expect(second.progress.versions.map((v) => v.index)).toEqual([0, 1]);
+    expect(second.progress.versions[0]).toBe(first.version);
+    expect(second.progress.versions[0]?.citations).toEqual([list]);
+    const edited = withCaseworkDraft(second.progress, { choiceId: 'standard', citations: [] });
+    expect(edited.versions).toBe(second.progress.versions);
+  });
+
+  it('畫面過期（重複送出或已有新版本）回傳 stale，不覆寫', () => {
+    const first = submitCaseworkVersion(PACKET, emptyCaseworkProgress(), { choiceId: 'standard', citations: [list] }, ctx, 'day.09', null);
+    if (!first.ok) throw new Error(first.error);
+    const again = submitCaseworkVersion(PACKET, first.progress, { choiceId: 'standard', citations: [list] }, ctx, 'day.09', null);
+    expect(again).toEqual({ ok: false, error: 'stale' });
+    const ahead = submitCaseworkVersion(PACKET, first.progress, { choiceId: 'standard', citations: [list] }, ctx, 'day.09', 3);
+    expect(ahead).toEqual({ ok: false, error: 'stale' });
+  });
+
+  it('驗證失敗時不建立版本，輸入原樣保留給玩家重試', () => {
+    const p = withCaseworkDraft(emptyCaseworkProgress(), { choiceId: 'standard', citations: [] });
+    expect(submitCaseworkVersion(PACKET, p, p.draft, ctx, 'day.09', null)).toEqual({ ok: false, error: 'needCitation' });
+    expect(p.draft.choiceId).toBe('standard');
+    expect(p.versions.length).toBe(0);
   });
 });
 

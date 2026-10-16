@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { STORAGE } from '../content/text';
 import { DayDirectory } from '../core/day-plan';
-import { migrateToCurrent } from '../core/save-migrate';
+import { MigrationResult, migrateToCurrent } from '../core/save-migrate';
 import { Save } from '../core/types';
 import { DAY_DIRECTORY } from './day-directory';
 
@@ -14,13 +14,13 @@ export interface LoadResult {
   save: Save | null;
   /** 空字串代表沒有問題；否則為要顯示給玩家的提示。 */
   issue: string;
-  /** 本次載入由哪個版本轉換而來；null＝沒有存檔或無法讀取，12＝本來就是現行格式。 */
-  migratedFrom: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | null;
+  /** 本次載入由哪個版本轉換而來；null＝沒有存檔或無法讀取，13＝本來就是現行格式。 */
+  migratedFrom: MigrationResult['from'] | null;
 }
 
 /**
  * 本機存檔（localStorage、versioned JSON）。
- * 現行格式 v12；v2～v11 舊檔會被讀入並轉換，不捨棄、不清空進度。
+ * 現行格式 v13；v2～v12 舊檔會被讀入並轉換，不捨棄、不清空進度。
  * 讀取或寫入失敗以 try/catch 攔下並回傳提示，不靜默吞錯、不默默覆蓋格式不符的資料。
  */
 @Injectable({ providedIn: 'root' })

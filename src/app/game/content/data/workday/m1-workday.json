@@ -230,11 +230,18 @@
       "origin": "依據",
       "attachment": "附件",
       "status": "狀態"
+    },
+    "batchFieldMeaning": {
+      "sourceRefusalNull": "sourceRefusal 的 null：來源未提供拒絕紀錄。",
+      "adoptedRefusalNull": "adoptedRefusal 的 null：採用值仍未確認；是否送覆核請看 origin 與處理去向。",
+      "outputRefusalNull": "輸出 refusal 的 null：本次輸出保留未確認，不代表本人已回覆。",
+      "notApplicable": "不適用的資料另列不適用，不用未提供或未確認代替。"
     }
   },
   "integration": {
     "source": "doc/content/M1-workday-content.json（Codex 內容包）：mailOutcomes／interludes／ui 原樣採用；status 以外的接線欄位由 Claude 依專案慣例分流。",
     "claudeAdditions": "ui 的 statusTodo 以後（待辦／已送件／待補、窗口收件、建立交接報告、送件副本、批次副本、已抵達回條、evidence、valueOrigin、rowStatus、legendTemplate、columns）為 Claude 接線補的介面字，請 Codex 覆核。",
+    "m2Source": "ui.batchFieldMeaning 逐字取自 doc/content/M2-shared-city-content.json 的 ui.batchFieldMeaning（Codex M2 內容包），不屬於 claudeAdditions。",
     "timing": "ordinary＝一般回條：送達時機為到班即到或當日第一次交付後（rand(seed, mailId) 首次決定並保存在郵件上）；其他回條到班即送達。"
   }
 }

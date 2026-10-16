@@ -43,6 +43,7 @@ import {
   ReturnVersion,
   SourceRecord,
   ReturnReceiptAttachment,
+  SAVE_VERSION,
 } from './types';
 
 /**
@@ -165,7 +166,8 @@ function makeBatch(archived: BatchState['archived'] = {}, drafts: BatchState['dr
 /** 合法的 v11 存檔 fixture（day.01／work、入職已完成）；只覆寫需要的欄位。 */
 function makeSave(overrides: Partial<Save> = {}): Save {
   return {
-    version: 12,
+    version: 13,
+    inquiries: {},
     seed: 42,
     dayId: DAY_01,
     stage: 'work',
@@ -346,7 +348,7 @@ describe('isValidSave：不合法存檔', () => {
     ['version 8（v8 舊檔不是現行格式，即使帶 returns）', { ...initial, version: 8 }],
     ['version 9（v9 舊檔不是現行格式，即使帶 issueSchedule）', { ...initial, version: 9 }],
     ['version 10（v10 舊檔不是現行格式，即使帶 mailbox／profile）', { ...initial, version: 10 }],
-    ['version 13', { ...initial, version: 13 }],
+    [`version ${SAVE_VERSION + 1}（未來版本）`, { ...initial, version: SAVE_VERSION + 1 }],
     ['version 為字串 "11"', { ...initial, version: '11' }],
     ['version 缺', { ...initial, version: undefined }],
     /* dayId／taskId */
@@ -1364,7 +1366,7 @@ describe('isValidLegacySaveV7（R9）／v7 → v8', () => {
     const result = migrateToCurrent(toV7(c3With({ ...legacyH204, archiveCode: 'H-205' })), CDIR)!;
     expect(result).not.toBeNull();
     expect(result.from).toBe(7);
-    expect(result.save.version).toBe(12);
+    expect(result.save.version).toBe(13);
     expect(result.save.returns).toEqual([]);
     expect(result.save.issueSchedule).toEqual({});
     expect(result.save.mailbox).toEqual([]);

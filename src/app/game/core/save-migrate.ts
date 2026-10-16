@@ -19,6 +19,7 @@ import {
   BatchState,
   MailRecord,
   SAVE_VERSION,
+  SaveV12,
   Save,
   SaveV2,
   SaveV3,
@@ -316,7 +317,7 @@ export function migrateV10ToV11(legacy: SaveV10, dir: DayDirectory): SaveV11 {
  * 舊檔已越過的日子（目前日之前；目前日已在 wrap／end 時含當日），列為免補——不要求補做、不假裝已提交。
  * 目前日仍在 work／morning 時不免補：做完舊工作後可以接著做新工作。舊回覆、郵件、已讀、時間原樣保留。
  */
-export function migrateV11ToV12(legacy: SaveV11, dir: DayDirectory): Save {
+export function migrateV11ToV12(legacy: SaveV11, dir: DayDirectory): SaveV12 {
   const index = dir.days.indexOf(legacy.dayId);
   const passed = dir.days.slice(0, legacy.stage === 'wrap' || legacy.stage === 'end' ? index + 1 : Math.max(index, 0));
   const raw = legacy as unknown as Record<string, unknown>;
@@ -327,33 +328,56 @@ export function migrateV11ToV12(legacy: SaveV11, dir: DayDirectory): Save {
       if (!isRawTaskDone(raw, dir, task)) waivedTasks.push(task.id);
     }
   }
-  return { ...legacy, version: SAVE_VERSION, waivedTasks };
-}
-
-export interface MigrationResult {
-  save: Save;
-  /** 來源版本；12 代表本來就是現行格式。 */
-  from: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
-}
-
-/** v11 的最低結構（版本號與遷移需要讀的欄位）；完整規則在轉成 v12 後檢查。 */
-function isV11Shape(s: unknown): s is SaveV11 {
-  if (typeof s !== 'object' || s === null || Array.isArray(s)) return false;
-  const o = s as Record<string, unknown>;
-  return o['version'] === 11 && typeof o['dayId'] === 'string' && typeof o['stage'] === 'string' && Array.isArray(o['waivedTasks']);
+  return { ...legacy, version: 12, waivedTasks };
 }
 
 /**
- * 把任何合法的存檔（v2～v12）沿鏈帶到現行格式；不合法回傳 null。
+ * v12 → v13（M2）：補上空的承辦查詢紀錄；案件、回覆、已讀、時間、seed、草稿與副本原樣保留。
+ * 第七日起的工作都在舊檔尚未到達的日子，不需免補。停在舊六日終點（end）的存檔維持原狀，
+ * 由玩家明確按「繼續工作」（rules.continueChapter）才進入第七日；讀檔、刷新不自動跳日。
+ */
+export function migrateV12ToV13(legacy: SaveV12): Save {
+  return { ...legacy, version: SAVE_VERSION, inquiries: {} };
+}
+
+type LegacyVersion = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+
+export interface MigrationResult {
+  save: Save;
+  /** 來源版本；13 代表本來就是現行格式。 */
+  from: LegacyVersion | 13;
+}
+
+function hasR12Shape(s: unknown, version: 11 | 12): boolean {
+  if (typeof s !== 'object' || s === null || Array.isArray(s)) return false;
+  const o = s as Record<string, unknown>;
+  return o['version'] === version && typeof o['dayId'] === 'string' && typeof o['stage'] === 'string' && Array.isArray(o['waivedTasks']);
+}
+
+/** v11 的最低結構（版本號與遷移需要讀的欄位）；完整規則在轉成現行格式後檢查。 */
+function isV11Shape(s: unknown): s is SaveV11 {
+  return hasR12Shape(s, 11);
+}
+
+/** v12 的最低結構；完整規則在轉成 v13 後檢查。 */
+function isV12Shape(s: unknown): s is SaveV12 {
+  return hasR12Shape(s, 12);
+}
+
+/**
+ * 把任何合法的存檔（v2～v13）沿鏈帶到現行格式；不合法回傳 null。
  * 舊檔不會被判定損壞或清空，只會被轉換；轉換結果仍須通過現行驗證。
  */
 export function migrateToCurrent(parsed: unknown, dir: DayDirectory): MigrationResult | null {
-  if (isValidSave(parsed, dir)) return { save: parsed, from: 12 };
-  const fromV11 = (v11: unknown, from: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11): MigrationResult | null => {
-    if (!isV11Shape(v11)) return null;
-    const v12 = migrateV11ToV12(v11, dir);
-    return isValidSave(v12, dir) ? { save: v12, from } : null;
+  if (isValidSave(parsed, dir)) return { save: parsed, from: 13 };
+  const fromV12 = (v12: unknown, from: LegacyVersion): MigrationResult | null => {
+    if (!isV12Shape(v12)) return null;
+    const v13 = migrateV12ToV13(v12);
+    return isValidSave(v13, dir) ? { save: v13, from } : null;
   };
+  if (isV12Shape(parsed)) return fromV12(parsed, 12);
+  const fromV11 = (v11: unknown, from: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11): MigrationResult | null =>
+    isV11Shape(v11) ? fromV12(migrateV11ToV12(v11, dir), from) : null;
   if (isV11Shape(parsed)) return fromV11(parsed, 11);
   const fromV10 = (v10: SaveV10, from: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10): MigrationResult | null => {
     if (!isValidLegacySaveV10(v10, dir)) return null;

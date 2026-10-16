@@ -74,7 +74,7 @@ describe('WorkbenchComponent（R12 工作平台）', () => {
     localStorage.clear();
   });
 
-  it('左側只有一組功能導航：工作、公告、通訊、郵件；沒有雙 group 標題、沒有文件問題、沒有返回開始頁', () => {
+  it('只有一組功能導航：工作、公告（M1：通訊、郵件只從桌面入口與視窗列開啟）；沒有雙 group 標題、沒有文件問題、沒有返回開始頁', () => {
     fixture = render();
     const nav = root(fixture).querySelector('nav[data-workbench-nav]');
     expect(nav?.getAttribute('aria-label')).toBe(WORKBENCH.navLabel);
@@ -82,8 +82,6 @@ describe('WorkbenchComponent（R12 工作平台）', () => {
     expect(navButtons(fixture).map((b) => b.querySelector('.truncate')?.textContent?.trim())).toEqual([
       WORKBENCH.nav.work,
       WORKBENCH.nav.news,
-      WORKBENCH.nav.messages,
-      WORKBENCH.nav.mail,
     ]);
     const text = root(fixture).textContent ?? '';
     expect(text).not.toContain('個人工作區');
@@ -119,17 +117,15 @@ describe('WorkbenchComponent（R12 工作平台）', () => {
     expect(LEGACY_PLAYER_NAME).toBe('員工');
   });
 
-  it('通訊／郵件捷徑開啟桌面上的應用（不在工作平台裡嵌第二份頁面）', () => {
+  it('M1：工作平台不重複通訊／郵件的導航（也不嵌第二份頁面）；導航按鈕只切換本應用的視圖', () => {
     fixture = render();
     const desktop = TestBed.inject(DesktopService);
     const opened: string[] = [];
     spyOn(desktop, 'openApp').and.callFake((app) => opened.push(app));
-    const [, , messages, mail] = navButtons(fixture);
-    expect(messages?.getAttribute('data-window-open')).toBe('app.messages');
-    expect(mail?.getAttribute('data-window-open')).toBe('app.mail');
-    messages?.click();
-    mail?.click();
-    expect(opened).toEqual(['messages', 'mail']);
+    expect(root(fixture).querySelector('[data-nav-app]')).toBeNull();
+    expect(root(fixture).querySelector('[data-window-open="app.messages"], [data-window-open="app.mail"]')).toBeNull();
+    for (const b of navButtons(fixture)) b.click();
+    expect(opened).toEqual([]);
     expect(root(fixture).querySelector('app-messages')).toBeNull();
     expect(root(fixture).querySelector('app-mail')).toBeNull();
   });
@@ -178,16 +174,12 @@ describe('WorkbenchComponent（R12 工作平台）', () => {
     expect(wm.state(EXECUTION_LOG_WINDOW_ID)()?.mode).toBe('normal');
   });
 
-  it('捷徑紅點：通訊為實際送達未讀、郵件為未讀郵件數（各有文字說明）', () => {
+  it('M1：通訊／郵件的未讀紅點不在工作平台（在桌面入口與視窗列）；有未讀郵件時工作平台也不顯示', () => {
     archiveOne(game, 'B102', 'default_false', undefined, '102');
     playTo(game, 'day.03');
     fixture = render();
-    const [, , messages, mail] = navButtons(fixture);
-    const unreadMail = game.unreadMailCount();
-    expect(unreadMail).toBeGreaterThan(0);
-    expect(mail?.textContent).toContain(String(unreadMail));
-    expect(mail?.querySelector('.sr-only')?.textContent?.trim()).toBe(mailUnreadCount(unreadMail));
-    const srMessages = messages?.querySelector('.sr-only')?.textContent?.trim();
-    if (srMessages !== undefined) expect(srMessages).toMatch(new RegExp(MESSAGES.unread(0).replace('0', '\\d+')));
+    expect(game.unreadMailCount()).toBeGreaterThan(0);
+    expect(root(fixture).querySelector('nav[data-workbench-nav] app-unread-badge')).toBeNull();
+    expect(root(fixture).querySelector('nav[data-workbench-nav]')?.textContent).not.toContain(mailUnreadCount(game.unreadMailCount()));
   });
 });

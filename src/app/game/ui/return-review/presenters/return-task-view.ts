@@ -2,7 +2,7 @@ import { dayDateLabel } from '../../../content/bundle';
 import { caseNumber, issueStatusLabel } from '../../../content/text';
 import { DayDirectory } from '../../../core/day-plan';
 import { handledOnOrAfter } from '../../../core/rules';
-import { MailAttachment, ReturnCase, ReturnStatus } from '../../../core/types';
+import { ReturnCase, ReturnReceiptAttachment, ReturnStatus } from '../../../core/types';
 import { attachmentWindowTitle } from '../../mail/presenters/mail-view';
 
 /**
@@ -26,7 +26,7 @@ export interface ReturnTaskRow {
 }
 
 /** 案件最新回條的附件引用；沒有回條時為 null。 */
-export function latestReceiptRef(item: ReturnCase): MailAttachment | null {
+export function latestReceiptRef(item: ReturnCase): ReturnReceiptAttachment | null {
   const latest = item.receipts[item.receipts.length - 1];
   return latest ? { kind: 'return-receipt', caseId: item.id, receiptId: latest.id, versionIndex: latest.versionIndex } : null;
 }

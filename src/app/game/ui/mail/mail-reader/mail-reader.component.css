@@ -65,3 +65,9 @@
 @media (forced-colors: active) {
   .mail-attachment { border: 1px solid CanvasText; }
 }
+
+/* M1 批次回條的逐列表格：在自己的區塊內橫向捲動。 */
+.mail-table-scroll { overflow-x: auto; margin: .75rem 0; border: 1px solid var(--color-border); }
+.mail-table { width: 100%; min-width: 22rem; border-collapse: collapse; font-size: .875rem; line-height: 1.5; }
+.mail-table th, .mail-table td { padding: .375rem .5rem; border-bottom: 1px solid var(--color-border); text-align: left; }
+.mail-table th { color: var(--color-muted); font-weight: 400; background: var(--color-surface); }

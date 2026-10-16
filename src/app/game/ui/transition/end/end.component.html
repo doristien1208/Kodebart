@@ -4,6 +4,13 @@
       <div class="eyebrow mb-8">{{ t.eyebrow }}</div>
       <h1 class="text-[2rem] md:text-[2.5rem] tracking-[.1em]">{{ t.heading }}</h1>
       <p class="text-muted">{{ t.body }}</p>
+      @if (leave().length > 0) {
+        <div class="interlude" data-interlude="leave">
+          @for (line of leave(); track $index) {
+            <p>{{ line }}</p>
+          }
+        </div>
+      }
       <div class="panel">
         <p>{{ t.summary }}</p>
         <p class="text-sm text-muted mb-0">{{ t.thanks }}</p>

@@ -1,0 +1,240 @@
+{
+  "id": "workday.m1",
+  "schemaVersion": 1,
+  "mail": {
+    "packId": "mail.m1-workday",
+    "sender": {
+      "id": "sender.data-desk",
+      "name": "資料作業窗口"
+    },
+    "templates": {
+      "version": {
+        "subject": "黃品蓉補件：本次引用版本",
+        "lines": [
+          "已收到本次送件。所引用的來源版本請見附件。",
+          "原登記表與補件的人員編號不同，窗口仍在確認。這封信只確認收件，尚未確認應採用的編號。"
+        ]
+      },
+      "wrong-attachment": {
+        "subject": "附件關聯需修正：0314",
+        "lines": [
+          "本次送件引用了另一個對象的附件，無法作為這筆資料的回覆依據。",
+          "請從本信附件開啟最新修訂。原送件版本留存，不會被覆蓋。"
+        ]
+      },
+      "window-only": {
+        "subject": "收件回條：服務窗口小批次",
+        "lines": [
+          "窗口已收到本批資料，送件副本見附件。",
+          "引用的電子回條只確認窗口收件。未附本人回覆的資料，來源狀態仍可在批次副本中查閱。"
+        ]
+      },
+      "awaiting": {
+        "subject": "待補清單：服務窗口小批次",
+        "lines": [
+          "以下項目仍等待回覆附件，本次交接保留原缺漏。",
+          "請保留本批紀錄；附件抵達後由最新待補項目續處理，不需要重新建立整批。"
+        ]
+      },
+      "paper": {
+        "subject": "紙本交接：補件進度",
+        "lines": [
+          "目前取得電子收件回條，實物簽收資料尚未補齊。",
+          "原交接資料與本次引用附件均留在信中。請不要以電子收件時間取代實物簽收時間。"
+        ]
+      },
+      "batch": {
+        "subject": "補充批次：交付結果",
+        "lines": [
+          "補充批次已完成流程處理，逐列結果與來源見附件。",
+          "送件筆數、已附本人回覆與待補項目分別列示，不能互相取代。"
+        ]
+      }
+    },
+    "outcomes": [
+      {
+        "id": "mail.day4.m1-version",
+        "templateId": "version",
+        "dayId": "day.04",
+        "ordinary": true,
+        "trigger": {
+          "kind": "case-decided",
+          "caseId": "case.day3.h204"
+        }
+      },
+      {
+        "id": "mail.day5.m1-wrong-attachment",
+        "templateId": "wrong-attachment",
+        "dayId": "day.05",
+        "ordinary": false,
+        "trigger": {
+          "kind": "attachment-mismatch",
+          "taskId": "task.day4.m1-attachment"
+        }
+      },
+      {
+        "id": "mail.day5.m1-window-only",
+        "templateId": "window-only",
+        "dayId": "day.05",
+        "ordinary": true,
+        "trigger": {
+          "kind": "batch-delivered",
+          "taskId": "task.day4.m1-transform",
+          "attachmentTaskId": "task.day4.m1-attachment"
+        }
+      },
+      {
+        "id": "mail.day5.m1-awaiting",
+        "templateId": "awaiting",
+        "dayId": "day.05",
+        "ordinary": false,
+        "trigger": {
+          "kind": "batch-pending",
+          "taskId": "task.day4.m1-transform"
+        }
+      },
+      {
+        "id": "mail.day6.m1-paper",
+        "templateId": "paper",
+        "dayId": "day.06",
+        "ordinary": false,
+        "trigger": {
+          "kind": "attachment-submitted",
+          "taskId": "task.day5.m1-attachment"
+        }
+      },
+      {
+        "id": "mail.day6.m1-batch",
+        "templateId": "batch",
+        "dayId": "day.06",
+        "ordinary": true,
+        "trigger": {
+          "kind": "batch-result",
+          "taskId": "task.day5.m1-transform"
+        }
+      }
+    ]
+  },
+  "interludes": [
+    {
+      "afterDay": "day.03",
+      "beforeDay": "day.04",
+      "leave": [
+        "同事開始收東西，印表機旁還留著一疊沒人拿的紙。",
+        "我把今天用過的版本留在交接紀錄，關掉工作視窗。"
+      ],
+      "arrive": [
+        "第二天到班，信箱多了一封窗口回條。",
+        "我先開了工作平台。"
+      ]
+    },
+    {
+      "afterDay": "day.04",
+      "beforeDay": "day.05",
+      "leave": [
+        "送件清單顯示完成，待補的幾筆留給下一個工作日。",
+        "予安還在接電話，我揮了下手，沒有打斷他。"
+      ],
+      "arrive": [
+        "早上有人正在找一箱紙本。",
+        "昨天的批次回條已經到信箱了。"
+      ]
+    },
+    {
+      "afterDay": "day.05",
+      "beforeDay": "day.06",
+      "leave": [
+        "最後一批資料送出。那箱紙本的位置，交接單上還是空白。",
+        "我把未完成的項目留下，和同事一起走到電梯口。"
+      ],
+      "arrive": [
+        "過了一個週末，工作平台仍停在熟悉的畫面。",
+        "窗口寄來新回條，也有幾筆還在等。"
+      ]
+    },
+    {
+      "afterDay": "day.06",
+      "beforeDay": null,
+      "leave": [
+        "今天送出了多少筆，報表列得很清楚。",
+        "我另外留了一份待補清單。下次窗口問起，至少能找到當時用的是哪一份。"
+      ],
+      "arrive": []
+    }
+  ],
+  "ui": {
+    "workQueue": "工作佇列",
+    "currentCase": "目前文件",
+    "source": "來源資料",
+    "adopted": "採用資料",
+    "generated": "批次輸出",
+    "sourceVersion": "來源版本",
+    "compare": "並排查閱",
+    "resetWindows": "還原視窗位置",
+    "openSource": "開啟來源",
+    "openSnapshot": "開啟送件副本",
+    "chooseAttachment": "選擇引用附件",
+    "preserveMissing": "保留缺漏並送覆核",
+    "referenceAndSend": "引用附件並送件",
+    "referencedEvidence": "這份附件能證明什麼？",
+    "attachmentMissing": "目前沒有可引用的附件，可保留缺漏送覆核。",
+    "pendingDependency": "等待前一批交付",
+    "preview": "建立批次預覽",
+    "execute": "執行並交付",
+    "input": "原始輸入",
+    "rule": "處理規則",
+    "output": "預覽輸出",
+    "missingMeaning": "來源沒有回覆紀錄。套用預設會寫入部門預設值；保留缺漏則等待補件。兩者都不補造當事人的回覆。",
+    "submissionCount": "送件筆數",
+    "replyCount": "已附本人回覆",
+    "pendingCount": "待補項目",
+    "signOff": "完成本日交接",
+    "tomorrow": "交接至下個工作日",
+    "handoff": "本日交接",
+    "pendingHandoff": "留待下一工作日",
+    "logValidate": "驗證處理設定",
+    "logTransform": "建立批次輸出",
+    "logPersist": "保存送件副本",
+    "logEnqueue": "加入後續佇列",
+    "logFailure": "本次未完成保存，請保留草稿後重試。",
+    "statusTodo": "待辦",
+    "statusSent": "已送件",
+    "statusPending": "待補",
+    "receiptCount": "窗口收件",
+    "generateReport": "建立交接報告",
+    "snapshotLabel": "送件副本",
+    "batchCopyLabel": "批次副本",
+    "arrivedMail": "已抵達回條",
+    "evidence": {
+      "reply": "本人回覆",
+      "receipt": "窗口收件",
+      "pending": "待補紀錄",
+      "mismatch": "對象不符",
+      "none": "未附回覆"
+    },
+    "valueOrigin": {
+      "reply": "本人回覆附件",
+      "source": "來源資料",
+      "policy": "部門預設",
+      "held": "保留缺漏"
+    },
+    "rowStatus": {
+      "delivered": "交付",
+      "pending": "待補"
+    },
+    "legendTemplate": "{value}＝{meaning}",
+    "columns": {
+      "row": "資料列",
+      "code": "人員編號",
+      "value": "拒絕紀錄",
+      "origin": "依據",
+      "attachment": "附件",
+      "status": "狀態"
+    }
+  },
+  "integration": {
+    "source": "doc/content/M1-workday-content.json（Codex 內容包）：mailOutcomes／interludes／ui 原樣採用；status 以外的接線欄位由 Claude 依專案慣例分流。",
+    "claudeAdditions": "ui 的 statusTodo 以後（待辦／已送件／待補、窗口收件、建立交接報告、送件副本、批次副本、已抵達回條、evidence、valueOrigin、rowStatus、legendTemplate、columns）為 Claude 接線補的介面字，請 Codex 覆核。",
+    "timing": "ordinary＝一般回條：送達時機為到班即到或當日第一次交付後（rand(seed, mailId) 首次決定並保存在郵件上）；其他回條到班即送達。"
+  }
+}

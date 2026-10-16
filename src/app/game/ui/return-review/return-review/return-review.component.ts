@@ -1,10 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { Router } from '@angular/router';
 import { issueTaskText } from '../../../content/bundle';
 import { DOCUMENT_ISSUES_UI, MAIL_UI, archiveProgress, deliverLabel } from '../../../content/text';
 import { DAY_DIRECTORY } from '../../../state/day-directory';
 import { GameStateService } from '../../../state/game-state.service';
-import { routeForStage } from '../../../state/stage-route';
+import { WorkDeliveryService } from '../../workbench/services/work-delivery.service';
 import { WorkOperationsService } from '../../../state/work-operations.service';
 import { MailNavigationService } from '../../mail/services/mail-navigation.service';
 import { ReturnTaskRow, returnTaskRows } from '../presenters/return-task-view';
@@ -28,7 +27,7 @@ let reviewSeq = 0;
 })
 export class ReturnReviewComponent {
   protected readonly game = inject(GameStateService);
-  private readonly router = inject(Router);
+  private readonly delivery = inject(WorkDeliveryService);
   private readonly mail = inject(MailNavigationService);
 
   protected readonly busy = inject(WorkOperationsService).busy;
@@ -66,8 +65,8 @@ export class ReturnReviewComponent {
 
   /** 交付：排定的案件都已處理（重送或轉待查）才可交付；依新 stage 導向。 */
   protected onDeliver(): void {
-    if (this.busy() || !this.game.completeWork()) return;
-    const stage = this.game.stage();
-    void this.router.navigateByUrl(stage ? routeForStage(stage) : '/');
+    // M1：當日最後一件先打開「本日交接」，確認後才離開桌面（WorkDeliveryService）
+    if (this.busy()) return;
+    this.delivery.deliver();
   }
 }

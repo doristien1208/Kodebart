@@ -9,12 +9,13 @@ import {
   linkedSignal,
   viewChild,
 } from '@angular/core';
-import { Router } from '@angular/router';
 import { FieldMapTask } from '../../../content/schema';
-import { FIELD_MAP_UI, deliverLabel } from '../../../content/text';
+import { taskHeading } from '../../../content/bundle';
+import { FIELD_MAP_UI, WORKDAY_UI, deliverLabel } from '../../../content/text';
+import { MailAttachmentService } from '../../mail/services/mail-attachment.service';
 import { FieldMapError, MissingPolicy, affectedRowIds } from '../../../core';
 import { GameStateService } from '../../../state/game-state.service';
-import { routeForStage } from '../../../state/stage-route';
+import { WorkDeliveryService } from '../../workbench/services/work-delivery.service';
 import { OperationView, WorkOperationsService } from '../../../state/work-operations.service';
 import { OperationStatusComponent } from '../../shared/operation-status/operation-status.component';
 import { FieldAssignmentChange, MappingControlsComponent } from '../mapping-controls/mapping-controls.component';
@@ -43,8 +44,9 @@ import { MappingSourceTableComponent } from '../mapping-source-table/mapping-sou
 })
 export class FieldMappingComponent {
   protected readonly game = inject(GameStateService);
+  private readonly delivery = inject(WorkDeliveryService);
   private readonly ops = inject(WorkOperationsService);
-  private readonly router = inject(Router);
+  private readonly docs = inject(MailAttachmentService);
 
   /** 處理中：停用驗證與確認匯入。 */
   protected readonly busy = this.ops.busy;
@@ -65,6 +67,24 @@ export class FieldMappingComponent {
     const t = this.game.taskContent();
     return t?.kind === 'field-map' ? t : null;
   });
+
+  /**
+   * 來源資料列（M1）：有 dynamic 設定時，編號與回覆欄取自前幾天保存的歸檔與批次輸出（core 解析）；
+   * 沒有保存資料的列退回內容檔的原值。
+   */
+  protected readonly rows = computed(() => this.game.fieldMapPlan()?.rows ?? this.task()?.rows ?? []);
+
+  /** 前日的批次副本（M1「查看前日輸出」）：這批資料列引用、已交付的批次。 */
+  protected readonly previous = computed(() => {
+    const ids = [...new Set(this.task()?.dynamic?.rows.flatMap((r) => r.transformTaskIds) ?? [])];
+    return ids
+      .filter((id) => this.game.transformProgress(id).submitted !== undefined)
+      .map((id) => ({ id, label: `${taskHeading(id)}｜${WORKDAY_UI.batchCopyLabel}` }));
+  });
+
+  protected openPrevious(taskId: string): void {
+    this.docs.open({ kind: 'batch-output', taskId });
+  }
 
   protected readonly progress = this.game.fieldMap;
   protected readonly assignments = computed(() => this.progress()?.assignments ?? {});
@@ -151,8 +171,7 @@ export class FieldMappingComponent {
 
   /** 交付此項工作／完成今日交接 → 依新 stage 導向（同日還有工作仍在 /work；最後一日為結束畫面）。 */
   protected onDeliver(): void {
-    if (!this.game.completeWork()) return;
-    const stage = this.game.stage();
-    void this.router.navigateByUrl(stage ? routeForStage(stage) : '/');
+    // M1：當日最後一件先打開「本日交接」，確認後才離開桌面（WorkDeliveryService）
+    this.delivery.deliver();
   }
 }

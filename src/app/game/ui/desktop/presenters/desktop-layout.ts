@@ -98,3 +98,32 @@ export function desktopSideArea(bounds: WorkspaceBounds): DesktopRect | null {
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
+
+/** 並排查閱時每份文件至少這麼寬（px）。 */
+export const TILE_MIN_WIDTH = 320;
+/** 並排查閱時每份文件的理想寬度（px）。 */
+export const TILE_DOC_WIDTH = 400;
+
+/**
+ * 並排查閱（M1）：n 份文件的位置（純函式）。從桌面右側往左排；右側空白區放得下時只用空白區，
+ * 放不下時往左延伸蓋住工作平台的右半（玩家主動並排；「還原視窗位置」回到預設版面）。
+ * 每份至少 TILE_MIN_WIDTH，桌面再窄就疊在同一欄。
+ */
+export function tileRects(bounds: WorkspaceBounds, n: number): DesktopRect[] {
+  if (n <= 0) return [];
+  const W = Math.max(0, bounds.width);
+  const H = Math.max(0, bounds.height);
+  const height = Math.max(0, H - DESKTOP_MARGIN * 2);
+  const right = W - DESKTOP_MARGIN;
+  const side = desktopLayout(bounds).side;
+  const cols = Math.max(1, Math.min(n, Math.floor((W - DESKTOP_MARGIN * 2 + DESKTOP_GAP) / (TILE_MIN_WIDTH + DESKTOP_GAP))));
+  const ideal = cols * TILE_DOC_WIDTH + (cols - 1) * DESKTOP_GAP;
+  const fromSide = side && side.width >= cols * TILE_MIN_WIDTH + (cols - 1) * DESKTOP_GAP ? side.x : null;
+  const x0 = fromSide ?? Math.max(DESKTOP_MARGIN, right - ideal);
+  const width = Math.max(0, Math.floor((right - x0 - (cols - 1) * DESKTOP_GAP) / cols));
+  return Array.from({ length: n }, (_, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    return { x: x0 + col * (width + DESKTOP_GAP), y: DESKTOP_MARGIN + row * 32, width, height: Math.max(0, height - row * 32) };
+  });
+}

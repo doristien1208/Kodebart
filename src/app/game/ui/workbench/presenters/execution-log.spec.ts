@@ -343,17 +343,28 @@ describe('buildExecutionLog（系統作業紀錄 presenter）', () => {
     });
   });
 
-  it('Day 6 欄位映射：import.submit 顯示列數、空白數與處理方式（人類文字）', () => {
-    playTo(game, 'day.06');
+  it('Day 6 欄位映射：import.submit 顯示列數、空白數與處理方式（人類文字）；M1 交付報告分開列出送件／本人回覆／窗口收件／待補', () => {
+    // 一路保留缺漏：Day 6 的回覆欄讀保存資料，保留缺漏的列是空白
+    playTo(game, 'day.06', () => 'request_review');
+    expect(completeTask(game, 'request_review')).toBeTrue();
+    expect(game.stage()).toBe('work'); // 之後還有交付報告
+    const fm = game.save()!.taskProgress['task.day6.field-map'];
+    const submitted = fm?.kind === 'field-map' ? fm.submitted : undefined;
     expect(completeTask(game, 'request_review')).toBeTrue();
     expect(game.stage()).toBe('end');
     const entries = logOf(game);
-    expect(entries.map((e) => e.command)).toEqual([T.command.fieldMap, T.command.handoff]);
-    const submitted = game.fieldMap()?.submitted;
+    expect(entries.map((e) => e.command)).toEqual([T.command.fieldMap, T.command.handoff, T.command.report, T.command.handoff]);
     expect(fieldsOf(entries[0])).toEqual({
       [T.key.rows]: String(submitted?.rowCount),
       [T.key.blank]: String(submitted?.affectedCount),
       [T.key.blankPolicy]: JSON.stringify(T.blank.review),
+    });
+    const report = game.report('task.day6.m1-report')!;
+    expect(fieldsOf(entries[2])).toEqual({
+      [T.key.delivered]: String(report.submissionCount),
+      [T.key.replies]: String(report.replyCount),
+      [T.key.receipts]: String(report.receiptCount),
+      [T.key.pending]: String(report.pendingCount),
     });
     expectNoSecrets(game, entries);
   });

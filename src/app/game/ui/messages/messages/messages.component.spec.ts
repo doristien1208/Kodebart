@@ -6,6 +6,7 @@ import {
   ALL_MESSAGES,
   ALL_PROMPTS,
   CONTENT,
+  fieldMapTask,
   LEGACY_PLAYER_NAME,
   ReplyPromptEntry,
   chatDateLabel,
@@ -582,6 +583,47 @@ function clickSkip(fixture: ComponentFixture<MessagesComponent>): void {
  * 每個每日 prompt 所在日、需要的 Day 3 處理方式（Day 4 review.any／none 互斥）。
  * 說明包的 prompt（anchor 要先提問、送達）另有專門的測試。
  */
+/**
+ * M1 依工作進度送達的訊息：走到該日後還要做的動作（開啟案件、開啟附件工作、提交筆數、建立預覽／報告）。
+ */
+const M1_REACH: Readonly<Record<string, (game: GameStateService) => void>> = {
+  'prompt.day3.m1-find-version': (g) => g.openCase('case.day3.h204'),
+  'prompt.day4.m1-window-receipt': (g) => {
+    g.selectTask('task.day4.m1-attachment');
+    g.markTaskOpened();
+  },
+  'prompt.day4.m1-desk-fan': (g) => archiveFirst(g, 2),
+  'prompt.day5.m1-coffee': (g) => archiveFirst(g, 2),
+  'prompt.day5.m1-default-question': (g) => {
+    archiveFirst(g, 8);
+    g.completeWork();
+    g.selectTask('task.day5.m1-transform');
+    g.setTransformPolicy('review');
+    g.previewTransform();
+  },
+  'prompt.day6.m1-handoff-meaning': (g) => {
+    for (const t of fieldMapTask('task.day6.field-map').targetFields) g.setFieldAssignment(t.id, t.sourceId);
+    g.setFieldBlankPolicy('request_review');
+    g.previewFieldMap();
+    g.submitFieldMap();
+    g.completeWork();
+    g.generateReport();
+  },
+};
+
+/**
+ * 走到 prompt 可回答的狀態：到該日、Day 3 午餐先提交兩筆、M1 依工作進度送達的訊息照上表操作；
+ * 同頻道其他仍開放的 prompt 先不回覆（回覆區一次只顯示一個 prompt，M1 起同一天的群組可能同時有兩個）。
+ */
+function reachPrompt(game: GameStateService, c: { promptId: string; dayId: string; channelId: string; day3Policy: MissingPolicy }): void {
+  playTo(game, c.dayId, c.day3Policy);
+  if (c.promptId === 'prompt.day3.lunch-plan') archiveFirst(game, 2, c.day3Policy);
+  M1_REACH[c.promptId]?.(game);
+  for (const e of ALL_PROMPTS.filter((p) => p.anchor.channelId === c.channelId)) {
+    if (e.prompt.id !== c.promptId && game.isPromptOpen(e.prompt.id)) game.skipPrompt(e.prompt.id);
+  }
+}
+
 const PROMPT_CASES = ALL_PROMPTS.filter((e) => helpRequestOfMessage(e.anchor.id) === undefined).map((e) => ({
   promptId: e.prompt.id,
   dayId: e.anchor.visibleFrom,
@@ -692,8 +734,7 @@ describe('MessagesComponent 固定回覆（R7 §2.4）', () => {
     const entry = promptEntry(c.promptId);
 
     it(`${c.promptId}：回答 → 玩家列與 responses 緊接 anchor，回覆區消失，未讀不變；重載保留；重複點擊無效`, () => {
-      playTo(game, c.dayId, c.day3Policy);
-      if (c.dayId === 'day.03') archiveFirst(game, 2, c.day3Policy);
+      reachPrompt(game, c);
       const fixture = openPage();
       clickChannel(fixture, c.channelId);
       expect(quickReplyPrompt(fixture)).toBe(c.promptId);
@@ -768,8 +809,7 @@ describe('MessagesComponent 固定回覆（R7 §2.4）', () => {
     });
 
     it(`${c.promptId}：不回覆 → 對話串不變，回覆區消失，重載後仍無`, () => {
-      playTo(game, c.dayId, c.day3Policy);
-      if (c.dayId === 'day.03') archiveFirst(game, 2, c.day3Policy);
+      reachPrompt(game, c);
       const fixture = openPage();
       clickChannel(fixture, c.channelId);
       const before = threadIds(fixture);
@@ -788,8 +828,7 @@ describe('MessagesComponent 固定回覆（R7 §2.4）', () => {
     });
 
     it(`${c.promptId}：未回答就到下一天 → 回覆區不再出現，也沒有玩家列`, () => {
-      playTo(game, c.dayId, c.day3Policy);
-      if (c.dayId === 'day.03') archiveFirst(game, 2, c.day3Policy);
+      reachPrompt(game, c);
       if (game.nextDayId() === null) {
         // 最後一日：完成工作進入 end，訊息頁不可達；以狀態確認不再可回答
         expect(game.isPromptOpen(c.promptId)).toBeTrue();

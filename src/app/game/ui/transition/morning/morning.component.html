@@ -5,7 +5,28 @@
       <span class="font-mono leading-tight text-primary whitespace-nowrap">{{ dayTag() }}</span>
     </div>
     <h1 class="text-[2rem] md:text-[2.5rem] tracking-[.1em]">{{ ui.heading }}</h1>
+    @if (arrive().length > 0) {
+      <div class="interlude" data-interlude="arrive">
+        @for (line of arrive(); track $index) {
+          <p>{{ line }}</p>
+        }
+      </div>
+    }
     <p class="text-muted">{{ greeting() }}</p>
+
+    @if (arrived().length > 0) {
+      <div class="panel" data-morning-mail>
+        <h2 class="text-[1.1rem] mb-4">{{ workday.arrivedMail }}</h2>
+        <ul class="list-none m-0 p-0 border-t border-border">
+          @for (m of arrived(); track m.id) {
+            <li class="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-3 border-b border-border min-w-0" data-morning-mail-item>
+              <span class="text-sm text-muted whitespace-nowrap">{{ m.sender }}</span>
+              <span class="flex-1 min-w-0 [overflow-wrap:anywhere]">{{ m.subject }}</span>
+            </li>
+          }
+        </ul>
+      </div>
+    }
 
     <div class="panel">
       <h2 class="text-[1.1rem] mb-4">{{ ui.listHeading }}</h2>

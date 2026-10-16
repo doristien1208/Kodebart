@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { EndTransitionText, isEndTransitionText } from '../../../content/schema';
-import { pageTitle } from '../../../content/text';
+import { interludeAfter, pageTitle } from '../../../content/text';
 import { GameStateService } from '../../../state/game-state.service';
 
 /**
@@ -22,6 +22,12 @@ export class EndComponent {
   private readonly title = inject(Title);
 
   /** 目前日別的結束轉場文字；不是 end 形狀（或尚無存檔）時為 null，由 stage guard 導正。 */
+  /** M1：最後一日的離班短文。 */
+  protected readonly leave = computed<readonly string[]>(() => {
+    const id = this.game.dayId();
+    return id ? (interludeAfter(id)?.leave ?? []) : [];
+  });
+
   protected readonly text = computed<EndTransitionText | null>(() => {
     const t = this.game.dayContent()?.transition.text;
     return t !== undefined && isEndTransitionText(t) ? t : null;

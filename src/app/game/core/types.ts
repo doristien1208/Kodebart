@@ -258,8 +258,149 @@ export interface FieldMapProgress {
   submitted?: FieldMapSubmission;
 }
 
+/* ---------- M1：附件關聯（B）、批次轉換（C）、交付報告 ---------- */
+
+/** 附件文件提交當下的不可變副本（標題與欄位原字串）；內容檔日後修改也不覆寫。 */
+export interface DocumentSnapshot {
+  id: string;
+  heading: string;
+  fields: { label: string; value: string }[];
+}
+
+/**
+ * 附件關聯的一個送件版本（只附加，不覆寫原送件）：處理方式、引用的附件（含不可變副本）、
+ * 對象（採用的人員編號與來源編號）與附件所屬對象。選到不同對象的附件也能合法送出（M1 §2B）。
+ */
+export interface AttachmentLinkVersion {
+  index: number;
+  choiceId: 'reference' | 'review';
+  /** 去向：引用並送件＝archive；保留缺漏送覆核＝review。 */
+  destination: CaseDestination;
+  /** 引用的附件；保留缺漏時為 null。 */
+  document: DocumentSnapshot | null;
+  /** 附件證明範圍：reply＝本人回覆、receipt＝窗口收件、pending＝待補紀錄；保留缺漏時為 null。 */
+  evidence: 'reply' | 'receipt' | 'pending' | null;
+  /** 附件所屬對象的紀錄鍵與來源編號；保留缺漏時為 null。 */
+  attachedKey: RecordKey | null;
+  attachedCode: string | null;
+  /** 本人回覆附件的異議回覆（true＝有、false＝無）；其他為 null。 */
+  objection: boolean | null;
+  /** 對象：紀錄鍵、玩家採用的人員編號（歸檔保存值）與來源編號（提交快照）。 */
+  subjectKey: RecordKey;
+  subjectCode: string;
+  sourceCode: string;
+  /** 送件日；預定核對日（下一工作日；最後一天為 null）。 */
+  dayId: DayId;
+  checkDayId: DayId | null;
+}
+
+/** 下游對某個版本的關聯核對（每個版本只核對一次）：returned＝附件對象不符、需修正；resolved＝對象相符。 */
+export interface AttachmentCheck {
+  versionIndex: number;
+  dayId: DayId;
+  outcome: 'returned' | 'resolved';
+}
+
+/** 附件關聯工作的進度。 */
+export interface AttachmentProgress {
+  kind: 'attachment';
+  /** 第一次開啟這件工作（訊息依此解鎖）。 */
+  opened: boolean;
+  /** 尚未送出的選擇；送出後清除。 */
+  draft?: { choiceId?: 'reference' | 'review'; documentId?: string };
+  /** 送件版本（0＝原送件）；空陣列＝尚未送出。 */
+  versions: AttachmentLinkVersion[];
+  checks: AttachmentCheck[];
+}
+
+/** 批次轉換一列提交當下的輸入、規則與輸出（不可變快照）。 */
+export interface TransformRowSnapshot {
+  id: string;
+  recordKey: RecordKey;
+  batchId: BatchId;
+  /** 來源（提交快照）的人員編號與回覆欄；紀錄尚未歸檔時為 null。 */
+  sourceCode: string | null;
+  sourceRefusal: boolean | null;
+  /** 玩家採用（歸檔保存）的人員編號、回覆欄與其來源；紀錄尚未歸檔時為 null。 */
+  adoptedCode: string | null;
+  adoptedRefusal: boolean | null;
+  adoptedOrigin: Origin | null;
+  /** 這一列附上的附件；沒有為 null。attachmentTaskId＝玩家在附件工作選的。 */
+  attachment: {
+    taskId: TaskId | null;
+    versionIndex: number | null;
+    documentId: string;
+    heading: string;
+    evidence: 'reply' | 'receipt' | 'pending';
+    attachedKey: RecordKey;
+    attachedCode: string;
+  } | null;
+  /** 附件工作選了保留缺漏（沒有引用附件）。 */
+  heldForReview: boolean;
+  /** 輸出的回覆欄：true／false＝已有值；null＝保留缺漏。 */
+  value: boolean | null;
+  /** 輸出值從哪裡來：reply＝本人回覆附件；source＝來源紀錄；policy＝本次套用部門預設；held＝保留缺漏。 */
+  valueOrigin: 'reply' | 'source' | 'policy' | 'held';
+  /** delivered＝交付；pending＝待補。 */
+  status: 'delivered' | 'pending';
+}
+
+export interface TransformOutput {
+  policy: 'departmentDefault' | 'review' | null;
+  rows: TransformRowSnapshot[];
+  deliveredCount: number;
+  pendingCount: number;
+  /** 以本人回覆附件交付的列數（不含窗口收件）。 */
+  replyCount: number;
+  dayId: DayId;
+}
+
+/** 批次轉換工作的進度。 */
+export interface TransformProgress {
+  kind: 'transform';
+  opened: boolean;
+  policy?: 'departmentDefault' | 'review';
+  /** 目前設定是否已預覽；改策略會清除。 */
+  previewed: boolean;
+  /** 曾經開啟過預覽（訊息依此解鎖；不會被清除）。 */
+  previewedOnce: boolean;
+  submitted?: TransformOutput;
+}
+
+/** 交付報告的一列。 */
+export interface ReportRowSnapshot {
+  id: string;
+  recordKey: RecordKey | null;
+  /** 欄位映射輸出的人員編號。 */
+  code: string;
+  /** 欄位映射輸出的回覆欄（true／false／null）。 */
+  value: boolean | null;
+  /** 這列的依據：reply＝本人回覆附件（對象相符）；receipt＝窗口收件；mismatch＝附件對象不符；none＝沒有附件。 */
+  evidence: 'reply' | 'receipt' | 'mismatch' | 'none';
+  /** delivered＝已送件；pending＝待補。 */
+  status: 'delivered' | 'pending';
+}
+
+export interface ReportSnapshot {
+  rows: ReportRowSnapshot[];
+  submissionCount: number;
+  replyCount: number;
+  receiptCount: number;
+  pendingCount: number;
+  dayId: DayId;
+}
+
+/** 交付報告工作的進度。 */
+export interface ReportProgress {
+  kind: 'report';
+  opened: boolean;
+  /** 已建立報告（訊息依此解鎖）。 */
+  generated: boolean;
+  submitted?: ReportSnapshot;
+}
+
 /** 依工作種類分型的進度；歸檔工作仍用 batches，不在這裡。 */
-export type TaskProgress = ReconcileProgress | FieldMapProgress;
+export type TaskProgress = ReconcileProgress | FieldMapProgress | AttachmentProgress | TransformProgress | ReportProgress;
 
 /* ---------- 訊息回覆（R7） ---------- */
 
@@ -317,9 +458,46 @@ export interface ReturnReceiptAttachment {
   versionIndex: number | null;
 }
 
-/** 郵件附件（可辨識種類的資料引用）；本輪只有退件回條。 */
-export type MailAttachment = ReturnReceiptAttachment;
-export const MAIL_ATTACHMENT_KINDS: readonly MailAttachment['kind'][] = ['return-receipt'];
+/** 附件：玩家保存的歸檔送件副本（M1）。 */
+export interface ArchiveCopyAttachment {
+  kind: 'archive-copy';
+  batchId: BatchId;
+  recordKey: RecordKey;
+}
+
+/** 附件：內容文件（來源表、補件、附件）原件（M1）。 */
+export interface SourceDocumentAttachment {
+  kind: 'case-source';
+  documentId: string;
+}
+
+/** 附件：附件關聯工作的某個送件版本（M1）。 */
+export interface AttachmentLinkAttachment {
+  kind: 'attachment-link';
+  taskId: TaskId;
+  versionIndex: number;
+}
+
+/** 附件：批次轉換的輸出副本（M1）。 */
+export interface BatchOutputAttachment {
+  kind: 'batch-output';
+  taskId: TaskId;
+}
+
+/** 郵件附件（可辨識種類的資料引用）。 */
+export type MailAttachment =
+  | ReturnReceiptAttachment
+  | ArchiveCopyAttachment
+  | SourceDocumentAttachment
+  | AttachmentLinkAttachment
+  | BatchOutputAttachment;
+export const MAIL_ATTACHMENT_KINDS: readonly MailAttachment['kind'][] = [
+  'return-receipt',
+  'archive-copy',
+  'case-source',
+  'attachment-link',
+  'batch-output',
+];
 
 /**
  * 一封郵件：固定 ID；寄件者與主旨／內文由內容郵件包（packId＋templateId）提供，附件是資料引用。
@@ -331,6 +509,11 @@ export interface MailRecord {
   templateId: string;
   dayId: DayId;
   attachments: MailAttachment[];
+  /**
+   * 送達時機（M1 一般回條）：省略＝到班即送達；'first-task'＝當日第一次交付或提交後才送達。
+   * 寄出時擲一次並保存，刷新不重擲；未送達的郵件不出現在收件匣、不算未讀。
+   */
+  deliverAfter?: 'first-task';
 }
 
 /* ---------- 玩家角色與入職（R12） ---------- */
@@ -350,7 +533,10 @@ export interface OnboardingProgress {
 export type PromptId = string;
 
 /**
- * 存檔格式 v11（R12）＝ v10 ＋ 角色資料與入職進度（`profile`、`onboarding`）、郵件（`mailbox`、`readMail`，
+ * 存檔格式 v12（M1）＝ v11 ＋ 附件關聯／批次轉換／交付報告的工作進度（taskProgress 的新 kind）、
+ * 郵件的新附件種類與送達時機（MailRecord.deliverAfter）。舊檔遷移只改版本號並把已越過日子的新工作列為免補。
+ *
+ * v11（R12）＝ v10 ＋ 角色資料與入職進度（`profile`、`onboarding`）、郵件（`mailbox`、`readMail`，
  * 取代 `readIssueReceipts`）、向同事詢問（`helpRequests`）、退件修訂草稿（`issueDrafts`），
  * 以及訊息回覆的送達時間（ChatReply／ChatResponseSnapshot 的可選欄位）。
  *
@@ -367,8 +553,8 @@ export type PromptId = string;
  * 階段新增 `morning`（次日收件）；`waivedTasks` 記錄「舊檔免補」的工作——
  * 舊存檔已經跨過的日子裡，本輪才新增的工作不要求補做，但也不假裝已提交、不產生事件。
  */
-export interface SaveV11 {
-  version: 11;
+export interface SaveV12 {
+  version: 12;
   seed: number;
   /** 目前內容日，由內容目錄解析；不從階段硬推。 */
   dayId: DayId;
@@ -408,9 +594,12 @@ export interface SaveV11 {
 }
 
 /** 現行存檔。 */
-export type Save = SaveV11;
+export type Save = SaveV12;
 
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
+
+/** v11：沒有 M1 的工作進度種類與郵件附件種類（結構與 v12 相同，只是版本號）。 */
+export type SaveV11 = Omit<SaveV12, 'version'> & { version: 11 };
 
 /** v10：沒有角色資料、入職、郵件、詢問與修訂草稿；下游回條的已讀記在 readIssueReceipts。 */
 export type SaveV10 = Omit<
@@ -502,7 +691,7 @@ export interface SaveV2 {
   events: GameEvent[];
 }
 
-export const LEGACY_SAVE_VERSIONS: readonly number[] = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+export const LEGACY_SAVE_VERSIONS: readonly number[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
 export interface ValidationOk {
   ok: true;

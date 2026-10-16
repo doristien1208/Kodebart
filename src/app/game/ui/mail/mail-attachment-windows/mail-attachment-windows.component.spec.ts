@@ -9,7 +9,7 @@ import {
   receiptLabel,
 } from '../../../content/text';
 import { EVENT_KINDS } from '../../../core/rules';
-import { MailAttachment } from '../../../core/types';
+import { MailAttachment, ReturnReceiptAttachment } from '../../../core/types';
 import { VALIDATION_MESSAGES } from '../../../core/validate';
 import { SettingsService } from '../../../platform/settings.service';
 import { GameStateService } from '../../../state/game-state.service';
@@ -17,7 +17,7 @@ import { WorkOperationsService } from '../../../state/work-operations.service';
 import { WindowManagerService } from '../../shared/services/window-manager.service';
 import { settle } from '../../testing/play';
 import { MailAttachmentService, attachmentWindowId } from '../services/mail-attachment.service';
-import { bootGame, onlyCase, receiptRef, resubmitNow, rewriteSave, toFirstReturn, toNextDay } from '../testing/mail-play';
+import { bootGame, onlyCase, receiptMails, receiptRef, resubmitNow, rewriteSave, toFirstReturn, toNextDay } from '../testing/mail-play';
 import { MailAttachmentWindowsComponent } from './mail-attachment-windows.component';
 
 /**
@@ -46,7 +46,7 @@ function open(ref: MailAttachment): void {
 }
 
 /** 某份回條的附件視窗。 */
-function win(f: ComponentFixture<unknown>, ref: MailAttachment): HTMLElement {
+function win(f: ComponentFixture<unknown>, ref: ReturnReceiptAttachment): HTMLElement {
   const w = el(f).querySelector<HTMLElement>(`[data-window-id="${attachmentWindowId(ref)}"]`);
   if (!w) throw new Error(`沒有 ${ref.receiptId} 的視窗`);
   return w;
@@ -154,7 +154,7 @@ describe('MailAttachmentWindowsComponent（R12 版本鎖定附件）', () => {
 
     toNextDay(game); // Day 6：0103 ≠ 0102 → 第三封退件
     expect(game.dayId()).toBe('day.06');
-    expect(game.mailbox().map((m) => m.templateId)).toEqual(['returned', 'returned', 'returned']);
+    expect(receiptMails(game).map((m) => m.templateId)).toEqual(['returned', 'returned', 'returned']);
     const third = receiptRef(game, 2);
     open(third);
     f.detectChanges();
@@ -251,7 +251,7 @@ describe('MailAttachmentWindowsComponent（R12 版本鎖定附件）', () => {
     expect(win(f, ref).querySelector('[data-doc-form]')).toBeNull();
     toNextDay(game);
     toNextDay(game);
-    expect(game.mailbox().length).toBe(1);
+    expect(receiptMails(game).length).toBe(1);
     expect(text(win(f, ref).querySelector('[data-doc-banner]'))).toBe(issueStatusLabel('awaiting-window'));
   });
 
@@ -305,8 +305,8 @@ describe('MailAttachmentWindowsComponent（R12 版本鎖定附件）', () => {
   it('找不到附件（回條不存在或版本對不上）：只顯示找不到的說明，不改開最新版本', () => {
     const game = toFirstReturn();
     const ref = receiptRef(game, 0);
-    const lost: MailAttachment = { ...ref, receiptId: `${ref.caseId}#9` };
-    const wrongVersion: MailAttachment = { ...ref, versionIndex: 0 };
+    const lost: ReturnReceiptAttachment = { ...ref, receiptId: `${ref.caseId}#9` };
+    const wrongVersion: ReturnReceiptAttachment = { ...ref, versionIndex: 0 };
     open(lost);
     const f = render();
     const w = win(f, lost);

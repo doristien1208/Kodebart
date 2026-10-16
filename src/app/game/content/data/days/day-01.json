@@ -83,6 +83,9 @@
     {
       "id": "task.day1.archive-followup",
       "kind": "archive",
+      "dependsOn": [
+        "task.day1.archive"
+      ],
       "batchId": "batch.day01.archive-followup",
       "recordIds": [
         "record.day1-h18",

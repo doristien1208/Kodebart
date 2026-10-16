@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { WrapTransitionText, isWrapTransitionText } from '../../../content/schema';
-import { HANDOFF_UI, TASKS_UI, handoffItem, pageTitle, taskKindLabel, totalTasks } from '../../../content/text';
+import { HANDOFF_UI, TASKS_UI, WORKDAY_UI, handoffItem, interludeAfter, pageTitle, taskKindLabel, totalTasks } from '../../../content/text';
 import { GameStateService } from '../../../state/game-state.service';
 import { routeForStage } from '../../../state/stage-route';
 
@@ -36,6 +36,14 @@ export class OvernightComponent {
   private readonly title = inject(Title);
 
   protected readonly ui = HANDOFF_UI;
+  /** M1：交接至下個工作日的按鈕文字。 */
+  protected readonly nextLabel = WORKDAY_UI.tomorrow;
+
+  /** M1：當日的離班短文（內容包 interludes）；沒有時為空陣列。 */
+  protected readonly leave = computed<readonly string[]>(() => {
+    const id = this.game.dayId();
+    return id ? (interludeAfter(id)?.leave ?? []) : [];
+  });
 
   /** 目前日別的日結文字；不是 wrap 形狀（或尚無存檔）時為 null，由 stage guard 導正。 */
   protected readonly text = computed<WrapTransitionText | null>(() => {

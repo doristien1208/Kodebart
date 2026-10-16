@@ -7,6 +7,14 @@
 
     <p class="text-muted">{{ ft.text.instruction }}</p>
 
+    @if (previous().length > 0) {
+      <div class="flex flex-wrap gap-2 mb-4" data-field-map-previous>
+        @for (p of previous(); track p.id) {
+          <button type="button" (click)="openPrevious(p.id)">{{ p.label }}</button>
+        }
+      </div>
+    }
+
     @if (submitted(); as s) {
       <div class="note mb-6">
         <h4 #doneHeading tabindex="-1" class="font-semibold mb-2">{{ ui.doneHeading }}</h4>
@@ -25,7 +33,7 @@
     }
 
     <div class="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <app-mapping-source-table [fields]="ft.sourceFields" [rows]="ft.rows" />
+      <app-mapping-source-table [fields]="ft.sourceFields" [rows]="rows()" />
       <app-mapping-controls
         [sources]="ft.sourceFields"
         [targets]="ft.targetFields"
@@ -51,7 +59,7 @@
     }
   </div>
 
-  <div class="flex gap-2.5 items-center flex-wrap mt-5">
+  <div class="work-bar">
     <p class="text-sm text-muted mb-0">{{ submitted() ? ui.footerDone : ui.footerPending }}</p>
     <button
       type="button"

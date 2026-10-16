@@ -238,7 +238,7 @@
       "visibleFrom": "day.03",
       "unlock": [],
       "lines": [
-        "早，舊檔那批進佇列了。有補件的話，記得連原表一起看。"
+        "早，舊檔跟補件都到了。原表別刪，下午交接還會用。"
       ]
     },
     {
@@ -249,7 +249,7 @@
       "visibleFrom": "day.03",
       "unlock": [],
       "lines": [
-        "今天那批有點厚。我先去回窗口電話，卡住再敲我。"
+        "黃品蓉那筆有兩個版本。我先去回電話，你把自己用哪一份留在送件紀錄裡，免得窗口回問找不到。"
       ]
     },
     {
@@ -309,7 +309,7 @@
         "archivedCount": 2
       },
       "lines": [
-        "新來的，你中午吃什麼？"
+        "你中午要不要一起訂？我差一份免運。"
       ],
       "replyPrompt": {
         "id": "prompt.day3.lunch-plan",
@@ -324,7 +324,7 @@
                 "actorId": "actor.wu-wan-ting",
                 "time": "11:46",
                 "lines": [
-                  "成交。要是警衛又攔人，你負責看起來像主管。"
+                  "好，我先幫你點不辣的。不要香菜的現在說。"
                 ]
               },
               {
@@ -332,7 +332,7 @@
                 "actorId": "actor.yang-zi-qian",
                 "time": "11:47",
                 "lines": [
-                  "他才第三天。不要害人。"
+                  "我的不要。婉庭，上次妳說有記住。"
                 ]
               }
             ]
@@ -346,7 +346,7 @@
                 "actorId": "actor.yang-zi-qian",
                 "time": "11:46",
                 "lines": [
-                  "說是盤點。奇怪的是每次都挑午餐時間。"
+                  "警衛說今天那邊在清點，先放一樓。"
                 ]
               },
               {
@@ -354,7 +354,7 @@
                 "actorId": "actor.wu-wan-ting",
                 "time": "11:47",
                 "lines": [
-                  "你不要把普通偷懶講得像都市傳說。"
+                  "那我先下去拿。再放下去湯都涼了。"
                 ]
               }
             ]
@@ -368,7 +368,7 @@
                 "actorId": "actor.wu-wan-ting",
                 "time": "11:46",
                 "lines": [
-                  "好羨慕。明天記得提醒今天的我。"
+                  "好。下次要訂再跟我說，我每天都在湊免運。"
                 ]
               }
             ]
@@ -388,6 +388,84 @@
       "lines": [
         "窗口剛把文件退回來了，人員編號跟原表對不上。你昨天核對時怎麼還是放行了？",
         "退件明天會回到你的待辦，原表跟送件紀錄都附在裡面。這次請逐筆看過再送。"
+      ]
+    },
+    {
+      "id": "msg.day3.m1-find-version",
+      "channelId": "channel.dm.lin-yuan",
+      "actorId": "actor.lin-yuan",
+      "time": "10:12",
+      "visibleFrom": "day.03",
+      "unlock": [],
+      "unlockAfter": {
+        "caseOpened": "case.day3.h204"
+      },
+      "lines": [
+        "送之前還有哪裡不清楚？"
+      ],
+      "replyPrompt": {
+        "id": "prompt.day3.m1-find-version",
+        "availableThrough": "day.03",
+        "choices": [
+          {
+            "id": "ask-receipt",
+            "text": "補件已收件，是指編號確認好了嗎？",
+            "responses": [
+              {
+                "id": "msg.day3.m1-reply-find-version-ask-receipt",
+                "actorId": "actor.lin-yuan",
+                "time": "10:13",
+                "lines": [
+                  "不是，收件只表示窗口拿到補件。編號還得等他們回。你可以先選一份送，也可以留待查，依據要能找回來。"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "know-location",
+            "text": "我先把兩份留著，有回覆再看。",
+            "responses": [
+              {
+                "id": "msg.day3.m1-reply-find-version-know-location",
+                "actorId": "actor.lin-yuan",
+                "time": "10:13",
+                "lines": [
+                  "好，別只存最後一份。我上次就是找不到舊版，重問了半天。"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "msg.day3.m1-printer",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.yang-zi-qian",
+      "time": "14:18",
+      "visibleFrom": "day.03",
+      "unlock": [],
+      "unlockAfter": {
+        "archiveBatchId": "batch.day03.archive",
+        "archivedCount": 3
+      },
+      "lines": [
+        "印表機又把我那張吃掉了。有人看到嗎？"
+      ]
+    },
+    {
+      "id": "msg.day3.m1-printer-wu",
+      "channelId": "channel.group.lunch-chat",
+      "actorId": "actor.wu-wan-ting",
+      "time": "14:19",
+      "visibleFrom": "day.03",
+      "unlock": [],
+      "unlockAfter": {
+        "archiveBatchId": "batch.day03.archive",
+        "archivedCount": 3
+      },
+      "lines": [
+        "旁邊那疊是不是你的？我怕拿錯，沒動。"
       ]
     }
   ],

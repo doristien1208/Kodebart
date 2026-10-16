@@ -1,0 +1,37 @@
+/*
+ * 工作佇列：直欄清單（窄視窗改為橫向捲動的列）。目前工作以主色框線標示；鎖住的工作降低對比並列出等待的工作。
+ * 只用專案 token；直角、1px 框線。
+ */
+:host { display: block; min-width: 0; }
+.wq-heading { margin: 0 0 .5rem; font-size: .875rem; font-weight: 400; color: var(--color-muted); outline-offset: 2px; }
+.wq-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .375rem; }
+.wq-item {
+  width: 100%;
+  display: grid;
+  gap: .125rem;
+  padding: .5rem .625rem;
+  text-align: left;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: .875rem;
+  line-height: 1.45;
+}
+.wq-item:disabled { cursor: default; opacity: 1; }
+.wq-item:disabled:hover { background: var(--color-background); border-color: var(--color-border); }
+.wq-active, .wq-active:disabled:hover { border-color: var(--color-primary); background: var(--color-elevated); }
+.wq-locked { color: var(--color-muted); border-style: dashed; }
+.wq-top { display: flex; justify-content: space-between; gap: .5rem; font-size: .75rem; }
+.wq-kind { color: var(--color-muted); }
+.wq-status { color: var(--color-primary); white-space: nowrap; }
+.wq-locked .wq-status { color: var(--color-muted); }
+.wq-name { overflow-wrap: anywhere; }
+.wq-amount, .wq-wait { font-size: .75rem; color: var(--color-muted); }
+
+@container work (max-width: 719.98px) {
+  .wq-list { grid-auto-flow: column; grid-auto-columns: minmax(10.5rem, 1fr); overflow-x: auto; padding-bottom: .25rem; }
+}
+@media (forced-colors: active) {
+  .wq-item { border: 1px solid ButtonText; }
+  .wq-active { outline: 2px solid Highlight; }
+}

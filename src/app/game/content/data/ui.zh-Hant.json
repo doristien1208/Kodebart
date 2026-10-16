@@ -200,13 +200,19 @@
       "archive": "歸檔",
       "reconcile": "核對",
       "field-map": "匯入",
-      "return-review": "複審"
+      "return-review": "複審",
+      "attachment": "附件",
+      "transform": "批次",
+      "report": "報告"
     },
     "unit": {
       "archive": "筆",
       "reconcile": "筆",
       "field-map": "列",
-      "return-review": "筆"
+      "return-review": "筆",
+      "attachment": "件",
+      "transform": "列",
+      "report": "列"
     }
   },
   "handoff": {
@@ -239,7 +245,10 @@
       "handoff": "task.handoff",
       "returnReview": "return.submit",
       "recordReview": "review.record",
-      "receiptCheck": "receipt.check"
+      "receiptCheck": "receipt.check",
+      "attachment": "attachment.link",
+      "transform": "batch.run",
+      "report": "report.submit"
     },
     "key": {
       "check": "check",
@@ -254,7 +263,13 @@
       "result": "result",
       "items": "items",
       "basis": "basis",
-      "note": "note"
+      "note": "note",
+      "attachment": "attachment",
+      "evidence": "evidence",
+      "delivered": "delivered",
+      "pending": "pending",
+      "replies": "replies",
+      "receipts": "receipts"
     },
     "check": {
       "pass": "通過"

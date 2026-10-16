@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Reply, ValidationOk, isValidCodeString } from '../core';
+import { AttachmentInput, Reply, ValidationOk, attachmentInputError, findTask, isValidCodeString } from '../core';
+import { DAY_DIRECTORY } from './day-directory';
 import { SettingsService } from '../platform/settings.service';
 import { CommitOutcome, GameStateService } from './game-state.service';
 
@@ -14,7 +15,17 @@ import { CommitOutcome, GameStateService } from './game-state.service';
  */
 export type OperationStage = 'received' | 'validating' | 'validated' | 'processing' | 'saving' | 'done' | 'failed';
 
-export type OperationKind = 'archive' | 'case' | 'reply' | 'field-map' | 'return-resubmit' | 'return-window';
+export type OperationKind =
+  | 'archive'
+  | 'case'
+  | 'reply'
+  | 'field-map'
+  | 'return-resubmit'
+  | 'return-window'
+  | 'attachment'
+  | 'attachment-revise'
+  | 'transform'
+  | 'report';
 
 export interface OperationView {
   /** 本次工作階段內遞增的 ID。 */
@@ -37,10 +48,23 @@ const STEP_MS = { validating: 120, processing: 160, saving: 160, done: 120 } as 
 interface OperationSpec {
   kind: OperationKind;
   arg: string;
+  /** 提交所屬的工作（省略＝目前工作；修訂從郵件附件開啟時是附件工作）。 */
+  taskId?: string;
+  /**
+   * 交易綁定的上下文：current（預設）＝開始時的日與目前工作，寫入前仍須相同；
+   * own＝只綁開始時的日，工作與版本由 commit 自己鎖定（郵件／回條的修訂，可在另一件目前工作下進行）。
+   */
+  bind?: 'current' | 'own';
   /** 結構／型別檢查；false＝不符（不寫入）。 */
   validate: () => boolean;
   /** 真正的寫入（交易式）。 */
   commit: () => CommitOutcome;
+}
+
+/** 提交開始時的日與工作（交易與重試都綁在這裡）。 */
+interface OperationContext {
+  dayId: string | null;
+  taskId: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -49,7 +73,7 @@ export class WorkOperationsService {
   private readonly settings = inject(SettingsService);
 
   private readonly _current = signal<OperationView | null>(null);
-  private lastSpec: OperationSpec | null = null;
+  private last: { spec: OperationSpec; context: OperationContext } | null = null;
   private seq = 0;
 
   /** 最近一次提交的狀態（本次工作階段）。 */
@@ -111,6 +135,7 @@ export class WorkOperationsService {
     return this.run({
       kind: 'return-resubmit',
       arg: code,
+      bind: 'own',
       validate: () => isValidCodeString(code),
       commit: () => this.game.resubmitReturnStrict(returnId, receiptId, code),
     });
@@ -120,33 +145,106 @@ export class WorkOperationsService {
     return this.run({
       kind: 'return-window',
       arg: '',
+      bind: 'own',
       validate: () => true,
       commit: () => this.game.sendReturnToWindowStrict(returnId, receiptId),
     });
   }
 
-  /** 保存失敗後重試同一件提交（不會重複事件：失敗時存檔沒有前進）。 */
+  /**
+   * 附件關聯送件（M1）：格式檢查只驗處理方式合法、引用時附件是候選附件；不判斷附件是否適用這個對象。
+   * arg＝引用附件的標題（保留缺漏時為空字串）。
+   */
+  submitAttachment(input: AttachmentInput, arg: string): Promise<boolean> {
+    const taskId = this.game.taskId() ?? '';
+    return this.run({
+      kind: 'attachment',
+      arg,
+      validate: () => {
+        const task = findTask(DAY_DIRECTORY, taskId);
+        return task?.kind === 'attachment' && attachmentInputError(task, input) === null;
+      },
+      commit: () => this.game.submitAttachmentStrict(input),
+    });
+  }
+
+  /** 附件關聯修訂（版本鎖定）：保存時由核心規則確認 expectedIndex 仍是可修訂的版本，否則 rejected。 */
+  reviseAttachment(taskId: string, expectedIndex: number, input: AttachmentInput, arg: string): Promise<boolean> {
+    return this.run({
+      kind: 'attachment-revise',
+      arg,
+      taskId,
+      bind: 'own',
+      validate: () => {
+        const task = findTask(DAY_DIRECTORY, taskId);
+        return task?.kind === 'attachment' && attachmentInputError(task, input) === null;
+      },
+      commit: () => this.game.reviseAttachmentStrict(taskId, expectedIndex, input),
+    });
+  }
+
+  /** 批次執行並交付（M1）：驗證處理設定 → 建立批次輸出 → 保存送件副本 → 加入後續佇列。arg＝列數。 */
+  submitTransform(): Promise<boolean> {
+    const taskId = this.game.taskId() ?? '';
+    const check = this.game.transformCheck(taskId);
+    return this.run({
+      kind: 'transform',
+      arg: String(check?.ok ? check.output.rows.length : 0),
+      validate: () => this.game.transformCheck(taskId)?.ok === true && this.game.transformProgress(taskId).previewed,
+      commit: () => this.game.submitTransformStrict(),
+    });
+  }
+
+  /** 交付報告（M1）。arg＝報告列數。 */
+  submitReport(): Promise<boolean> {
+    const taskId = this.game.taskId() ?? '';
+    return this.run({
+      kind: 'report',
+      arg: String(this.game.report(taskId)?.rows.length ?? 0),
+      validate: () => this.game.reportGenerated(taskId) && this.game.report(taskId) !== null,
+      commit: () => this.game.submitReportStrict(),
+    });
+  }
+
+  /**
+   * 失敗後重試同一件提交（不會重複事件：失敗時存檔沒有前進）。
+   * 只能在原上下文重試：已換日、或綁目前工作的提交已換到別件工作時不執行（回傳 false、不寫入），回到原工作才能重試。
+   */
   retry(): Promise<boolean> {
     const op = this._current();
-    if (!this.lastSpec || op?.stage !== 'failed') return Promise.resolve(false);
-    return this.run(this.lastSpec);
+    const last = this.last;
+    if (!last || op?.stage !== 'failed' || !this.inContext(last.spec, last.context)) return Promise.resolve(false);
+    return this.run(last.spec, last.context);
   }
 
   /* ---------- 流程 ---------- */
 
-  private async run(spec: OperationSpec): Promise<boolean> {
+  private contextOf(spec: OperationSpec): OperationContext {
+    return { dayId: this.game.dayId(), taskId: spec.taskId ?? this.game.taskId() ?? '' };
+  }
+
+  /** 存檔仍在提交開始時的上下文：同一日；綁目前工作的提交另須仍是同一件目前工作。 */
+  private inContext(spec: OperationSpec, context: OperationContext): boolean {
+    if (this.game.dayId() !== context.dayId) return false;
+    return spec.bind === 'own' || (this.game.taskId() ?? '') === context.taskId;
+  }
+
+  private async run(spec: OperationSpec, context: OperationContext = this.contextOf(spec)): Promise<boolean> {
     if (this.busy()) return false;
-    const taskId = this.game.taskId() ?? '';
-    this.lastSpec = spec;
+    const taskId = context.taskId;
+    this.last = { spec, context };
     const id = ++this.seq;
     this._current.set({ id, kind: spec.kind, taskId, arg: spec.arg, stage: 'received', trail: ['received'], failure: null });
 
     await this.step(id, 'validating', STEP_MS.validating);
+    if (!this.inContext(spec, context)) return this.fail(id, 'rejected');
     if (!spec.validate()) return this.fail(id, 'invalid');
     this.advance(id, 'validated');
 
     await this.step(id, 'processing', STEP_MS.processing);
     await this.step(id, 'saving', STEP_MS.saving);
+    // 寫入前再確認上下文（與寫入同一個同步段落）：處理途中被換了日或目前工作就安全拒絕，原工作草稿不動、也不寫到別件工作
+    if (!this.inContext(spec, context)) return this.fail(id, 'rejected');
     const outcome = spec.commit();
     if (outcome === 'failed') return this.fail(id, 'storage');
     if (outcome === 'noop') return this.fail(id, 'rejected');

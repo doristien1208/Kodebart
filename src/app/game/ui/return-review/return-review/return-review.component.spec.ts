@@ -5,7 +5,7 @@ import { GameStateService } from '../../../state/game-state.service';
 import { DesktopService } from '../../desktop/services/desktop.service';
 import { MailAttachmentService } from '../../mail/services/mail-attachment.service';
 import { MailNavigationService } from '../../mail/services/mail-navigation.service';
-import { onlyCase, receiptRef, resubmitNow, toFirstReturn, toNextDay } from '../../mail/testing/mail-play';
+import { onlyCase, receiptMails, receiptRef, resubmitNow, toFirstReturn, toNextDay } from '../../mail/testing/mail-play';
 import { archiveWith, completeTask, finishDay } from '../../testing/play';
 import { ReturnReviewComponent } from './return-review.component';
 
@@ -94,10 +94,10 @@ describe('ReturnReviewComponent（R12 錯誤文件處理）', () => {
     const desktop = TestBed.inject(DesktopService);
     const openApp = spyOn(desktop, 'openApp').and.callThrough();
     const f = render();
-    expect(game.unreadMailCount()).toBe(1);
+    const mailId = receiptMails(game)[0]?.id ?? '';
+    expect(game.isMailRead(mailId)).toBeFalse();
     el(f).querySelector<HTMLButtonElement>('[data-return-open]')?.click();
     expect(openApp).toHaveBeenCalledWith('mail');
-    const mailId = game.mailbox()[0]?.id ?? '';
     expect(TestBed.inject(MailNavigationService).selectedId()).toBe(mailId);
     expect(game.isMailRead(mailId)).toBeTrue();
     expect(TestBed.inject(MailAttachmentService).openRefs()).toEqual([receiptRef(game, 0)]);
@@ -118,7 +118,7 @@ describe('ReturnReviewComponent（R12 錯誤文件處理）', () => {
     expect(text(el(f).querySelector('[data-return-latest]'))).toBe('RT-B102｜修訂 1｜核對結果');
     expect(text(el(f).querySelector('[data-return-received]'))).toBe(dayDateLabel('day.05'));
     el(f).querySelector<HTMLButtonElement>('[data-return-open]')?.click();
-    expect(TestBed.inject(MailNavigationService).selectedId()).toBe(game.mailbox()[1]?.id ?? '');
+    expect(TestBed.inject(MailNavigationService).selectedId()).toBe(receiptMails(game)[1]?.id ?? '');
     expect(TestBed.inject(MailAttachmentService).openRefs()).toEqual([receiptRef(game, 1)]);
   });
 
@@ -132,10 +132,11 @@ describe('ReturnReviewComponent（R12 錯誤文件處理）', () => {
     expect(text(el(f).querySelector('[data-return-progress]'))).toBe(archiveProgress(1, 1));
     expect(deliverButton(f)?.disabled).toBeFalse();
     deliverButton(f)?.click();
-    expect(game.stage()).not.toBe('work');
+    // M1 起同日還有附件／批次工作：交付後這件標為完成，其餘工作照排
+    expect(game.dayTasks().find((t) => t.kind === 'return-review')?.status).toBe('done');
     finishDay(game);
     expect(onlyCase(game).status).toBe('resolved');
-    expect(game.mailbox().map((m) => m.templateId)).toEqual(['returned', 'resolved']);
+    expect(receiptMails(game).map((m) => m.templateId)).toEqual(['returned', 'resolved']);
   });
 
   it('工作出現前就從郵件處理：當日錯誤文件處理自動結清（不重複處理），清單顯示已完成', () => {
@@ -162,6 +163,6 @@ describe('ReturnReviewComponent（R12 錯誤文件處理）', () => {
     finishDay(game);
     finishDay(game);
     expect(game.dayId()).toBe('day.06');
-    expect(game.mailbox().length).toBe(1);
+    expect(receiptMails(game).length).toBe(1);
   });
 });

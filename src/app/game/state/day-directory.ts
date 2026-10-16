@@ -1,6 +1,6 @@
 import { CONTENT } from '../content/bundle';
-import { ContentRecord, ContentTask, DayContent } from '../content/schema';
-import { DayDirectory, DayPlan, TaskPlan, createDayDirectory } from '../core/day-plan';
+import { ContentAttachmentCandidate, ContentDocument, ContentRecord, ContentTask, ContentWorkday, DayContent } from '../content/schema';
+import { AttachmentCandidatePlan, DayDirectory, DayPlan, TaskPlan, WorkdayMailPlan, createDayDirectory } from '../core/day-plan';
 import { BatchId, SourceRecord } from '../core/types';
 
 /**
@@ -15,8 +15,30 @@ function toSourceRecord(r: ContentRecord): SourceRecord {
 
 type RecordIndex = ReadonlyMap<string, ContentRecord>;
 
+/** 跨日索引：紀錄、文件，以及紀錄由哪個 archive 批次歸檔（M1 的附件／批次列以此取得保存資料）。 */
+interface ContentIndex {
+  records: RecordIndex;
+  documents: ReadonlyMap<string, ContentDocument>;
+  batchOfRecord: ReadonlyMap<string, BatchId>;
+}
+
 function indexRecords(days: readonly DayContent[]): RecordIndex {
   return new Map(days.flatMap((d) => d.records).map((r) => [r.id, r] as const));
+}
+
+function indexContent(days: readonly DayContent[]): ContentIndex {
+  const batchOfRecord = new Map<string, BatchId>();
+  for (const day of days) {
+    for (const task of day.tasks) {
+      if (task.kind !== 'archive') continue;
+      for (const id of task.recordIds) if (!batchOfRecord.has(id)) batchOfRecord.set(id, task.batchId);
+    }
+  }
+  return {
+    records: indexRecords(days),
+    documents: new Map(days.flatMap((d) => d.documents).map((doc) => [doc.id, doc] as const)),
+    batchOfRecord,
+  };
 }
 
 function lookupRecord(index: RecordIndex, id: string): ContentRecord {
@@ -25,7 +47,37 @@ function lookupRecord(index: RecordIndex, id: string): ContentRecord {
   return r;
 }
 
-function toTaskPlan(task: ContentTask, index: RecordIndex, dayId: string): TaskPlan {
+function lookupBatch(index: ContentIndex, recordId: string): BatchId {
+  const b = index.batchOfRecord.get(recordId);
+  if (!b) throw new Error(`Record ${recordId} is not archived by any task`);
+  return b;
+}
+
+/** 候選附件：文件內容與所屬對象（文件 recordIds 的第一筆）。 */
+function toCandidate(c: ContentAttachmentCandidate, index: ContentIndex): AttachmentCandidatePlan {
+  const doc = index.documents.get(c.documentId);
+  if (doc?.kind !== 'case-source') throw new Error(`Attachment ${c.documentId} is not a case-source document`);
+  const owner = lookupRecord(index.records, doc.recordIds[0] ?? '');
+  return {
+    documentId: doc.id,
+    subjectKey: owner.key,
+    subjectCode: owner.code,
+    evidence: c.evidence,
+    objection: c.evidence === 'reply' ? (c.objection ?? null) : null,
+    document: { id: doc.id, heading: doc.text.heading, fields: doc.text.fields.map((f) => ({ label: f.label, value: f.value })) },
+  };
+}
+
+function withDeps<T extends TaskPlan>(plan: T, task: ContentTask): T {
+  return task.dependsOn && task.dependsOn.length > 0 ? { ...plan, dependsOn: [...task.dependsOn] } : plan;
+}
+
+function toTaskPlan(task: ContentTask, content: ContentIndex, dayId: string): TaskPlan {
+  return withDeps(toBasePlan(task, content, dayId), task);
+}
+
+function toBasePlan(task: ContentTask, content: ContentIndex, dayId: string): TaskPlan {
+  const index = content.records;
   switch (task.kind) {
     case 'archive':
       return {
@@ -68,7 +120,9 @@ function toTaskPlan(task: ContentTask, index: RecordIndex, dayId: string): TaskP
       };
     case 'return-review':
       return { id: task.id, kind: 'return-review', dayId };
-    case 'field-map':
+    case 'field-map': {
+      const dyn = task.dynamic;
+      const replyTarget = dyn ? task.targetFields.find((t) => t.convert === 'boolean' && t.sourceId === dyn.replyFieldId) : undefined;
       return {
         id: task.id,
         kind: 'field-map',
@@ -79,8 +133,63 @@ function toTaskPlan(task: ContentTask, index: RecordIndex, dayId: string): TaskP
             : { id: t.id, sourceId: t.sourceId, convert: 'text' },
         ),
         rows: task.rows.map((r) => ({ id: r.id, values: { ...r.values } })),
+        ...(dyn && replyTarget?.convert === 'boolean'
+          ? {
+              dynamic: {
+                codeFieldId: dyn.codeFieldId,
+                replyFieldId: dyn.replyFieldId,
+                trueValue: replyTarget.trueValue,
+                falseValue: replyTarget.falseValue,
+                rows: dyn.rows.map((r) => ({
+                  rowId: r.rowId,
+                  batchId: lookupBatch(content, r.recordId),
+                  recordKey: lookupRecord(index, r.recordId).key,
+                  transformTaskIds: [...r.transformTaskIds],
+                })),
+              },
+            }
+          : {}),
       };
+    }
+    case 'attachment':
+      return {
+        id: task.id,
+        kind: 'attachment',
+        subjectBatchId: lookupBatch(content, task.subjectRecordId),
+        subjectKey: lookupRecord(index, task.subjectRecordId).key,
+        candidates: task.candidates.map((c) => toCandidate(c, content)),
+      };
+    case 'transform':
+      return {
+        id: task.id,
+        kind: 'transform',
+        rows: task.rows.map((r) => ({
+          id: r.id,
+          batchId: lookupBatch(content, r.recordId),
+          recordKey: lookupRecord(index, r.recordId).key,
+          ...(r.attachmentTaskId ? { attachmentTaskId: r.attachmentTaskId } : {}),
+          ...(r.attachment ? { attachment: toCandidate(r.attachment, content) } : {}),
+        })),
+      };
+    case 'report':
+      return { id: task.id, kind: 'report', fieldMapTaskId: task.fieldMapTaskId, transformTaskIds: [...task.transformTaskIds] };
   }
+}
+
+/** M1 延後回條計畫（內容包 → core）。 */
+function toMailPlans(workday: ContentWorkday | null): WorkdayMailPlan[] {
+  if (!workday) return [];
+  return workday.mail.outcomes.map((o) => ({
+    id: o.id,
+    packId: workday.mail.packId,
+    templateId: o.templateId,
+    dayId: o.dayId,
+    ordinary: o.ordinary,
+    trigger:
+      o.trigger.kind === 'batch-delivered'
+        ? { kind: 'batch-delivered', taskId: o.trigger.taskId, attachmentTaskId: o.trigger.attachmentTaskId ?? null }
+        : { ...o.trigger },
+  }));
 }
 
 /**
@@ -98,7 +207,7 @@ function withIssueSlot(day: DayContent, tasks: TaskPlan[]): TaskPlan[] {
   return [...tasks.slice(0, 1), slot, ...tasks.slice(1)];
 }
 
-function toDayPlan(day: DayContent, index: RecordIndex): DayPlan {
+function toDayPlan(day: DayContent, index: ContentIndex): DayPlan {
   if (day.tasks.length === 0) throw new Error(`Day ${day.id} has no task`);
   return {
     dayId: day.id,
@@ -112,9 +221,13 @@ function toDayPlan(day: DayContent, index: RecordIndex): DayPlan {
  * 紀錄一律從傳入的 days 解析，不查全域 bundle：
  * 這樣測試可以用合成的日別驗證「新增 Day 3 不污染 Day 1」，正式資料也不會誤讀到別日。
  */
-export function buildDayDirectory(days: readonly DayContent[] = CONTENT.days): DayDirectory {
-  const index = indexRecords(days);
-  const plans = days.map((d) => toDayPlan(d, index));
+export function buildDayDirectory(
+  days: readonly DayContent[] = CONTENT.days,
+  workday: ContentWorkday | null = days === CONTENT.days ? CONTENT.workday : null,
+): DayDirectory {
+  const content = indexContent(days);
+  const index = content.records;
+  const plans = days.map((d) => toDayPlan(d, content));
   const batchRecords: Record<BatchId, readonly SourceRecord[]> = {};
   for (const day of days) {
     for (const task of day.tasks) {
@@ -122,7 +235,7 @@ export function buildDayDirectory(days: readonly DayContent[] = CONTENT.days): D
       batchRecords[task.batchId] = task.recordIds.map((id) => toSourceRecord(lookupRecord(index, id)));
     }
   }
-  return createDayDirectory(plans, batchRecords);
+  return createDayDirectory(plans, batchRecords, toMailPlans(workday));
 }
 
 /** 正式內容的日程目錄；載入時建立一次。 */

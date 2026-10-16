@@ -375,8 +375,8 @@ describe('同日多工作、日結與次日收件（R8 §1–2）', () => {
       statusWaived: '不適用',
       deliver: '交付此項工作',
       finishDay: '完成今日交接',
-      kind: { archive: '歸檔', reconcile: '核對', 'field-map': '匯入', 'return-review': '複審' },
-      unit: { archive: '筆', reconcile: '筆', 'field-map': '列', 'return-review': '筆' },
+      kind: { archive: '歸檔', reconcile: '核對', 'field-map': '匯入', 'return-review': '複審', attachment: '附件', transform: '批次', report: '報告' },
+      unit: { archive: '筆', reconcile: '筆', 'field-map': '列', 'return-review': '筆', attachment: '件', transform: '列', report: '列' },
     });
   });
 

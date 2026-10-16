@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { NAME_UNREGISTERED } from '../../../content/records';
 import { ARCHIVE_UI, DOCUMENT_ISSUES_UI, MAIL_UI, RECORD_REVIEW_UI, RETURNED_REVIEW_UI } from '../../../content/text';
-import { MailAttachment } from '../../../core/types';
+import { ReturnReceiptAttachment } from '../../../core/types';
 import { VALIDATION_MESSAGES, isValidCodeString } from '../../../core/validate';
 import { GameStateService } from '../../../state/game-state.service';
 import { OperationStatusComponent } from '../../shared/operation-status/operation-status.component';
@@ -41,7 +41,7 @@ let documentSeq = 0;
 })
 export class AttachmentDocumentComponent {
   /** 郵件附件的引用（案件＋回條＋版本）。 */
-  readonly ref = input.required<MailAttachment>();
+  readonly ref = input.required<ReturnReceiptAttachment>();
 
   private readonly game = inject(GameStateService);
   private readonly revision = inject(ReturnRevisionService);

@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { MailAttachment, ReturnCase } from '../../../core/types';
+import { RETURN_RECEIPT_MAIL_PACK } from '../../../core/mail';
+import { MailRecord, ReturnCase, ReturnReceiptAttachment } from '../../../core/types';
 import { GameStateService } from '../../../state/game-state.service';
 import { WorkOperationsService } from '../../../state/work-operations.service';
 import { archiveWith, finishDay, instantOperations, reviewAll } from '../../testing/play';
@@ -47,7 +48,7 @@ export function onlyCase(game: GameStateService): ReturnCase {
 }
 
 /** 某份回條（依序，0 起算）對應的郵件附件引用。 */
-export function receiptRef(game: GameStateService, index: number): MailAttachment {
+export function receiptRef(game: GameStateService, index: number): ReturnReceiptAttachment {
   const item = onlyCase(game);
   const receipt = item.receipts[index];
   if (!receipt) throw new Error(`沒有第 ${index + 1} 份回條`);
@@ -64,6 +65,11 @@ export function resubmitNow(game: GameStateService, code: string): void {
 /** 完成今天其餘工作並進到下一天的工作階段（錯誤文件處理若已從附件處理，不會再送一次）。 */
 export function toNextDay(game: GameStateService): void {
   finishDay(game);
+}
+
+/** 收件匣裡的退件回條郵件（排除 M1 工作日郵件；退件規格只核對回條）。 */
+export function receiptMails(game: GameStateService): MailRecord[] {
+  return game.mailbox().filter((m) => m.packId === RETURN_RECEIPT_MAIL_PACK);
 }
 
 /** 把目前存檔改寫後存回（只用於模擬舊存檔或內容移除等邊界），回傳重新啟動的狀態服務。 */

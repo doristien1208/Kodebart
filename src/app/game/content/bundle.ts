@@ -3,7 +3,7 @@ import { ConditionContext, isUnlocked } from './conditions';
 import actorsJson from './data/actors.json';
 import bulletinsJson from './data/bulletins.json';
 import channelsJson from './data/channels.json';
-import { DAY_SOURCES, HELP_SOURCES, MAIL_SOURCES, ONBOARDING_SOURCE } from './data/manifest';
+import { DAY_SOURCES, HELP_SOURCES, MAIL_SOURCES, ONBOARDING_SOURCE, WORKDAY_SOURCE } from './data/manifest';
 import uiJson from './data/ui.zh-Hant.json';
 import {
   ArchiveTask,
@@ -56,6 +56,7 @@ export const CONTENT_FILES = {
   mail: MAIL_SOURCES.map((m) => m.file),
   onboarding: ONBOARDING_SOURCE.file,
   help: HELP_SOURCES.map((h) => h.file),
+  workday: WORKDAY_SOURCE.file,
 } as const;
 
 /** 未經斷言的原始內容；validate-content.ts 的輸入，也供 spec 複製後做反例。 */
@@ -68,6 +69,7 @@ export const CONTENT_SOURCES: ContentInput = {
   mail: MAIL_SOURCES.map((m) => ({ file: m.file, data: m.data })),
   onboarding: { file: ONBOARDING_SOURCE.file, data: ONBOARDING_SOURCE.data },
   help: HELP_SOURCES.map((h) => ({ file: h.file, data: h.data })),
+  workday: { file: WORKDAY_SOURCE.file, data: WORKDAY_SOURCE.data },
 };
 
 /** 已驗證的內容；`days` 依 day 數字排序。驗證失敗會在此 throw。 */
@@ -120,6 +122,13 @@ export type DayPlanTask =
       auditId?: string;
       recordIds: readonly string[];
       documentIds: readonly string[];
+    }
+  | {
+      id: TaskId;
+      /** M1：附件關聯、批次轉換、交付報告。 */
+      kind: 'attachment' | 'transform' | 'report';
+      recordIds: readonly string[];
+      documentIds: readonly string[];
     };
 
 /**
@@ -150,6 +159,10 @@ function planTask(task: ContentTask): DayPlanTask {
       return { ...base, kind: 'field-map' };
     case 'return-review':
       return { ...base, kind: 'return-review', ...(task.auditId === undefined ? {} : { auditId: task.auditId }) };
+    case 'attachment':
+    case 'transform':
+    case 'report':
+      return { ...base, kind: task.kind };
   }
 }
 

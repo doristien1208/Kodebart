@@ -42,6 +42,7 @@ import {
   ReturnReceipt,
   ReturnVersion,
   SourceRecord,
+  ReturnReceiptAttachment,
 } from './types';
 
 /**
@@ -164,7 +165,7 @@ function makeBatch(archived: BatchState['archived'] = {}, drafts: BatchState['dr
 /** 合法的 v11 存檔 fixture（day.01／work、入職已完成）；只覆寫需要的欄位。 */
 function makeSave(overrides: Partial<Save> = {}): Save {
   return {
-    version: 11,
+    version: 12,
     seed: 42,
     dayId: DAY_01,
     stage: 'work',
@@ -345,7 +346,7 @@ describe('isValidSave：不合法存檔', () => {
     ['version 8（v8 舊檔不是現行格式，即使帶 returns）', { ...initial, version: 8 }],
     ['version 9（v9 舊檔不是現行格式，即使帶 issueSchedule）', { ...initial, version: 9 }],
     ['version 10（v10 舊檔不是現行格式，即使帶 mailbox／profile）', { ...initial, version: 10 }],
-    ['version 12', { ...initial, version: 12 }],
+    ['version 13', { ...initial, version: 13 }],
     ['version 為字串 "11"', { ...initial, version: '11' }],
     ['version 缺', { ...initial, version: undefined }],
     /* dayId／taskId */
@@ -1026,7 +1027,8 @@ const MDIR: DayDirectory = createDayDirectory(
       nextDayId: DAY_02,
       tasks: [
         { id: M_TASK_1A, kind: 'archive', batchId: BATCH_DAY01, recordKeys: DAY1_RECORDS.map((r) => r.key), caseReviews: [] },
-        { id: M_TASK_1B, kind: 'archive', batchId: M_BATCH_1B, recordKeys: FOLLOWUP_RECORDS.map((r) => r.key), caseReviews: [] },
+        // M1：同日工作以 dependsOn 保持先後（與正式 Day 1／2 相同）；沒有依賴的工作可以自選順序
+        { id: M_TASK_1B, kind: 'archive', batchId: M_BATCH_1B, recordKeys: FOLLOWUP_RECORDS.map((r) => r.key), caseReviews: [], dependsOn: [M_TASK_1A] },
       ],
     },
     {
@@ -1035,7 +1037,7 @@ const MDIR: DayDirectory = createDayDirectory(
       nextDayId: DAY_03,
       tasks: [
         { id: M_TASK_2A, kind: 'reconcile', sourceBatchId: BATCH_DAY01, subjectKey: 'B102', recordKeys: ['B102'] },
-        { id: M_TASK_2B, kind: 'archive', batchId: M_BATCH_2B, recordKeys: DAY2B_RECORDS.map((r) => r.key), caseReviews: [] },
+        { id: M_TASK_2B, kind: 'archive', batchId: M_BATCH_2B, recordKeys: DAY2B_RECORDS.map((r) => r.key), caseReviews: [], dependsOn: [M_TASK_2A] },
       ],
     },
     { dayId: DAY_03, dayNumber: 3, nextDayId: null, tasks: [FIELD_MAP_TASK] },
@@ -1362,7 +1364,7 @@ describe('isValidLegacySaveV7（R9）／v7 → v8', () => {
     const result = migrateToCurrent(toV7(c3With({ ...legacyH204, archiveCode: 'H-205' })), CDIR)!;
     expect(result).not.toBeNull();
     expect(result.from).toBe(7);
-    expect(result.save.version).toBe(11);
+    expect(result.save.version).toBe(12);
     expect(result.save.returns).toEqual([]);
     expect(result.save.issueSchedule).toEqual({});
     expect(result.save.mailbox).toEqual([]);
@@ -2016,7 +2018,7 @@ describe('isValidSave（R12）：郵件——每份回條恰有一封、欄位�
       dayId: DAY_03,
       attachments: [{ kind: 'return-receipt', caseId: R_ID, receiptId: `${R_ID}#0`, versionIndex: null }],
     });
-    expect(mailR5Early.mailbox.map((m) => [m.id, m.templateId, m.dayId, m.attachments[0]!.versionIndex])).toEqual([
+    expect(mailR5Early.mailbox.map((m) => [m.id, m.templateId, m.dayId, (m.attachments[0] as ReturnReceiptAttachment).versionIndex])).toEqual([
       [`mail.${R_ID}#0`, 'returned', DAY_03, null],
       [`mail.${R_ID}#1`, 'returned', DAY_04, 0],
       [`mail.${R_ID}#2`, 'returned', DAY_05, 1],

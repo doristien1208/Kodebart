@@ -6,7 +6,7 @@ import { MissingPolicy } from '../../../core/types';
 import { EVENT_KINDS } from '../../../core/rules';
 import { GameStateService } from '../../../state/game-state.service';
 import { WorkOperationsService } from '../../../state/work-operations.service';
-import { instantOperations, playTo, settle } from '../../testing/play';
+import { completeWorkdayTask, instantOperations, playTo, settle } from '../../testing/play';
 import { FieldMappingComponent } from './field-mapping.component';
 
 /**
@@ -29,9 +29,18 @@ function targetsOf(convert: 'text' | 'boolean') {
   return TASK.targetFields.filter((t) => t.convert === convert);
 }
 
+/**
+ * 一路保留缺漏（歸檔送覆核、批次保留缺漏）到 Day 6：M1 起欄位映射的回覆欄讀保存資料，
+ * 保留缺漏的列是空白，空白值處理才會出現。
+ */
 function playToDay6(game: GameStateService): void {
-  playTo(game, 'day.06');
+  playTo(game, 'day.06', () => 'request_review');
   expect(game.task()?.kind).toBe('field-map');
+}
+
+/** 目前資料列（依保存資料解析）中回覆欄為空白的列數。 */
+function blankRows(game: GameStateService): number {
+  return game.fieldMapPlan()!.rows.filter((r) => r.values['objection-reply'] === '').length;
 }
 
 function render(): ComponentFixture<FieldMappingComponent> {
@@ -186,7 +195,7 @@ describe('FieldMappingComponent（Day 6 欄位映射）', () => {
   });
 
   for (const policy of ['default_false', 'request_review'] as const) {
-    it(`${policy}：預覽 8／4／4 與 0102，確認後鎖定，重新載入仍保留`, async () => {
+    it(`${policy}：預覽總列數／空白列數（依保存資料）與 0102，確認後鎖定，重新載入仍保留`, async () => {
       const fixture = render();
       mapCorrectly(fixture);
       pickPolicy(fixture, policy);
@@ -197,7 +206,8 @@ describe('FieldMappingComponent（Day 6 欄位映射）', () => {
       const numbers = Array.from(root(fixture).querySelectorAll('app-mapping-preview dd')).map((d) =>
         d.textContent?.trim(),
       );
-      expect(numbers).toEqual(['8', '4', '4', '0102']);
+      const blanks = String(blankRows(game));
+      expect(numbers).toEqual(['8', blanks, blanks, '0102']);
       // R7 §6.2：沒有樣本 JSON；排除狀態以人類文字顯示
       expect(root(fixture).querySelector('app-mapping-preview pre')).toBeNull();
       expect(text).not.toContain('{"');
@@ -207,7 +217,8 @@ describe('FieldMappingComponent（Day 6 欄位映射）', () => {
       expect(text).toContain(FIELD_MAP_UI.excluded);
       expect(cellsOf(fixture, 'personnel-code')).toContain('0102');
 
-      expect(button(fixture, TASKS_UI.finishDay).disabled).toBeTrue();
+      // M1：Day 6 欄位映射之後還有交付報告，按鈕是「交付此項工作」
+      expect(button(fixture, TASKS_UI.deliver).disabled).toBeTrue();
       click(fixture, FIELD_MAP_UI.confirm);
       await settle();
       fixture.detectChanges();
@@ -216,7 +227,7 @@ describe('FieldMappingComponent（Day 6 欄位映射）', () => {
       expect(root(fixture).textContent).toContain(FIELD_MAP_UI.doneHeading);
       expect(root(fixture).textContent).toContain(FIELD_MAP_UI.footerDone);
       for (const t of TASK.targetFields) expect(selectFor(fixture, t.id).disabled).toBeTrue();
-      expect(button(fixture, TASKS_UI.finishDay).disabled).toBeFalse();
+      expect(button(fixture, TASKS_UI.deliver).disabled).toBeFalse();
 
       // 重新載入：新的 injector 從 localStorage 讀回同一份存檔
       fixture.destroy();
@@ -231,7 +242,11 @@ describe('FieldMappingComponent（Day 6 欄位映射）', () => {
       expect(cellsOf(again, 'personnel-code')).toContain('0102');
       expect(previewText(again)).not.toMatch(/\b(true|false|null)\b/);
 
+      // M1：交付欄位映射後換到交付報告（依賴欄位映射），完成報告才結束
       expect(game.completeWork()).toBeTrue();
+      expect(game.stage()).toBe('work');
+      expect(game.task()?.kind).toBe('report');
+      expect(completeWorkdayTask(game)).toBeTrue();
       expect(game.stage()).toBe('end');
     });
   }

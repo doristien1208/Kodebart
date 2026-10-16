@@ -1,0 +1,11 @@
+/* 附件關聯工作：標題 → 目前文件（來源／採用）→ 附件選擇或送件摘要；底部處理列。 */
+.aw { display: grid; gap: .75rem; }
+.aw-head { display: flex; justify-content: space-between; gap: 1rem; }
+.aw-head h3 { margin: 0; }
+.aw-subject, .aw-done { padding: .75rem; border: 1px solid var(--color-border); background: var(--color-background); display: grid; gap: .5rem; }
+.aw-sub { margin: 0; font-size: .875rem; font-weight: 400; color: var(--color-muted); }
+.aw-fields { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .125rem 1rem; margin: 0; font-size: .875rem; line-height: 1.6; }
+.aw-fields dt { color: var(--color-muted); }
+.aw-fields dd { margin: 0; overflow-wrap: anywhere; }
+.aw-tools { display: flex; flex-wrap: wrap; gap: .5rem; }
+.aw-state { margin: 0; padding: .375rem .625rem; border-left: 4px solid var(--color-primary); background: var(--color-surface); color: var(--color-primary); font-size: .875rem; }

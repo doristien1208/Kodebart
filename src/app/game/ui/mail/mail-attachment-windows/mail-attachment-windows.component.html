@@ -1,5 +1,9 @@
 @for (w of windows(); track w.windowId) {
   <app-window-shell [windowId]="w.windowId" [title]="w.title" [defaults]="w.defaults" [level]="3" data-mail-attachment-window>
-    <app-attachment-document [ref]="w.ref" />
+    @if (w.ref.kind === 'return-receipt') {
+      <app-attachment-document [ref]="w.ref" />
+    } @else {
+      <app-work-document [ref]="w.ref" />
+    }
   </app-window-shell>
 }

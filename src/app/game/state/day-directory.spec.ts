@@ -53,17 +53,23 @@ const DAY_TASKS: Record<string, readonly { id: string; kind: TaskPlan['kind'] }[
     { id: 'task.day3.archive', kind: 'archive' },
     { id: VIRTUAL_ISSUE['day.03'], kind: 'return-review' },
   ],
+  // M1：Day 4／5 的附件關聯與批次轉換、Day 6 的交付報告接在原工作之後
   'day.04': [
     { id: 'task.day4.archive', kind: 'archive' },
     { id: TASK_DAY4_RETURN, kind: 'return-review' },
+    { id: 'task.day4.m1-attachment', kind: 'attachment' },
+    { id: 'task.day4.m1-transform', kind: 'transform' },
   ],
   'day.05': [
     { id: 'task.day5.archive', kind: 'archive' },
     { id: VIRTUAL_ISSUE['day.05'], kind: 'return-review' },
+    { id: 'task.day5.m1-attachment', kind: 'attachment' },
+    { id: 'task.day5.m1-transform', kind: 'transform' },
   ],
   'day.06': [
     { id: TASK_DAY6, kind: 'field-map' },
     { id: VIRTUAL_ISSUE['day.06'], kind: 'return-review' },
+    { id: 'task.day6.m1-report', kind: 'report' },
   ],
 };
 
@@ -163,7 +169,7 @@ describe('DAY_DIRECTORY（正式內容）', () => {
       'archive',
       'field-map',
     ]);
-    expect(ALL_DAYS.map((id) => DAY_DIRECTORY.plan(id)!.tasks.length)).toEqual([3, 3, 2, 2, 2, 2]);
+    expect(ALL_DAYS.map((id) => DAY_DIRECTORY.plan(id)!.tasks.length)).toEqual([3, 3, 2, 4, 4, 3]);
     // 每天恰好一個錯誤文件處理位置，且不是當日第一件
     for (const dayId of ALL_DAYS) {
       const issue = DAY_DIRECTORY.plan(dayId)!.tasks.filter((t) => t.kind === 'return-review');
@@ -175,7 +181,7 @@ describe('DAY_DIRECTORY（正式內容）', () => {
   it('taskId 全域唯一；taskPlanOf 只在自己的那一天找得到', () => {
     const ids = ALL_DAYS.flatMap((d) => DAY_DIRECTORY.plan(d)!.tasks.map((t) => t.id));
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids.length).toBe(14);
+    expect(ids.length).toBe(19);
     for (const dayId of ALL_DAYS) {
       const plan = DAY_DIRECTORY.plan(dayId)!;
       for (const id of ids) {
@@ -301,7 +307,7 @@ describe('DAY_DIRECTORY（正式內容）', () => {
 
     it('task.day4.return-review（內容定義）：ReturnReviewTaskPlan 只有 id／kind／dayId，沒有歸檔批次，排在 Day 4 原歸檔工作之後', () => {
       const plan = DAY_DIRECTORY.plan('day.04')!;
-      expect(plan.tasks.map((t) => t.id)).toEqual(['task.day4.archive', TASK_DAY4_RETURN]);
+      expect(plan.tasks.map((t) => t.id)).toEqual(['task.day4.archive', TASK_DAY4_RETURN, 'task.day4.m1-attachment', 'task.day4.m1-transform']);
       const task = plan.tasks[1];
       expect(task).toEqual({ id: TASK_DAY4_RETURN, kind: 'return-review', dayId: 'day.04' });
       expect(Object.keys(task).sort()).toEqual(['dayId', 'id', 'kind']);
@@ -499,7 +505,7 @@ describe('DAY_DIRECTORY（正式內容）', () => {
         count++;
       }
     }
-    expect(count).toBe(14);
+    expect(count).toBe(19);
     expect(DAY_DIRECTORY.planOfTask(TASK_DAY4_RETURN)!.dayId).toBe('day.04');
     expect(DAY_DIRECTORY.planOfTask('task.day3.return-review')!.dayId).toBe('day.03');
     expect(DAY_DIRECTORY.planOfTask('task.day6.return-review')!.dayId).toBe(DAY_06);

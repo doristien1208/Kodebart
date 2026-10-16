@@ -234,7 +234,8 @@ describe('validateContent 日程：day 數字、day ID 與 nextDayId（KB-R5-02 
 
   it('單一 task ID 不含所屬日識別', () => {
     const issues = issuesAfter((input) => setAt(input.days[DAY1].data, ['tasks', 0, 'id'], 'task.archive'));
-    expect(issues.length).toBe(1);
+    // M1：第二批的 dependsOn 仍指向原 ID，連帶指出（找不到同日的任務）
+    expect(fields(issues)).toEqual(['tasks[0].id', 'tasks[1].dependsOn[0]']);
     expect(issues[0].id).toBe('task.archive');
     expect(issues[0].field).toBe('tasks[0].id');
     expect(issues[0].message).toContain('`day1`');
@@ -303,9 +304,14 @@ describe('validateContent 任務：每日至少一個、有序，依 kind 檢查
       ['archive:task.day1.archive', 'archive:task.day1.archive-followup'],
       ['reconcile:task.day2.reconcile', 'archive:task.day2.archive'],
       ['archive:task.day3.archive'],
-      ['archive:task.day4.archive', 'return-review:task.day4.return-review'],
-      ['archive:task.day5.archive'],
-      ['field-map:task.day6.field-map'],
+      [
+        'archive:task.day4.archive',
+        'return-review:task.day4.return-review',
+        'attachment:task.day4.m1-attachment',
+        'transform:task.day4.m1-transform',
+      ],
+      ['archive:task.day5.archive', 'attachment:task.day5.m1-attachment', 'transform:task.day5.m1-transform'],
+      ['field-map:task.day6.field-map', 'report:task.day6.m1-report'],
     ]);
   });
 
@@ -320,6 +326,7 @@ describe('validateContent 任務：每日至少一個、有序，依 kind 檢查
   it('同一天混合多種 kind：archive → reconcile → field-map → archive', () => {
     const issues = issuesAfter((input) => {
       const day6 = taskCopy(input, DAY6, 0, 'task.day1.field-map');
+      delete day6['dynamic']; // M1 的 dynamic 引用後面日子的歸檔與批次，複製到 Day 1 不適用
       const reconcile = taskCopy(input, DAY2, 0, 'task.day1.reconcile');
       reconcile['sourceBatchId'] = 'batch.day01.archive';
       delete reconcile['returnAudit']; // 稽核 ID 全域唯一（R10），複製的核對不帶稽核
@@ -340,9 +347,10 @@ describe('validateContent 任務：每日至少一個、有序，依 kind 檢查
     const issues = issuesAfter((input) =>
       setAt(input.days[DAY1].data, ['tasks', 1, 'id'], 'task.day1.archive'),
     );
-    expect(issues.length).toBe(1);
-    expect(issues[0].field).toBe('tasks[1].id');
+    // M1：第二批的 dependsOn 原本指向第一批，改成同 ID 後也變成依賴自己
+    expect(fields(issues)).toEqual(['tasks[1].id', 'tasks[1].dependsOn[0]']);
     expect(issues[0].message).toContain('ID 重複');
+    expect(issues[1].message).toContain('不能依賴自己');
   });
 
   it('跨日重複的 task ID', () => {
@@ -384,7 +392,9 @@ describe('validateContent 任務：每日至少一個、有序，依 kind 檢查
 
   it('archive 任務缺 batchId（Day 2 的 sourceBatchId 也因此找不到批次）', () => {
     const issues = issuesAfter((input) => removeAt(input.days[DAY1].data, ['tasks', 0, 'batchId']));
-    expect(issues.length).toBe(2);
+    // M1：Day 6 欄位映射的 0102 列讀 Day 1 歸檔的保存資料，也連帶找不到歸檔批次
+    expect(issues.length).toBe(3);
+    expect(issues.some((i) => i.file === 'data/days/day-06.json' && i.field === 'tasks[0].dynamic.rows[0].recordId')).toBeTrue();
     const missing = issues.find((i) => i.file === 'data/days/day-01.json');
     expect(missing?.field).toBe('tasks[0].batchId');
     expect(missing?.message).toContain('缺少 id');
@@ -410,8 +420,8 @@ describe('validateContent 任務：每日至少一個、有序，依 kind 檢查
 
   it('archive 任務的 recordIds 不得為空', () => {
     const issues = issuesAfter((input) => setAt(input.days[DAY1].data, ['tasks', 0, 'recordIds'], []));
-    expect(issues.length).toBe(1);
-    expect(issues[0].field).toBe('tasks[0].recordIds');
+    // M1：Day 6 欄位映射的 0102 列也連帶找不到歸檔它的任務
+    expect(fields(issues)).toEqual(['tasks[0].recordIds', 'tasks[0].dynamic.rows[0].recordId']);
     expect(issues[0].message).toContain('不得為空陣列');
   });
 
@@ -448,8 +458,9 @@ describe('validateContent 任務：每日至少一個、有序，依 kind 檢查
     const kind = issues.find((i) => i.field === 'tasks[0].kind');
     expect(kind?.id).toBe('task.day1.archive');
     expect(kind?.message).toContain('archive／reconcile');
-    // kind 不明就不會登記批次，Day 2 的 sourceBatchId 跟著找不到；不會再有其他噪音。
-    expect(issues.length).toBe(2);
+    // kind 不明就不會登記批次，Day 2 的 sourceBatchId 跟著找不到；M1：Day 6 欄位映射的 0102 列也找不到歸檔它的任務。
+    expect(issues.length).toBe(3);
+    expect(issues.some((i) => i.field === 'tasks[0].dynamic.rows[0].recordId')).toBeTrue();
     expect(issues.some((i) => i.field === 'tasks[0].sourceBatchId' && i.message.includes('找不到批次'))).toBeTrue();
   });
 });
@@ -958,8 +969,23 @@ describe('validateContent reconcile 的 subjectRecordId（R6-01）', () => {
 });
 
 describe('validateContent field-map 任務（R6-03）', () => {
+  /**
+   * 基本的 field-map 規則：先拿掉 M1 的 dynamic（資料列改讀保存資料的設定另有測試），
+   * 避免改動資料列或欄位時，dynamic 的引用一起被指出而模糊了這裡要驗的那一項。
+   */
   const fmIssues = (mutate: (task: Record<string, unknown>) => void): ContentIssue[] =>
-    issuesAfter((input) => mutate(containerAt(input.days[DAY6].data, FM)));
+    issuesAfter((input) => {
+      const task = containerAt(input.days[DAY6].data, FM);
+      delete task['dynamic'];
+      // 交付報告依賴 dynamic 的欄位映射，一併拿掉（含依報告建立送達的私訊條件）
+      const day6 = input.days[DAY6].data as { tasks: { kind: string }[]; messages: Record<string, unknown>[] };
+      day6.tasks = day6.tasks.filter((t) => t.kind !== 'report');
+      for (const m of day6.messages) {
+        const after = m['unlockAfter'];
+        if (typeof after === 'object' && after !== null && 'taskPreviewed' in after) delete m['unlockAfter'];
+      }
+      mutate(task);
+    });
 
   it('正式 Day 6 是 field-map 任務且通過', () => {
     const task = containerAt(CONTENT_SOURCES.days[DAY6].data, FM);
@@ -1163,6 +1189,8 @@ describe('validateContent 編號一律為字串', () => {
       const day = source.data as { records: { code: unknown }[]; tasks: { kind: string; rows?: { values: Record<string, unknown> }[] }[] };
       for (const r of day.records) expect(typeof r.code).withContext(source.file).toBe('string');
       for (const t of day.tasks) {
+        // field-map 的資料列（M1 的 transform 列只引用紀錄，沒有 values）
+        if (t.kind !== 'field-map') continue;
         for (const row of t.rows ?? []) {
           for (const v of Object.values(row.values)) expect(typeof v).withContext(source.file).toBe('string');
         }
@@ -1194,10 +1222,17 @@ describe('validateContent 訊息 replyPrompt（R7 §3）', () => {
       'prompt.day1.welcome',
       'prompt.day2.check-in',
       'prompt.day3.lunch-plan',
+      'prompt.day3.m1-find-version',
       'prompt.day4.review-returned',
       'prompt.day4.quick-close',
+      'prompt.day4.m1-desk-fan',
+      'prompt.day4.m1-window-receipt',
+      'prompt.day5.m1-coffee',
       'prompt.day5.missing-box',
+      'prompt.day5.m1-default-question',
+      'prompt.day6.m1-week-start',
       'prompt.day6.closed-box',
+      'prompt.day6.m1-handoff-meaning',
     ]);
     const msgIds = [
       ...all.map((m) => m.id),
@@ -1669,15 +1704,23 @@ describe('validateContent 訊息 unlockAfter（R8 §4）', () => {
   const setAfter = (day: number, index: number, value: unknown) => (input: ContentInput) =>
     setAt(input.days[day].data, ['messages', index, 'unlockAfter'], value);
 
-  it('正式 Day 3：午餐群組四則都在原歸檔批次提交 2 筆後才解鎖，其他訊息沒有 unlockAfter', () => {
+  it('正式資料：Day 3 午餐群組四則在原歸檔批次提交 2 筆後才解鎖；M1 新訊息依工作進度送達；其他訊息沒有 unlockAfter', () => {
     type Raw = { messages: { id: string; unlockAfter?: unknown }[] };
     const all = CONTENT_SOURCES.days.flatMap((d) => (d.data as Raw).messages);
-    expect(all.filter((m) => m.unlockAfter !== undefined).map((m) => [m.id, m.unlockAfter])).toEqual(
-      ['msg.day3.lunch-order', 'msg.day3.lunch-yesterday', 'msg.day3.lunch-hungry', 'msg.day3.lunch-ask-player'].map((id) => [
+    expect(all.filter((m) => m.unlockAfter !== undefined).map((m) => [m.id, m.unlockAfter])).toEqual([
+      ...['msg.day3.lunch-order', 'msg.day3.lunch-yesterday', 'msg.day3.lunch-hungry', 'msg.day3.lunch-ask-player'].map((id) => [
         id,
         { archiveBatchId: 'batch.day03.archive', archivedCount: 2 },
       ]),
-    );
+      ['msg.day3.m1-find-version', { caseOpened: 'case.day3.h204' }],
+      ['msg.day3.m1-printer', { archiveBatchId: 'batch.day03.archive', archivedCount: 3 }],
+      ['msg.day3.m1-printer-wu', { archiveBatchId: 'batch.day03.archive', archivedCount: 3 }],
+      ['msg.day4.m1-desk-fan', { archiveBatchId: 'batch.day04.archive', archivedCount: 2 }],
+      ['msg.day4.m1-window-receipt', { taskOpened: 'task.day4.m1-attachment' }],
+      ['msg.day5.m1-coffee', { archiveBatchId: 'batch.day05.archive', archivedCount: 2 }],
+      ['msg.day5.m1-default-question', { taskPreviewed: 'task.day5.m1-transform' }],
+      ['msg.day6.m1-handoff-meaning', { taskPreviewed: 'task.day6.m1-report' }],
+    ]);
   });
 
   it('引用較早日或同日的 archive 批次都通過', () => {
@@ -2022,6 +2065,9 @@ describe('validateContent caseReview（R9）', () => {
         'tasks[0].documentIds[2]',
         'tasks[0].documentIds[3]',
         ...dms,
+        // M1：Day 3「開啟黃品蓉版本案件後」送達的私訊與 Day 4 的版本回條也找不到案件
+        'messages[7].unlockAfter.caseOpened',
+        'mail.outcomes[0].trigger.caseId',
       ]),
     );
   });
@@ -2051,7 +2097,16 @@ describe('validateContent caseReview（R9）', () => {
     expect(own(wrongDay).length).toBe(1);
     expect(own(wrongDay)[0].message).toContain('day3');
     for (const issues of [noPrefix, wrongDay]) {
-      expect(fields(others(issues))).toEqual(['messages[9].unlock[0]', 'messages[10].unlock[0]', 'messages[11].unlock[0]']);
+      // M1：Day 3 依案件開啟送達的私訊、Day 4 的版本回條也引用這個案件
+      expect(fields(others(issues))).toEqual(
+        jasmine.arrayWithExactContents([
+          'messages[7].unlockAfter.caseOpened',
+          'messages[9].unlock[0]',
+          'messages[10].unlock[0]',
+          'messages[11].unlock[0]',
+          'mail.outcomes[0].trigger.caseId',
+        ]),
+      );
       expect(others(issues).every((i) => i.message.startsWith('找不到案件 case.day3.h204'))).toBeTrue();
     }
   });
@@ -2188,15 +2243,21 @@ describe('validateContent 下游稽核 returnAudit 與錯誤文件處理 return-
       reviewTaskId: 'task.day4.return-review',
       caseNumberTemplate: 'RT-{key}',
     });
-    expect(day4.tasks.map((t) => `${t.kind}:${t.id}`)).toEqual(['archive:task.day4.archive', 'return-review:task.day4.return-review']);
+    expect(day4.tasks.map((t) => `${t.kind}:${t.id}`)).toEqual([
+      'archive:task.day4.archive',
+      'return-review:task.day4.return-review',
+      'attachment:task.day4.m1-attachment',
+      'transform:task.day4.m1-transform',
+    ]);
     expect([day4.tasks[1].auditId, day4.tasks[1].recordIds, day4.tasks[1].documentIds]).toEqual(['day1-code-audit', [], []]);
     expect(validateContent(CONTENT_SOURCES).length).toBe(0);
   });
 
   it('一天不能只有退件複審（沒有到期案件時當天會沒有工作）', () => {
     const issues = issuesAfter((input) => {
-      const day4 = input.days[DAY4].data as { tasks: unknown[] };
-      day4.tasks = day4.tasks.slice(1);
+      // M1：Day 4 另有附件關聯與批次轉換，只留下退件複審
+      const day4 = input.days[DAY4].data as { tasks: { kind: string }[] };
+      day4.tasks = day4.tasks.filter((t) => t.kind === 'return-review');
     });
     expect(messages(issues)).toContain('非 return-review');
   });
@@ -2397,7 +2458,7 @@ describe('validateContent 下游稽核 returnAudit 與錯誤文件處理 return-
     );
     expect(issues.length).withContext(messages(issues)).toBe(1);
     expect(describeIssue(issues[0])).toBe(
-      'data/days/day-05.json [task.day5.return-review] tasks[1].auditId：找不到退件稽核 nope-audit（需在 reconcile 任務的 returnAudit 定義）',
+      'data/days/day-05.json [task.day5.return-review] tasks[3].auditId：找不到退件稽核 nope-audit（需在 reconcile 任務的 returnAudit 定義）',
     );
   });
 
@@ -2420,7 +2481,7 @@ describe('validateContent 下游稽核 returnAudit 與錯誤文件處理 return-
       t['id'] = 'task.day5.return-review';
       pushAt(input.days[DAY5].data, ['tasks'], t);
     });
-    expect(fields(issues)).toEqual(['tasks[1].auditId']);
+    expect(fields(issues)).toEqual(['tasks[3].auditId']);
     expect(issues[0].file).toBe('data/days/day-05.json');
     expect(issues[0].message).toContain('reviewTaskId 是 task.day4.return-review，不是這項任務');
   });
@@ -2436,15 +2497,19 @@ describe('validateContent 下游稽核 returnAudit 與錯誤文件處理 return-
       }),
     );
     expect(issues.map(describeIssue)).toEqual([
-      'data/days/day-04.json [task.day4.return-review-again] tasks[2].kind：每日最多一項 return-review 任務（錯誤文件處理每天只有一個位置，已有 tasks[1]）',
+      'data/days/day-04.json [task.day4.return-review-again] tasks[4].kind：每日最多一項 return-review 任務（錯誤文件處理每天只有一個位置，已有 tasks[1]）',
     ]);
   });
 
   it('R11：task.day<N>.return-review 保留給當日的 return-review，其他 kind 不得使用', () => {
     const issues = issuesAfter((input) => setAt(input.days[DAY5].data, ['tasks', 0, 'id'], 'task.day5.return-review'));
-    expect(issues.map(describeIssue)).toEqual([
+    const own = issues.filter((i) => i.field === 'tasks[0].id');
+    expect(own.map(describeIssue)).toEqual([
       'data/days/day-05.json [task.day5.return-review] tasks[0].id：任務 ID task.day5.return-review 保留給當日的錯誤文件處理（return-review；沒有內容定義時由狀態層以此 ID 插入），archive 任務請改用別的 ID',
     ]);
+    // M1：同日的附件關聯與批次轉換依賴原本的 Day 5 歸檔，連帶指出依賴找不到（不是保留 ID 的問題）
+    const cascade = issues.filter((i) => i.field !== 'tasks[0].id');
+    expect(cascade.every((i) => /dependsOn|[rR]ecordId/.test(i.field))).withContext(messages(cascade)).toBeTrue();
     // 別日的保留 ID 不受限（ID 仍須含所屬日識別，由既有規則擋下）
     expect(issueTaskId(4)).toBe('task.day4.return-review');
   });

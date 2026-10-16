@@ -13,38 +13,21 @@
 </header>
 
 <div class="wb-body">
-  <!-- 左側單組功能導航（窄視窗時在上方橫列） -->
+  <!-- 功能導航：工作、公告（M1：上方分頁列） -->
   <nav class="wb-nav" [attr.aria-label]="WORKBENCH.navLabel" data-workbench-nav>
     <ul class="wb-nav-list">
       @for (item of navItems; track item.label) {
         <li class="wb-nav-cell">
-          @if (item.kind === 'view') {
-            <button
-              type="button"
-              class="wb-nav-item"
-              [class.active]="view() === item.view"
-              [attr.aria-current]="view() === item.view ? 'page' : null"
-              [attr.data-nav-view]="item.view"
-              (click)="select(item)"
-            >
-              <span class="truncate">{{ item.label }}</span>
-            </button>
-          } @else {
-            <button
-              type="button"
-              class="wb-nav-item"
-              [attr.data-nav-app]="item.app"
-              [attr.data-window-open]="item.windowId"
-              (click)="select(item)"
-            >
-              <span class="truncate">{{ item.label }}</span>
-              @if (item.app === 'messages') {
-                <app-unread-badge [count]="unreadTotal()" [label]="MESSAGES.unread(unreadTotal())" />
-              } @else {
-                <app-unread-badge [count]="unreadMail()" [label]="unreadMailLabel()" />
-              }
-            </button>
-          }
+          <button
+            type="button"
+            class="wb-nav-item"
+            [class.active]="view() === item.view"
+            [attr.aria-current]="view() === item.view ? 'page' : null"
+            [attr.data-nav-view]="item.view"
+            (click)="select(item)"
+          >
+            <span class="truncate">{{ item.label }}</span>
+          </button>
         </li>
       }
     </ul>

@@ -94,6 +94,7 @@ import {
   Save,
   SourceRecord,
   ValidationOk,
+  ReturnReceiptAttachment,
 } from './types';
 import { PLAYER_NAME_MAX, validateRecord } from './validate';
 
@@ -465,6 +466,11 @@ describe('dayId、stage、taskId 與批次識別', () => {
       returnWindow: 'return.window',
       returnChecked: 'return.checked',
       helpRequest: 'help.request',
+      attachmentSubmit: 'attachment.submit',
+      attachmentRevise: 'attachment.revise',
+      attachmentChecked: 'attachment.checked',
+      transformSubmit: 'transform.submit',
+      reportSubmit: 'report.submit',
     });
     for (const kind of Object.values(EVENT_KINDS)) expect(kind).not.toMatch(/day[0-9]/);
   });
@@ -1140,7 +1146,7 @@ describe('createSave', () => {
       events: [],
       readMessages: [],
     });
-    expect(SAVE_VERSION).toBe(11);
+    expect(SAVE_VERSION).toBe(12);
     const raw = createSave(42, DIR) as unknown as Record<string, unknown>;
     for (const key of ['night', 'evidence', 'reply', 'phase', 'readIssueReceipts']) expect(key in raw).withContext(key).toBeFalse();
   });
@@ -2090,7 +2096,7 @@ describe('完整流程可重現', () => {
           expect(JSON.stringify(a)).toBe(JSON.stringify(b));
           expect(a.stage).toBe('end');
           expect(a.dayId).toBe(DAY_02);
-          expect(a.version).toBe(11);
+          expect(a.version).toBe(12);
           expect(isValidSave(JSON.parse(JSON.stringify(a)), DIR)).toBeTrue();
         }
       }
@@ -2512,15 +2518,20 @@ describe('R8：同 kind 連續、單一工作日', () => {
 });
 
 describe('R8：isTaskSettled／isTaskWaived／nextOpenTask', () => {
-  it('nextOpenTask 回傳之後第一件未完成且非免補的工作；沒有則 null', () => {
+  it('nextOpenTask 先找之後第一件可開始（未完成、非免補、依賴已結清）的工作，再從頭找（M1 自選順序）；都沒有則 null', () => {
     const s = createSave(1, DIR_MIX);
     expect(nextOpenTask(s, DIR_MIX, MIX_A1)!.id).toBe(MIX_B);
     expect(nextOpenTask(s, DIR_MIX, MIX_C)!.id).toBe(MIX_A2);
-    expect(nextOpenTask(s, DIR_MIX, MIX_A2)).toBeNull();
+    // 之後沒有了 → 從頭找：第一件仍未完成
+    expect(nextOpenTask(s, DIR_MIX, MIX_A2)!.id).toBe(MIX_A1);
     const waivedB: Save = { ...s, waivedTasks: [MIX_B] };
     expect(nextOpenTask(waivedB, DIR_MIX, MIX_A1)!.id).toBe(MIX_C);
     const a2Done = archiveEvery(s, MIX_BATCH_A2, DAY3_RECORDS);
-    expect(nextOpenTask(a2Done, DIR_MIX, MIX_C)).toBeNull();
+    expect(nextOpenTask(a2Done, DIR_MIX, MIX_C)!.id).toBe(MIX_A1);
+    // 只剩目前這件時為 null
+    const othersDone: Save = { ...a2Done, waivedTasks: [MIX_B, MIX_C] };
+    const a1Done = archiveEvery(othersDone, MIX_BATCH_A1, DAY1_RECORDS);
+    expect(nextOpenTask(a1Done, DIR_MIX, MIX_A2)).toBeNull();
   });
 
   it('交付時跳過免補工作；後面都已結清則直接完成當日', () => {
@@ -4125,7 +4136,7 @@ describe('R12：每份回條在建立當下寄出恰好一封郵件', () => {
 
   it('兩案同一天建立：兩封郵件，依案件建立順序', () => {
     const day3 = issDay3Morning({ B102: '102', B607: '607' });
-    expect(day3.mailbox.map((m) => [m.id, m.attachments[0]!.caseId])).toEqual([
+    expect(day3.mailbox.map((m) => [m.id, (m.attachments[0] as ReturnReceiptAttachment).caseId])).toEqual([
       [`mail.${RET_B102}#0`, RET_B102],
       [`mail.${RET_B607}#0`, RET_B607],
     ]);
@@ -4152,7 +4163,7 @@ describe('R12：每份回條在建立當下寄出恰好一封郵件', () => {
   it('再次退回：下一工作日核對仍錯 → 回條 #1 與郵件（模板 returned、版本 0、Day 4）一起出現', () => {
     let s = resubmitReturn(startDay(issDay3Morning()), DIR_ISS, RET_B102, '0l02', `${RET_B102}#0`);
     s = advanceDay(issFinishDay(s), DIR_ISS);
-    expect(s.mailbox.map((m) => [m.id, m.templateId, m.dayId, m.attachments[0]!.versionIndex])).toEqual([
+    expect(s.mailbox.map((m) => [m.id, m.templateId, m.dayId, (m.attachments[0] as ReturnReceiptAttachment).versionIndex])).toEqual([
       [`mail.${RET_B102}#0`, 'returned', DAY_03, null],
       [`mail.${RET_B102}#1`, 'returned', DAY_04, 0],
     ]);
@@ -4164,7 +4175,7 @@ describe('R12：每份回條在建立當下寄出恰好一封郵件', () => {
     let s = resubmitReturn(issDay4Slot(), DIR_ISS, RET_B102, '0102', `${RET_B102}#0`);
     s = advanceDay(completeWork(s, DIR_ISS), DIR_ISS);
     expect(s.returns[0]!.status).toBe('resolved');
-    expect(s.mailbox.map((m) => [m.id, m.templateId, m.dayId, m.attachments[0]!.versionIndex])).toEqual([
+    expect(s.mailbox.map((m) => [m.id, m.templateId, m.dayId, (m.attachments[0] as ReturnReceiptAttachment).versionIndex])).toEqual([
       [`mail.${RET_B102}#0`, 'returned', DAY_03, null],
       [`mail.${RET_B102}#1`, 'resolved', DAY_05, 0],
     ]);
@@ -4188,7 +4199,7 @@ describe('R12：每份回條在建立當下寄出恰好一封郵件', () => {
       expect(reloadValid(s)).withContext(`第 ${i + 1} 次`).toBeTrue();
     }
     expect(s.dayId).toBe(DAY_06);
-    expect(s.mailbox.map((m) => [m.id, m.templateId, m.dayId, m.attachments[0]!.versionIndex])).toEqual([
+    expect(s.mailbox.map((m) => [m.id, m.templateId, m.dayId, (m.attachments[0] as ReturnReceiptAttachment).versionIndex])).toEqual([
       [`mail.${RET_B102}#0`, 'returned', DAY_03, null],
       [`mail.${RET_B102}#1`, 'returned', DAY_04, 0],
       [`mail.${RET_B102}#2`, 'returned', DAY_05, 1],

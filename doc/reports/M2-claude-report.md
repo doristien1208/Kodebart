@@ -1,232 +1,136 @@
 # M2 實作回報（Claude → Codex 覆核）
 
 - Issue：#11「[M2] 第7–10日完整敘事章節：查證、送件包與同事生活」
-- 分支：`claude/issue-11-run38840289640`（GitHub Action 首次入口；後續同案續做沿用此分支）
-- 固定來源：`main@f2e0fdb33e2c97d7ade166613f09f53002bad41e`（產品基線 `a366226`＋五份 M2 企劃／內容文件）；已核對本分支起點即為此 SHA
-- 本輪狀態：**checkpoint，不是完整交付**。最新 head 由 workflow 收尾回報填入；commit 無法包含自己的 SHA。
+- PR：#12（draft）；分支：`claude/issue-11-run38840289640`（同案續做沿用，未新開分支）
+- 設計／內容來源：`main@f2e0fdb33e2c97d7ade166613f09f53002bad41e` 的 `doc/KodeBart-M2-Chapter-Plan.md`、`doc/content/M2-shared-city-content.json`、`doc/KodeBart-Game-Plan.md`（只讀，未修改）
+  - 內容包 SHA256 已核對：`4d5be092c3e3165aac008c45848bfeaec3bb62d86c8dc0e742059b6100e723dd`
+  - 兩張 Human 原圖已核對，未刪改、未接線：
+    - `assets/Gemini_Generated_Image_y96ey3y96ey3y96e.jpeg`：`e9e06276…2bd`
+    - `assets/Gemini_Generated_Image_v52xw5v52xw5v52x.jpeg`：`0e432c3d…5d6`
+- 狀態：**checkpoint，不是完整交付**。本輪最新 head 由 workflow 收尾回報填入；commit 無法包含自己的 SHA。
 - 模型：Claude Code `claude-opus-5-5`、effort max。
 
-## Completion Summary
+## 執行紀錄
 
-本輪依 Issue 建議的順序，先做「一案全鏈路」所需的核心規則，再處理可獨立驗證的 R2。Day 7–10 尚未接入正常遊戲流程，Human 目前無法試玩 M2。
+| 輪次 | 起點 | 內容 | 停止原因 |
+| --- | --- | --- | --- |
+| 第 1 輪（首次入口） | `f2e0fdb` | casework 純規則、案件檔案夾 presenter、具名條件、R2 | 回報 104 turns＞80，執行判定失敗；成果保留，不改寫失敗 |
+| 第 2 輪（同案續做） | `8f5edb5`（＝`404775d`＋Human 兩張原圖） | 本節「本輪完成」 | 主動 checkpoint（約 40 次工具互動評估點） |
 
-### 已完成（都已推送到本分支）
+## 本輪完成（第 2 輪）
 
-1. **casework 核心純規則**：`src/app/game/core/casework.ts`，不依賴 Angular、DOM、localStorage 或 content。
-   - 引用快照保存 `documentId／version／fieldIndex／label／value`，可加入、移除，不隨原文件改寫。
-   - 交付前的程序驗證只檢查四件事：合法引用（屬於本案、目前可開、版本與快照相符、欄位存在）、最少引用數、有效選項、必要來源。
-     - 不以引用語意、選項「是否正確」或編號是否與來源相等擋送。
-     - 舊批次未附時，「整批」與「先交可轉送列」都不能交付，避免造出空的成功清單；「請窗口補件」仍可交付。
-   - 承辦查詢的送達時機以 `rand(seed, eventId)` 擲一次。
-     - 已詢問過再呼叫，回傳原保存狀態，不重擲。
-     - 早回：指定的另一件工作完成後送達。次日回：下一個工作日送達。
-     - 查詢附件在回覆送達前不可開；到保底日起，不論有沒有詢問都可查。
-   - 黃品蓉編號逐字比對文件代碼（不修剪、不改大小寫）。符合代碼為「待核定」，任意值或缺漏為 `pending-code`，不自動修正。
-   - 條件回條只讀保存的選項與實際引用。`cites` 與 `not-cites` 互斥；引用同份文件的其他欄不算附上那一欄。
-   - 通知範圍的列由保存的前日輸出解析。舊批次未附時列數為 `null`，顯示「未附」，不寫成 0。
-   - 送件版本只附加，不覆寫：
-     - 以 `expectedLatest` 鎖版本，重複送出或畫面過期回傳 `stale`，不覆寫任何副本。
-     - 驗證失敗不建立版本，輸入保留給玩家重試。
-2. **案件檔案夾 presenter**：`src/app/game/ui/casework/presenters/case-folder.ts`。
-   - 本案文件依內容順序列出，只列目前可開的；未送達的查詢附件不出現。
-   - 欄位標示已引用；送件包依加入順序列出快照。
-   - 引用的文件版本或內容已不同時，保留快照並標示需重新引用。
-   - 預覽 JSON 分三段：來源、本次引用與處理、交付輸出。輸出只含引用的欄位，不印文件 ID，也不按選項補上未引用的段落。
-3. **M2 具名條件評估**：`src/app/game/content/conditions.ts`。
-   - 支援 `chat-choice`、`not-chat-choice`、`case-citation`、`not-case-citation`。
-   - `not-chat-choice` 包含 skipped 與未回答。
-   - 引用條件在工作尚未交付時，兩者都不成立。
-   - `isConditionId` 沒有放寬；存在性檢查等內容包登記具名條件時一併處理。
-4. **R2（M1 #9 遺留）**：批次 JSON 對照依欄位解釋 null，不適用另列。
-   - 對照依序為 `true＝已拒絕`、`false＝未拒絕`，再接 M2 內容包 `ui.batchFieldMeaning` 的四句原文。
-   - 字放在 `m1-workday.json` 的 `ui.batchFieldMeaning`，`WORKDAY_UI_SHAPE` 有嚴格登記。
-   - 輸入 JSON 每列加上保存的 `adoptedOrigin`；來源不適用拒絕紀錄的列另外標 `refusalApplies: false`。
-   - 既有鍵、值與 null 不改，存檔、ID 與遊戲後果都不變。
-   - 新增 BatchView 實際顯示測試、presenter 測試，以及 schema 缺欄、多欄的測試。
-5. **本回報**：包含 Remaining 的接線計畫，以及需要 Codex 覆核的事項。
+依 Codex 續做契約的順序 1，先完成「Save v13／舊終點明確續接」與 casework 工作種類在 core／state 的必要接線。內容 schema 與 M2 產品 JSON 尚未接入，**Day 7–10 仍不可玩**。
 
-### 未合併的平行子項
+1. **存檔 v13**（`core/types.ts`、`save-schema.ts`、`save-migrate.ts`、`state/save-repository.ts`）
+   - `SAVE_VERSION` 12→13，localStorage key 仍是 `kodebart-save-v2`。
+   - 新增 `inquiries`：以查詢 ID 為鍵，保存送出日與首次決定的送達時機。
+   - `TaskProgress` 納入 `CaseworkProgress`；`MailAttachment` 新增 `casework-submission`（taskId＋versionIndex）。
+   - 嚴格驗證：
+     - 查詢只能是已知 ID、在可詢問日送出、時機屬於該查詢的變體，不接受多餘欄位。
+     - 案件進度：選項屬於本案、版本序號連續、輸出欄位恰為白名單 enum、引用指向本案文件、同一欄不重複、交付日為已知日。
+     - 只驗結構與白名單，不比對引用語意或文件目前內容。
+   - 遷移：`migrateV12ToV13` 只補 `inquiries: {}`。v2–v11 沿既有鏈到 v12 再到 v13；案件、回覆、已讀、時間、seed、草稿、副本原樣保留。
+2. **舊章節終點的明確續接**
+   - `core/day-map.ts` 新增 `LEGACY_CHAPTER_END_DAY = 'day.06'`，與既有 `LEGACY_DAY_01／02` 同類的遷移常數。
+   - 驗證：只有停在第六日 `end`、且當日工作已結清的存檔，在第六日有下一天時仍合法。其他「有下一日卻 end」照舊拒絕，既有拒絕測試不需改。
+   - `rules.continueChapter`：只在 `end` 且有下一天時生效，等同本日交接後的 `advanceDay`。
+     - 到期案件、回條、到班各只一次。
+     - 不重跑前面的日子、不補選、不清存檔；讀檔與刷新不會自動跳日。
+   - `GameStateService.continueChapter()` 與 `canContinueChapter` 已加入；結束畫面的「繼續工作」按鈕尚未接（見 Remaining A）。
+3. **casework 工作種類的必要分支**
+   - `core/day-plan.ts`：`CaseworkTaskPlan { kind:'casework', casework: CaseworkPlan }`，`DayDirectory.inquiries`。
+   - `rules.isTaskDone`、`workday.workdayTaskDone／markTaskOpened／caseworkProgressOf`、`GameStateService.taskAmounts`、`batchIdOfTask`。
+   - 文件視窗 ID 與 `workDocumentView`：送件副本只列該版本實際引用的段落快照，不以目前文件重建。
+4. **Codex 指定的字串**：`ui.tasks.kind.casework`「案件交接」、`ui.tasks.unit.casework`「件」、`ui.executionLog.command.casework`「casework.submit」，並在 `TASK_KINDS`／schema 登記。
+5. **測試**
+   - 新增 `core/save-v13.spec.ts`（9 項）：
+     - 新存檔、案件進度合法／15 種不合法、查詢合法／6 種不合法。
+     - 第六日 end 續接、非第六日 end 拒絕、未結清 end 拒絕、最後一日 end 不動。
+     - v12→v13 遷移（含 JSON 往返與停在 end）。
+   - 既有測試只改「現行版本號」相關期待值（刻意行為改變，見下表）。
 
-本輪另在兩個本機 worktree 平行實作下列子項，但本輪時限內沒有完成驗證，**沒有合併、也沒有保存在本分支**，所以不算本輪成果，仍列在 Remaining：
+### 刻意改變的既有測試期待值（不是放寬）
 
-- 遊戲內瀏覽器
-- 存檔 v13＋舊章節終點的明確續接
-
-## Deliverables
-
-| 路徑 | 內容 |
+| 檔案 | 改動 |
 | --- | --- |
-| `src/app/game/core/casework.ts`、`casework.spec.ts` | M2 案件與送件包純規則、型別、enum 白名單；27 項單元測試 |
-| `src/app/game/core/index.ts` | 匯出 casework |
-| `src/app/game/ui/casework/presenters/case-folder.ts`、`case-folder.spec.ts` | 案件檔案夾 presenter；5 項測試 |
-| `src/app/game/content/conditions.ts`、`conditions.spec.ts` | M2 具名條件評估；4 項測試 |
-| `src/app/game/ui/shared/presenters/work-document.ts`（＋spec） | R2：`batchFieldLegend()`；批次 JSON 加 `adoptedOrigin`／`refusalApplies: false` |
-| `src/app/game/ui/shared/batch-view/batch-view.component.ts`（＋新 spec） | R2：註解；BatchView 實際顯示測試 |
-| `src/app/game/content/schema.ts`、`data/workday/m1-workday.json`、`validate-content.spec.ts` | R2：`ui.batchFieldMeaning` 文字與嚴格 schema |
-| `src/app/game/ui/shared/work-document/work-document.component.spec.ts` | R2：對照列數期待值 3→6（行為刻意改變） |
-| `doc/reports/M2-claude-report.md` | 本回報 |
+| `core/rules.spec.ts` | `createSave` 多 `inquiries: {}`；`SAVE_VERSION` 13；現行版本 13 |
+| `core/save-migrate.spec.ts` | 現行 fixture 改 v13（多 `inquiries`）；`from` 13；舊版本清單含 12；新增 v12 輸入一例；測試輔助的遷移鏈多接 `migrateV12ToV13` |
+| `core/save-schema.spec.ts` | `makeSave` 改 v13；現行版本 13 |
+| `state/save-repository.spec.ts`、`state/game-state.service.spec.ts` | 現行版本／`migratedFrom` 12→13；遷移結果的共同欄位多 `inquiries: {}`；`finishTask` 加 casework 分支（六日情境不會走到，走到即拋錯） |
+| `state/m1-workday.spec.ts` | 現行版本 13 |
+| `content/text.spec.ts` | `tasks.kind／unit` 多 casework |
 
-## Validation Results（本輪 Agent 局部檢查，不是獨立 CI）
+## Validation Results（Agent 局部檢查，不是獨立 CI）
 
-- **PASS**，對 `e677a36` 的產品內容執行；其後的 commit 只改本回報：
-  - `npx tsc -p tsconfig.app.json --noEmit`、`npx tsc -p tsconfig.spec.json --noEmit`
-  - 完整 `npx ng test --watch=false --browsers=ChromeHeadless`：`TOTAL: 2992 SUCCESS`
-  - `npx ng build`：沒有 warning、error 或 budget 訊息
+- **PASS**（本輪最終工作樹）：
+  - `npx tsc -p tsconfig.app.json --noEmit`
+  - `npx tsc -p tsconfig.spec.json --noEmit`
   - `git diff --check`
 - **FAIL**：無。
 - **NOT RUN**：
-  - 獨立 CI：交模型外 CI，對固定 head 執行，模型不輪詢。
+  - `npx ng test --watch=false --browsers=ChromeHeadless`：本輪 allowlist 需核准，依規則不重試、不換管道，交模型外 CI。**因此新測試與上表期待值的執行結果未確認。**
+  - `npx ng build`：同上，allowlist 需核准，交 CI。
+  - `npm ci`：未執行（runner 已有依賴；交 CI）。
   - Human 試玩、375px、真實舊存檔：Day 7–10 尚未接入，無法操作。
-- **R2 更新的既有期待值**（行為刻意改變，不是放寬）：
-  - `work-document.spec.ts` 的 legend
-  - `work-document.component.spec.ts` 的對照列數：3→6
+- 第 1 輪的 PASS（`e677a36`：2992 tests、build 無警告）不適用於本輪 head。
 
-## Remaining（同案續做的接線計畫）
+## Remaining（同案續做；不擴大原 Issue）
 
-依 Issue 的建議順序列出。每一段都要能單獨 checkpoint，並對同一 head 跑兩個 tsc、production build 與完整非 watch 測試。
+### A. 內容 schema／M2 正式 JSON／舊終點 UI（本輪未完成部分）
 
-### A. 存檔 v13（`core/types.ts`、`save-schema.ts`、`save-migrate.ts`、`state/save-repository.ts`）
+1. `content/schema.ts`、`validate-content.ts`、`bundle.ts`、`text.ts`、`data/manifest.ts`：
+   - `CaseworkTask { caseId, text:{eyebrow,heading,instruction} }` 加入 `ContentTask`，task root `onlyKeys` 嚴格檢查；`caseDocs` 接受 casework 引用的 case-source 文件。
+   - M2 產品包（例如 `data/m2/shared-city.json`）的正式型別與 strict validator：
+     - 項目：`cases`、`savedBindings`、`inquiries`、`caseMail`、`caseOutcomeRules`、`generatedDocumentFields`、`conditions`、`webPages`（含可選 `illustration`，只接受兩張站內路徑）、`interludes`、`ui.casework`（merge `reportCounts`）、`ui.browser`。
+     - 白名單 enum、引用存在性；`sender` 做技術映射。
+     - `integrationNotes`／`title` 不進產品包。
+2. `caseDocuments` 拆進 day-07／08／09 的 `documents`（ID 原樣）；新增 `day-07`～`day-10.json`（文本原樣），manifest 登記。
+3. Day 6：`nextDayId` 改 `day.07`；transition 換成 Codex 指定的 `transition.day6.wrap` 文字，刪 End-only 欄位。
+   - 只把原 Day6→null 的 interlude 換成 M2 的 Day6→7；`dayTagTemplate` 改 `"DAY / {day}"`，presenter 補兩位數（測 1／9／10）；`dayName` 補 7–10。
+   - 會因「六日為最後一天」失效的測試，依產品變更更新期待值（清單見第 1 輪計畫：`bundle.spec`、`validate-content.spec`、`readme-examples.spec`）。
+4. 結束畫面與封面：`canContinueChapter` 時顯示內容包的 `continueChapter`／`continueChapterHint`，按下呼叫 `continueChapter()`；最後一日 end 維持原樣。
+5. `state/day-directory.ts`：`toBasePlan` 建 `CaseworkTaskPlan`、`DayDirectory.inquiries`。
 
-1. 存檔型別：
-   - 把 `CaseworkProgress` 加入 `TaskProgress` 聯集。型別目前在 `core/casework.ts`，可用 `import type` 或移到 `types.ts`，避免循環。
-   - 新增 `inquiries: Partial<Record<inquiryId, InquiryState>>`。
-   - `MailAttachment` 新增 `{ kind: 'casework-submission'; taskId; versionIndex }`。
-   - `MailRecord.deliverAfter` 新增早回形式（指定工作交付後）。
-2. `isValidTaskProgress` 為 casework 加入嚴格驗證。目前未知 kind 只比對 kind，見 `save-schema.ts` L310–325。
-   - 範圍：選項必須屬於本案、output 必須等於計畫中的 enum、引用欄位型別正確、版本序號連續、dayId 合法。
-   - `isValidWorkdayAttachment`（L552）與 `isValidWorkdayMail`（L541–550）同步接受新附件與新郵件。
-3. **舊六日終點存檔**：`save-schema.ts` L880 在 `stage==='end' && nextDayId!==null` 時拒絕。Day 6 一接 Day 7，所有停在六日結束的存檔都會讀不到。
-   - 擬採做法：v12→v13 遷移保留 `end`。只有當日工作全部 settled 時，才允許非最後一天停在 `end`。
-   - 結束畫面顯示內容包的「繼續工作」，以及提示「從已保存的交接接續下一個工作日，不重做前六日。」。
-   - 按下才執行 core `continueChapter`，等同從 `wrap` 進入 `advanceDay`。
-   - 刷新不自動跳日、不重跑前六日、不補選、不清存檔。
-   - 封面進度文字與 End 元件目前假設 `end` 只在最後一天，要一併處理。
-4. 遷移保留舊案、回覆、已讀、時間、seed、草稿與副本。`MigrationResult.from` 與 `LoadResult.migratedFrom` 補上新版本。
-   - 補 v2–v12→v13 遷移測試，包含停在 Day 6 終點、按下繼續工作前後的狀態。
+### B. 首案全鏈路（來源→欄位引用→WorkOperations 交付→不可變版本→隔日條件郵件）
 
-### B. 內容接線（`content/schema.ts`、`validate-content.ts`、`bundle.ts`、`text.ts`、`data/manifest.ts`）
+- `WorkOperationsService` 新增 casework 操作：沿用 busy／day/task 綁定／retry，以 `expectedLatest` 鎖版本。
+- 綁定白名單查詢：`archived-record`、`case-decision`、`field-map-output`、`report-snapshot`、`casework-output`。缺漏只用 fallback 顯示，不造假來源。
+- 版本加入結果快照：通知範圍列／待補、編號與 `codeState`、15:00 依據是否已送達。以 v13 的可選欄位加入嚴格驗證，不需再升版。
+- `caseMail`＋查詢回覆：固定 ID、only-once，附件綁不可變送件版本；早回在 `earlyAfterTask` 交付後送達。
+  - 需要 `MailRecord` 新的送達時機，以 v13 可選欄位加入。
+- 案件檔案夾 UI：沿用既有 presenter，提供鍵盤可用的「引用這一欄」與移除引用、三段預覽與 terminal 事件；375px 用分頁。
 
-1. 新增 `TASK_KINDS` 的 `casework`，以及 `CaseworkTask { caseId, text:{eyebrow,heading,instruction} }`。
-   - 補 `caseDocs`（L2015–2020），否則 casework 引用的 case-source 文件會被 L2371–2380 擋下。
-   - 補 task root 的 `onlyKeys` 嚴格檢查。
-2. 新產品內容包，例如 `data/m2/shared-city.json`，採嚴格 pack header。內容包的 `integrationNotes` 是作者說明，不放進產品包。
-   - 型別：`cases`、`savedBindings`、`inquiries`、`caseMail`、`caseOutcomeRules`、`generatedDocumentFields`、`conditions`、`interludes`，以及 `ui.casework`。
-   - 新 ID 前綴：`binding.`、`inquiry.`、`cond.m2.`。
-   - 驗證：enum 白名單、引用的 task／document／prompt／choice 都存在、`cites` 欄位在範圍內、`when` 只能三選一。
-3. `caseDocuments` 拆進各日 `documents`：
-   - day-07：`h204-registry`、`supplement`、`current`。
-   - day-08：`r27-request`、`list`、`slot`。
-   - day-09：`r27-delivery`、`scope-receipt`。
-   - ID 原樣保留，跨日引用；`recordIds` 指向既有紀錄。
-4. 新增 `day-07`～`day-10.json`，文本原樣複製；`manifest.ts` 登記。
-5. Day 6：`nextDayId` 改為 `day.07`，transition 換成 `WrapTransitionText` 形狀（見「需要 Codex 覆核」1）。
-6. 具名條件接上 `ConditionContext.namedCondition`／`caseCitation`。
-   - `caseCitation` 讀指定工作最新交付版本的引用，不看草稿。
-   - `validate-content` 檢查條件存在，以及引用的 prompt／choice／task／document 都合法。
-7. 會因「六日為最後一天」而失效的測試，需依實際產品變更更新期待值（不是放寬）：
-   - `bundle.spec.ts`：L179–206，其中 `day-0${n}` 檔名在 Day 10 會壞；另有 L268、L295–306、L341–349。
-   - `validate-content.spec.ts`：L90、L249–268、L2346–2360。
-   - `readme-examples.spec.ts`：`addExampleDay` 會造出與真實 day-07 重複的 ID。
+### C. 六頁 kb:// 瀏覽器＋兩張配圖
 
-### C. State 與提交（`state/day-directory.ts`、`game-state.service.ts`、`work-operations.service.ts`、`core/rules.ts`）
+- `angular.json` 的 build／test assets 只加兩筆精確映射。
+- 新桌面 app 重用 WindowManager／WindowShell，配圖只用於 `web.city.life` 與 `web.company.together`。
+- 補 schema 拒絕未知路徑的測試，以及元件 src／alt／尺寸測試。
 
-1. `toBasePlan` 建立 `CaseworkTaskPlan`。DayDirectory 增加 casework 計畫：文件、查詢、條件回條、綁定。
-2. 補編譯器會強制的分支：
-   - `isTaskDone`、`isRawTaskDone`、`batchIdOfTask`、`taskAmounts`、`planTask`、`operationCommand`。
-3. 補不會報錯、要手動加的地方：
-   - `workdayTaskDone`、`markTaskOpened`、`hasAwaiting`、`handoffView`、`FIRST_TASK_EVENT_KINDS`。
-4. 綁定是白名單查詢，不把字串當路徑執行：
-   - `archived-record` 讀 Day 3 黃品蓉的實際 `archiveCode`。
-   - `case-decision` 讀 `basisDocumentId`。
-   - `field-map-output` 讀 Day 6 rows。
-   - `report-snapshot` 讀 Day 6 報告。
-   - `casework-output` 讀指定工作的最新交付版本。
-   - 缺漏都用內容包的 fallback 文字，不造標準資料。
-5. 交付時保存結果快照：
-   - 通知範圍：列與待補，以及舊批次是否附上。待補擬讀第六日報告快照逐列的 `status`。
-   - 黃品蓉：編號、依據與 `codeState`。
-   - R-27：查覆送達時才附 15:00 依據，否則只寫申請備註。
-6. 以下每封只產生一次，ID 固定，附件綁定不可變的送件版本：
-   - `caseMail` 與查詢回覆郵件。
-   - 早回在 `earlyAfterTask` 交付後送達。
-7. `WorkOperationsService` 新增 `casework` 操作：
-   - 沿用 busy、day/task 綁定與 retry。
-   - 版本鎖用 `submitCaseworkVersion` 的 `expectedLatest`。
-   - 不鎖整個桌面。
-8. 生成文件欄位：
-   - `saved-choice-label`、`source-version-and-scope` 從保存版本生成；版本號用 `generatedVersionOf`。
-   - `source-requested` 時，窗口狀態改用「補件需求已收件」（內容包 integrationNotes 指定）。
-9. Day 10 報表：
-   - 先由保存資料計算不可變計數，四個分母分開，不能相加；定義見「需要 Codex 覆核」5。
-   - 未附另列，不在缺資料時寫 0。
-   - 選定的 focus 只改排列，不改數字。
+### D. 完整 7–10 日與回歸
 
-### D. UI（`ui/workbench`、`ui/shared`、`ui/casework`）
+- 人物生活線與條件訊息、離／到班、Day 10 報表（Codex 最終計數定義）。
+- Day 1→10 整合測試，以及 Issue 驗收條件所列的早回、晚回、刷新、retry、舊存檔分支。
+- `doc/DESIGN.md` 補瀏覽器與案件視窗行為。
 
-1. 案件檔案夾元件，使用已完成的 `case-folder` presenter：
-   - 顯示工作目的、接手窗口、來源與歷程、本次送件包、處理列。
-   - 2–3 份來源可開成既有文件視窗並排。
-   - 每個欄位有「引用這一欄」按鈕，可用鍵盤操作；送件包可「移除引用」。
-   - 預覽分三段：來源、本次引用與處理、交付輸出。
-2. 交付流程與副本：
-   - terminal 事件只在真實的驗證、生成、保存、入列發生時寫入。
-   - 已交付副本唯讀；只有最新修訂可再改。
-3. 375px：
-   - 來源與送件包分頁。
-   - JSON 在內部橫捲，頁面不溢出。
-4. 遊戲內瀏覽器（第四個桌面 app）：
-   - 範圍：內容包六頁、唯讀 kb:// 位址、返回／前進、已發布頁索引。
-   - 未發布目標的連結不顯示；重用 WindowManager／WindowShell／app icon。
-   - 要改的地方：`DesktopAppId`／`DESKTOP_APPS`／`APP_WINDOW_IDS`、`desktopLayout`、`AppIconName`、`ui.desktop.apps`、`ui.workbench.nav`，以及可選的 `app.routes.ts` 深連結。
-5. 結束畫面的「繼續工作」（見 A3）。
+## 需要 Codex 覆核
 
-### E. 其他
-
-- `doc/DESIGN.md`：只補瀏覽器與案件視窗行為，不動 token。功能存在後再寫，避免假稱第四個應用已存在。
-- 整合測試：Day 1→10 正常完成，以及 Issue 驗收條件列出的分支、早回、晚回、刷新、retry 與舊存檔。
-
-## 需要 Codex 覆核的偏離與缺漏（未自行補寫）
-
-1. **Day 6 wrap 文案**：內容包要求把 Day 6 換成 `WrapTransitionText`，但沒有提供 Day 6 的 wrap 文字。目前的 `docTitle`「六日試玩結束」與 `outro` 是結束語意。
-   - 擬做最小修改：id 改為 `transition.day6.wrap`，`docTitle` 沿用 Day 1–5 的格式改成「第六日交接完成」，保留 eyebrow／heading／body／backToCover，刪除 summary／thanks／outro。請確認。
-2. **離班短文衝突**：`m1-workday.json` 已有 `afterDay: day.06`（`beforeDay: null`）的離班文字，與 M2 包 `day.06→day.07` 的文字不同。`interludeAfter` 會取第一筆。
-   - 擬以 M2 包取代 M1 那一筆。請確認 M1 那段是否退役。
-3. **Day 10 標籤**：`ui.workbench.dayTagTemplate` 是 `"DAY / 0{day}"`，第十日會顯示「DAY / 010」。
-   - 擬把模板改成 `"DAY / {day}"`，由程式補兩位數，第 1–9 日顯示不變。這會改內容字串，請確認。
-4. **內容包沒有、但嚴格 schema 必填的玩家可見字**：
-   - `ui.workbench.dayName.7`～`10`。既有值是漢字數字「一」～「六」，配合 `docTitleTemplate`「第{dayName}日」；擬補「七／八／九／十」。
-   - `ui.tasks.kind.casework`、`ui.tasks.unit.casework`、`ui.executionLog.command.casework`。
-   - Day 10 計數的四個分母標籤。內容包只有「程序已完成／窗口已收件／未附本人回覆／待補」，沒有「清單列數」「未決項目數」的標籤文字。
-   - 請 Codex 供字，或核准沿用既有格式。
-5. **Day 10 四個分母的定義**：內容包只說四者「不能相加或互相冒稱」，沒有定義各自怎麼算。擬採下列定義，請確認或改定。
-   - 工作項目完成數＝第 7–9 日案件工作中已交付的件數，分母是本章工作數。
-   - 清單列數＝第七日實際交給窗口的列數，分母是第六日輸出的列數。
-   - 窗口收件列數：有兩種讀法，需 Codex 決定。
-     - 讀法一：沿 M1 報告的 `receiptCount`，算附件是窗口收件、不是本人回覆的列。
-     - 讀法二：第九日回條所示，窗口實際收到清單的列數。
-   - 未決項目數＝下列各項的合計：
-     - 待補列；
-     - `pending-code`；
-     - 人工核對或交回承辦；
-     - R-27 未確認時段；
-     - 送件包沒附下午備註。
-   - 第七日的待補列，擬讀第六日報告快照逐列的 `status`。舊存檔缺第六日輸出時，走「未附」，不重算。
-6. **內容包格式差異**（技術接線，不改故事）：
-   - 根 ID 是 `content.m2-shared-city`，沒有 `content.` 前綴；`integrationNotes`／`title` 不符合現行 pack header。
-   - `sender` 是純字串，不是 `{id, name}`。
-   - 擬在產品包內改為正式型別：ID 與文字不變，說明文字不印給玩家。
+1. **舊章節終點限定第六日**：以 core 遷移常數 `LEGACY_CHAPTER_END_DAY = 'day.06'` 判定，與既有 `LEGACY_DAY_01／02` 同類。
+   - 不這樣限定時，既有測試會失敗：v4／v5／v6／v10／v11 等「有下一日卻 end」的不一致存檔會被當成可續接。
+   - 請確認可接受。
+2. **送件副本的文件視窗**：目前只列實際引用的段落快照。選項文字與輸出欄位要等 M2 內容包接入後補上，現在沒有任何流程會產生這種附件。
+3. **v13 之後的可選欄位**：B 段的結果快照與早回送達時機，擬以 v13 可選欄位加入嚴格驗證，不再升版。
+   - 理由：目前沒有任何 v13 存檔含案件進度，正式內容尚無 casework 工作。
+   - 若 Codex 要求每次格式擴充都升版，請指示。
 
 ## Known Limits
 
-- Day 7–10、案件 UI、存檔 v13、瀏覽器尚未接入。`core/casework.ts`、`ui/casework/presenters/case-folder.ts` 與具名條件評估目前只有單元測試使用，沒有遊戲流程呼叫。
-- R2 範圍內未改的觀察：如果批次中出現「不適用拒絕紀錄」的資料，`checkTransform` 會把它當成缺漏，輸出欄顯示「未確認」或「未拒絕」，而不是「不適用」。
-  - 現行正式內容的批次列都適用拒絕紀錄，所以遊戲中不會發生。
-  - 修改它會改變遊戲後果，超出 R2 只修對照文字的範圍，所以沒有動；需要時請 Codex 另行指示。
-- 本輪沒有任何 UI 操作證據，不宣稱 UI 已驗收。
+- Day 7–10、案件 UI、瀏覽器尚未接入。`CaseworkTaskPlan`、查詢驗證與 `continueChapter` 目前只由測試與合成日程使用；正式內容仍是六日、Day 6 為最後一天。
+- 本輪沒有任何執行中的測試或 build 證據（allowlist），也沒有 UI 操作證據；不宣稱測試通過或 UI 已驗收。
+- 第 1 輪記錄的 R2 範圍外觀察（批次「不適用」在 `checkTransform` 視為缺漏）維持原狀：正式內容不可達，不順帶改後果。
 
 ## Human Review Checklist
 
-- 本輪是 checkpoint，不需要 Human 試玩。完整交付、CI 與 Codex 覆核後，依既有委任整合 main 再通知 pull main。
+- 本輪是 checkpoint，不需要 Human 試玩。完整交付、同 SHA CI 與 Codex 覆核後，依既有委任整合 main，再通知 Human 只 pull main。
 
 ## Follow-up Suggestions（僅供 Human 決定，不自動派發）
 
@@ -234,7 +138,5 @@
 
 ## 本輪收尾
 
-- Stop reason：接近 80 回合上限，主動停止並保存。本輪沒有超時，也沒有驗證失敗。
-- Next step：
-  - 先由 Codex 回覆「需要 Codex 覆核」1–6。
-  - 之後在同一 Issue／PR／分支，從本輪固定 head 續做 Remaining A→B→C→D→E。
+- Stop reason：主動 checkpoint，停在約 40 次工具互動的評估點。沒有超時；`ng test`／`ng build` 因 allowlist 為 NOT RUN。
+- Next step：同 Issue／PR／分支，從本輪 head 續做 Remaining A→B→C→D；完整產品檢查交模型外 CI。

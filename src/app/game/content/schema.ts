@@ -113,7 +113,7 @@ export type ChannelKind = (typeof CHANNEL_KINDS)[number];
  * 每日任務種類；新增玩法時在這裡加，並由規則層決定如何執行。
  * `return-review`（R10／R11）：錯誤文件處理；每天一個位置，只有當天排入到期的文件問題案件時才進入佇列，否則不佔工作。
  */
-export const TASK_KINDS = ['archive', 'reconcile', 'field-map', 'return-review', 'attachment', 'transform', 'report'] as const;
+export const TASK_KINDS = ['archive', 'reconcile', 'field-map', 'return-review', 'attachment', 'transform', 'report', 'casework'] as const;
 export type TaskKind = (typeof TASK_KINDS)[number];
 
 /** field-map 目標欄位的轉換方式（R6-03）：text 原樣帶入；boolean 依 trueValue／falseValue 轉換，空字串交給 blankPolicy。 */
@@ -418,6 +418,7 @@ const TASK_KIND_SHAPE = {
   attachment: 'string',
   transform: 'string',
   report: 'string',
+  casework: 'string',
 } as const satisfies Record<TaskKind, 'string'>;
 
 /**
@@ -501,6 +502,8 @@ export const EXECUTION_LOG_UI_SHAPE = {
     attachment: 'string',
     transform: 'string',
     report: 'string',
+    /** M2：案件工作的交付。 */
+    casework: 'string',
   },
   key: {
     check: 'string',

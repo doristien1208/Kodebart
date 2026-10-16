@@ -24,6 +24,8 @@ export function attachmentWindowId(ref: DocumentRef): string {
       return `doc.batch.${ref.taskId}`;
     case 'batch-preview':
       return `doc.preview.${ref.taskId}`;
+    case 'casework-submission':
+      return `doc.casework.${ref.taskId}#${ref.versionIndex}`;
   }
 }
 

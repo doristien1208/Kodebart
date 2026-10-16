@@ -165,7 +165,8 @@ function makeBatch(archived: BatchState['archived'] = {}, drafts: BatchState['dr
 /** 合法的 v11 存檔 fixture（day.01／work、入職已完成）；只覆寫需要的欄位。 */
 function makeSave(overrides: Partial<Save> = {}): Save {
   return {
-    version: 12,
+    version: 13,
+    inquiries: {},
     seed: 42,
     dayId: DAY_01,
     stage: 'work',
@@ -1364,7 +1365,7 @@ describe('isValidLegacySaveV7（R9）／v7 → v8', () => {
     const result = migrateToCurrent(toV7(c3With({ ...legacyH204, archiveCode: 'H-205' })), CDIR)!;
     expect(result).not.toBeNull();
     expect(result.from).toBe(7);
-    expect(result.save.version).toBe(12);
+    expect(result.save.version).toBe(13);
     expect(result.save.returns).toEqual([]);
     expect(result.save.issueSchedule).toEqual({});
     expect(result.save.mailbox).toEqual([]);

@@ -1141,12 +1141,13 @@ describe('createSave', () => {
       mailbox: [],
       readMail: [],
       helpRequests: {},
+      inquiries: {},
       profile: { name: null },
       onboarding: { step: 0, complete: false },
       events: [],
       readMessages: [],
     });
-    expect(SAVE_VERSION).toBe(12);
+    expect(SAVE_VERSION).toBe(13);
     const raw = createSave(42, DIR) as unknown as Record<string, unknown>;
     for (const key of ['night', 'evidence', 'reply', 'phase', 'readIssueReceipts']) expect(key in raw).withContext(key).toBeFalse();
   });
@@ -2096,7 +2097,7 @@ describe('完整流程可重現', () => {
           expect(JSON.stringify(a)).toBe(JSON.stringify(b));
           expect(a.stage).toBe('end');
           expect(a.dayId).toBe(DAY_02);
-          expect(a.version).toBe(12);
+          expect(a.version).toBe(13);
           expect(isValidSave(JSON.parse(JSON.stringify(a)), DIR)).toBeTrue();
         }
       }

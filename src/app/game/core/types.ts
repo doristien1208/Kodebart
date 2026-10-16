@@ -3,6 +3,8 @@
  * 對應 doc/KodeBart-Demo-Spec.md §6「核心模型與規則」。
  */
 
+import type { CaseworkProgress, InquiryState } from './casework';
+
 /** 舊存檔（v2／v3）的階段；只用於遷移。現行流程改用 dayId + Stage。 */
 export type Phase = 'day1' | 'overnight' | 'day2' | 'end';
 
@@ -400,7 +402,13 @@ export interface ReportProgress {
 }
 
 /** 依工作種類分型的進度；歸檔工作仍用 batches，不在這裡。 */
-export type TaskProgress = ReconcileProgress | FieldMapProgress | AttachmentProgress | TransformProgress | ReportProgress;
+export type TaskProgress =
+  | ReconcileProgress
+  | FieldMapProgress
+  | AttachmentProgress
+  | TransformProgress
+  | ReportProgress
+  | CaseworkProgress;
 
 /* ---------- 訊息回覆（R7） ---------- */
 
@@ -484,19 +492,28 @@ export interface BatchOutputAttachment {
   taskId: TaskId;
 }
 
+/** 附件：案件工作的某個不可變送件版本（M2）。 */
+export interface CaseworkSubmissionAttachment {
+  kind: 'casework-submission';
+  taskId: TaskId;
+  versionIndex: number;
+}
+
 /** 郵件附件（可辨識種類的資料引用）。 */
 export type MailAttachment =
   | ReturnReceiptAttachment
   | ArchiveCopyAttachment
   | SourceDocumentAttachment
   | AttachmentLinkAttachment
-  | BatchOutputAttachment;
+  | BatchOutputAttachment
+  | CaseworkSubmissionAttachment;
 export const MAIL_ATTACHMENT_KINDS: readonly MailAttachment['kind'][] = [
   'return-receipt',
   'archive-copy',
   'case-source',
   'attachment-link',
   'batch-output',
+  'casework-submission',
 ];
 
 /**
@@ -593,10 +610,20 @@ export interface SaveV12 {
   readMessages: string[];
 }
 
-/** 現行存檔。 */
-export type Save = SaveV12;
+/**
+ * 存檔格式 v13（M2）＝ v12 ＋ 承辦查詢（`inquiries`）、案件工作的進度（taskProgress 的 casework kind）與送件副本附件。
+ * 舊檔遷移只補空的查詢紀錄；停在舊六日終點（end）的存檔維持原狀，由玩家明確「繼續工作」才進第七日。
+ */
+export interface SaveV13 extends Omit<SaveV12, 'version'> {
+  version: 13;
+  /** 承辦查詢的送出日與首次決定的送達時機，以查詢 ID 為鍵；刷新、讀檔不重擲。 */
+  inquiries: Partial<Record<string, InquiryState>>;
+}
 
-export const SAVE_VERSION = 12;
+/** 現行存檔。 */
+export type Save = SaveV13;
+
+export const SAVE_VERSION = 13;
 
 /** v11：沒有 M1 的工作進度種類與郵件附件種類（結構與 v12 相同，只是版本號）。 */
 export type SaveV11 = Omit<SaveV12, 'version'> & { version: 11 };
@@ -691,7 +718,7 @@ export interface SaveV2 {
   events: GameEvent[];
 }
 
-export const LEGACY_SAVE_VERSIONS: readonly number[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+export const LEGACY_SAVE_VERSIONS: readonly number[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 export interface ValidationOk {
   ok: true;

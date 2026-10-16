@@ -5,6 +5,7 @@ import { CASE_REVIEW_UI, MAIL_UI, RECORD_STATUS, WORKDAY_UI, attachmentVersionLa
 import { DayDirectory, findTask } from '../../../core/day-plan';
 import {
   attachmentProgressOf,
+  caseworkProgressOf,
   checkOfVersion,
   editableLinkIndex,
   latestLink,
@@ -261,6 +262,16 @@ export function workDocumentView(
         fields.push({ label: CASE_REVIEW_UI.noteLabel, value: a.caseDecision.note });
       }
       return { kind: 'copy', heading: `${WORKDAY_UI.snapshotLabel}｜${recordLabel({ key: ref.recordKey, ...a.source })}`, fields };
+    }
+    case 'casework-submission': {
+      // 案件送件副本（M2）：只列這個版本實際引用的段落快照，不以目前文件內容重建
+      const v = caseworkProgressOf(save, ref.taskId).versions.find((x) => x.index === ref.versionIndex);
+      if (!v) return { kind: 'missing', heading: MAIL_UI.missingAttachment };
+      return {
+        kind: 'copy',
+        heading: `${taskHeadingSafe(ref.taskId)}｜${attachmentVersionLabel(v.index)}`,
+        fields: v.citations.map((c) => ({ label: c.label, value: c.value })),
+      };
     }
     case 'attachment-link': {
       const p = attachmentProgressOf(save, ref.taskId);

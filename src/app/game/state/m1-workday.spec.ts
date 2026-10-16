@@ -331,7 +331,7 @@ describe('M1 工作日（整合）', () => {
 
       const restored = boot();
       const s = save(restored);
-      expect(s.version).toBe(12);
+      expect(s.version).toBe(13);
       expect(restored.dayId()).toBe('day.05');
       expect(restored.taskId()).toBe('task.day5.archive');
       // 歷史、已讀、草稿、時間、seed 原樣保留
@@ -347,7 +347,7 @@ describe('M1 工作日（整合）', () => {
       expect(s.waivedTasks).toEqual(jasmine.arrayContaining([ATTACH_D4, TRANSFORM_D4]));
       expect(s.waivedTasks).not.toContain(ATTACH_D5);
       expect(restored.dayTasks().map((t) => t.taskId)).toEqual(jasmine.arrayContaining([ATTACH_D5, TRANSFORM_D5]));
-      expect(JSON.parse(localStorage.getItem(SAVE_KEY) ?? '{}').version).toBe(12);
+      expect(JSON.parse(localStorage.getItem(SAVE_KEY) ?? '{}').version).toBe(13);
 
       playTo(restored, 'end', SAVE_B);
       const end = save(restored);

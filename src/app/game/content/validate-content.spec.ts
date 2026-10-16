@@ -3275,3 +3275,25 @@ describe('validateContent 詢問說明包（data/help，R12）', () => {
     expect(issues).toEqual([]);
   });
 });
+
+describe('validateContent M1 工作日內容包（data/workday）', () => {
+  const FILE = 'data/workday/m1-workday.json';
+  const workday = (input: ContentInput): unknown => input.workday?.data;
+  const MEANING = ['ui', 'batchFieldMeaning'] as const;
+
+  it('ui.batchFieldMeaning（批次 JSON 的欄位意義對照）是嚴格 shape：缺欄位、空字串、多餘欄位與整塊缺少都會被指出', () => {
+    const issues = issuesAfter((input) => {
+      removeAt(workday(input), [...MEANING, 'notApplicable']);
+      setAt(workday(input), [...MEANING, 'outputRefusalNull'], '');
+      setAt(workday(input), [...MEANING, 'nullMeaning'], '未確認');
+    });
+    expect(issues.map((i) => [i.file, i.field])).toEqual(
+      jasmine.arrayWithExactContents([
+        [FILE, 'ui.batchFieldMeaning.notApplicable'],
+        [FILE, 'ui.batchFieldMeaning.outputRefusalNull'],
+        [FILE, 'ui.batchFieldMeaning.nullMeaning'],
+      ]),
+    );
+    expect(fields(issuesAfter((input) => removeAt(workday(input), [...MEANING])))).toEqual(['ui.batchFieldMeaning']);
+  });
+});

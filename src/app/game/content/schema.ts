@@ -1767,6 +1767,11 @@ export const WORKDAY_UI_SHAPE = {
   rowStatus: { delivered: 'string', pending: 'string' },
   legendTemplate: 'string',
   columns: { row: 'string', code: 'string', value: 'string', origin: 'string', attachment: 'string', status: 'string' },
+  /**
+   * 批次 JSON 視窗的欄位意義對照（逐字取自 doc/content/M2-shared-city-content.json 的 ui.batchFieldMeaning）：
+   * 來源 sourceRefusal、採用 adoptedRefusal、輸出 refusal 的 null 分開說明，不適用的資料另列。
+   */
+  batchFieldMeaning: { sourceRefusalNull: 'string', adoptedRefusalNull: 'string', outputRefusalNull: 'string', notApplicable: 'string' },
 } as const satisfies Shape;
 export type WorkdayUi = FromShape<typeof WORKDAY_UI_SHAPE>;
 

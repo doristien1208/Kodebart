@@ -13,9 +13,9 @@ import {
   DocumentRef,
   WorkDocumentView,
   batchAttachmentText,
+  batchFieldLegend,
   batchRowView,
   documentTitle,
-  refusalLegend,
   refusalText,
   workDocumentView,
 } from './work-document';
@@ -168,11 +168,14 @@ describe('work-document presenter（M1 文件視窗）', () => {
     expect(rule.missingReply).toBe(CONTENT_LABELS.policy(TRANSFORM_D4)?.departmentDefault ?? '');
     expect(rule.missingReply).not.toBe('');
     expect(output.find((r) => r.personnelCode === '0341')).toEqual({ row: '0314', personnelCode: '0341', refusal: false, status: WORKDAY_UI.rowStatus.delivered } as never);
-    expect(v.legend).toEqual(refusalLegend());
+    expect(v.legend).toEqual(batchFieldLegend());
     expect(v.legend).toEqual([
       legendText('true', RECORD_STATUS.refused),
       legendText('false', RECORD_STATUS.notRefused),
-      legendText('null', RECORD_STATUS.unconfirmed),
+      WORKDAY_UI.batchFieldMeaning.sourceRefusalNull,
+      WORKDAY_UI.batchFieldMeaning.adoptedRefusalNull,
+      WORKDAY_UI.batchFieldMeaning.outputRefusalNull,
+      WORKDAY_UI.batchFieldMeaning.notApplicable,
     ]);
     expect(v.counts.map((c) => c.label)).toEqual([WORKDAY_UI.submissionCount, WORKDAY_UI.replyCount, WORKDAY_UI.pendingCount]);
     expect(visible(v)).not.toMatch(INTERNAL);
@@ -332,6 +335,91 @@ describe('批次列 presenter（R1 附件當日不揭露／R2 來源・採用・
     const entry = { archiveCode: '1', refusal: null, origin: 'source' as const, source: { name: null, code: '1', refusal: null, refusalApplies: false } };
     const notApplicable: Save = { ...save, batches: { ...save.batches, [base.batchId]: { ...b, archived: { ...b.archived, [base.recordKey]: entry } } } };
     expect(batchRowView({ ...base, sourceRefusal: null }, notApplicable, DAY_DIRECTORY).source).toBe(RECORD_STATUS.notApplicable);
+  });
+
+  it('R2 JSON 對照按欄位解釋 null：true／false 之後，三個欄位的 null 各一行、不適用另列；沒有通用的「null＝未確認」', () => {
+    const m = WORKDAY_UI.batchFieldMeaning;
+    const legend = batchFieldLegend();
+    expect(legend).toEqual([
+      legendText('true', RECORD_STATUS.refused),
+      legendText('false', RECORD_STATUS.notRefused),
+      m.sourceRefusalNull,
+      m.adoptedRefusalNull,
+      m.outputRefusalNull,
+      m.notApplicable,
+    ]);
+    expect(legend).not.toContain(legendText('null', RECORD_STATUS.unconfirmed));
+    expect(legend.filter((l) => l.startsWith('null'))).toEqual([]);
+    // 每一行 null 說明都指名自己的 JSON 欄位（輸入 sourceRefusal／adoptedRefusal、輸出 refusal）
+    expect(legend.filter((l) => /\bnull\b/.test(l))).toEqual([m.sourceRefusalNull, m.adoptedRefusalNull, m.outputRefusalNull]);
+    expect(m.sourceRefusalNull).toMatch(/^sourceRefusal\b/);
+    expect(m.adoptedRefusalNull).toMatch(/^adoptedRefusal\b/);
+    expect(m.outputRefusalNull).toMatch(/\brefusal\b/);
+    // 與表格同一套字：來源 null＝未提供、採用／輸出 null＝未確認、不適用＝不適用
+    expect(m.sourceRefusalNull).toContain(RECORD_STATUS.missing);
+    expect(m.sourceRefusalNull).not.toContain(RECORD_STATUS.unconfirmed);
+    expect(m.adoptedRefusalNull).toContain(RECORD_STATUS.unconfirmed);
+    expect(m.outputRefusalNull).toContain(RECORD_STATUS.unconfirmed);
+    expect(m.notApplicable).toContain(RECORD_STATUS.notApplicable);
+  });
+
+  for (const [name, c, origin, adoptedRefusal] of [
+    ['Save A（部門預設歸檔）', M1_SAVE_A, 'defaulted', false],
+    ['Save B（保留缺漏送覆核）', M1_SAVE_B, 'review', null],
+  ] as const) {
+    it(`R2 ${name}：輸入／輸出 JSON 照存 sourceRefusal、adoptedRefusal、refusal（null 不改寫）；另附保存的 adoptedOrigin，正式批次沒有 refusalApplies`, () => {
+      const game = toTransform(c);
+      for (const policy of ['departmentDefault', 'review'] as const) {
+        game.setTransformPolicy(policy);
+        const out = game.transformDisplay(TRANSFORM_D4);
+        if (!out) throw new Error('沒有批次輸出');
+        const v = batch(game, { kind: 'batch-preview', taskId: TRANSFORM_D4 });
+        const input = JSON.parse(v.json.input) as Record<string, unknown>[];
+        const output = JSON.parse(v.json.output) as Record<string, unknown>[];
+        // 既有的鍵與順序不變，只多 adoptedOrigin；適用拒絕紀錄的列沒有 refusalApplies
+        for (const r of input) {
+          expect(Object.keys(r))
+            .withContext(policy)
+            .toEqual(['row', 'personnelCode', 'sourceCode', 'sourceRefusal', 'adoptedRefusal', 'adoptedOrigin', 'attachment']);
+        }
+        expect(output.every((r) => 'refusal' in r)).withContext(policy).toBeTrue();
+        expect(input.map((r) => [r['sourceRefusal'], r['adoptedRefusal'], r['adoptedOrigin']]))
+          .withContext(policy)
+          .toEqual(out.rows.map((r) => [r.sourceRefusal, r.adoptedRefusal, r.adoptedOrigin]));
+        expect(output.map((r) => r['refusal'])).withContext(policy).toEqual(out.rows.map((r) => r.value));
+        // 來源缺漏的列：採用值依保存的決定；是否送覆核看 adoptedOrigin，不看 null
+        const missing = input.filter((r) => r['sourceRefusal'] === null);
+        expect(missing.length).withContext(policy).toBeGreaterThan(0);
+        for (const r of missing) {
+          expect(r['adoptedOrigin']).withContext(policy).toBe(origin);
+          expect(r['adoptedRefusal']).withContext(policy).toBe(adoptedRefusal);
+        }
+        if (policy === 'review') expect(output.some((r) => r['refusal'] === null)).toBeTrue();
+      }
+    });
+  }
+
+  it('R2 不適用另列：來源不適用拒絕紀錄的列，表格來源／採用欄為不適用（不叫未提供或未確認），輸入 JSON 只在這一列另標 refusalApplies: false', () => {
+    const game = toTransform(M1_SAVE_B);
+    game.setTransformPolicy('review');
+    const save = saveOf(game);
+    const base = game.transformDisplay(TRANSFORM_D4)?.rows.find((r) => r.adoptedCode === '0716');
+    if (!base) throw new Error('沒有 0716 列');
+    const b = save.batches[base.batchId];
+    if (!b) throw new Error('沒有批次');
+    const entry = { archiveCode: '0716', refusal: null, origin: 'source' as const, source: { name: null, code: '0716', refusal: null, refusalApplies: false } };
+    const notApplicable: Save = { ...save, batches: { ...save.batches, [base.batchId]: { ...b, archived: { ...b.archived, [base.recordKey]: entry } } } };
+    const v = workDocumentView({ kind: 'batch-preview', taskId: TRANSFORM_D4 }, notApplicable, DAY_DIRECTORY, CONTENT_LABELS);
+    if (v.kind !== 'batch') throw new Error(`不是批次：${v.kind}`);
+    const row = v.rows.find((r) => r.code === '0716');
+    expect([row?.source, row?.adopted]).toEqual([RECORD_STATUS.notApplicable, RECORD_STATUS.notApplicable]);
+    const input = JSON.parse(v.json.input) as Record<string, unknown>[];
+    expect(input.filter((r) => 'refusalApplies' in r)).toEqual([
+      jasmine.objectContaining({ personnelCode: '0716', sourceRefusal: null, refusalApplies: false, adoptedRefusal: null, adoptedOrigin: 'source' }),
+    ]);
+    expect(v.legend).toContain(WORKDAY_UI.batchFieldMeaning.notApplicable);
+    // 原存檔的同一列仍是來源未提供
+    expect(batch(game, { kind: 'batch-preview', taskId: TRANSFORM_D4 }).rows.find((r) => r.code === '0716')?.source).toBe(RECORD_STATUS.missing);
   });
 
   it('R4 changed 比較輸出值與保存的採用值（不比來源）；表格與 JSON 同一個基準', () => {

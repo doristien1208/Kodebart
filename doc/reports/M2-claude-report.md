@@ -186,7 +186,10 @@
 
 ## Known Limits
 
-- Day 7–10、案件 UI、存檔 v13 尚未接入；`core/casework.ts` 目前只有單元測試使用，沒有遊戲流程呼叫。
+- Day 7–10、案件 UI、存檔 v13 尚未接入；`core/casework.ts`、`ui/casework/presenters/case-folder.ts` 與具名條件評估目前只有單元測試使用，沒有遊戲流程呼叫。
+- R2 範圍內未改的觀察：如果批次中出現「不適用拒絕紀錄」的資料，`checkTransform` 會把它當成缺漏，輸出欄顯示「未確認」或「未拒絕」，而不是「不適用」。
+  - 現行正式內容的批次列都適用拒絕紀錄，所以遊戲中不會發生。
+  - 修改它會改變遊戲後果，超出 R2 只修對照文字的範圍，所以沒有動；需要時請 Codex 另行指示。
 - 本輪沒有任何 UI 操作證據，不宣稱 UI 已驗收。
 
 ## Human Review Checklist

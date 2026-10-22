@@ -34,6 +34,7 @@ import {
   TransformProgress,
   TransformRowSnapshot,
 } from './types';
+import { CaseworkProgress, emptyCaseworkProgress } from './casework';
 
 /**
  * M1 工作日（附件關聯 B、批次轉換 C、交付報告、延後回條）的純規則。
@@ -93,7 +94,12 @@ export function reportProgressOf(save: Save, taskId: TaskId): ReportProgress {
   return p?.kind === 'report' ? p : { kind: 'report', opened: false, generated: false };
 }
 
-/** M1 工作是否已完成：附件已送件、批次已交付、報告已交付。其他種類回傳 null（由 rules.ts 判斷）。 */
+export function caseworkProgressOf(save: Save, taskId: TaskId): CaseworkProgress {
+  const p = save.taskProgress[taskId];
+  return p?.kind === 'casework' ? p : emptyCaseworkProgress();
+}
+
+/** M1／M2 工作是否已完成：附件已送件、批次已交付、報告已交付、案件已有交付版本。其他種類回傳 null（由 rules.ts 判斷）。 */
 export function workdayTaskDone(save: Save, task: TaskPlan): boolean | null {
   switch (task.kind) {
     case 'attachment':
@@ -102,6 +108,8 @@ export function workdayTaskDone(save: Save, task: TaskPlan): boolean | null {
       return transformProgressOf(save, task.id).submitted !== undefined;
     case 'report':
       return reportProgressOf(save, task.id).submitted !== undefined;
+    case 'casework':
+      return caseworkProgressOf(save, task.id).versions.length > 0;
     default:
       return null;
   }
@@ -127,6 +135,10 @@ export function markTaskOpened(save: Save, dir: DayDirectory): Save {
     }
     case 'report': {
       const p = reportProgressOf(save, task.id);
+      return p.opened ? save : withProgress(save, task.id, { ...p, opened: true });
+    }
+    case 'casework': {
+      const p = caseworkProgressOf(save, task.id);
       return p.opened ? save : withProgress(save, task.id, { ...p, opened: true });
     }
     default:

@@ -203,7 +203,8 @@
       "return-review": "複審",
       "attachment": "附件",
       "transform": "批次",
-      "report": "報告"
+      "report": "報告",
+      "casework": "案件交接"
     },
     "unit": {
       "archive": "筆",
@@ -212,7 +213,8 @@
       "return-review": "筆",
       "attachment": "件",
       "transform": "列",
-      "report": "列"
+      "report": "列",
+      "casework": "件"
     }
   },
   "handoff": {
@@ -248,7 +250,8 @@
       "receiptCheck": "receipt.check",
       "attachment": "attachment.link",
       "transform": "batch.run",
-      "report": "report.submit"
+      "report": "report.submit",
+      "casework": "casework.submit"
     },
     "key": {
       "check": "check",

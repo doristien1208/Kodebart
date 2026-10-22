@@ -2,6 +2,7 @@ import {
   ATTACHMENT_CHOICES,
   ATTACHMENT_EVIDENCE,
   AttachmentTaskPlan,
+  CaseworkTaskPlan,
   DayDirectory,
   FieldMapTaskPlan,
   TRANSFORM_POLICIES,
@@ -13,10 +14,23 @@ import {
   findTask,
   taskPlanOf,
 } from './day-plan';
+import { LEGACY_CHAPTER_END_DAY } from './day-map';
 import { isValidCodeString, normalizePlayerName } from './validate';
 import { RETURN_RECEIPT_MAIL_PACK, RETURN_RECEIPT_TEMPLATES, mailIdOfReceipt } from './mail';
 import { checkFieldMap } from './field-map';
 import { isValidSeed } from './rand';
+import {
+  CONTACT_ROUTES,
+  CaseVariant,
+  FOLLOWUP_ROUTES,
+  NOTICE_STATES,
+  PACKET_ROUTES,
+  PENDING_DISPOSITIONS,
+  PROPOSAL_ROUTES,
+  REPORT_FOCUSES,
+  SCOPE_FOLLOWUP_ROUTES,
+  SCOPE_ROUTES,
+} from './casework';
 import {
   MISSING_POLICIES,
   ORIGINS,
@@ -35,6 +49,7 @@ import {
   SaveV9,
   SaveV10,
   SaveV11,
+  SaveV12,
   RETURN_STATUSES,
   REVIEW_DISPOSITIONS,
   LEGACY_STAGES,
@@ -306,6 +321,90 @@ function isValidReportProgress(p: Record<string, unknown>): boolean {
   return p['submitted'] === undefined || (p['generated'] === true && isValidReportSnapshot(p['submitted']));
 }
 
+/* ---------- M2 案件工作（v13） ---------- */
+
+function oneOf(list: readonly string[]): (v: unknown) => boolean {
+  return (v) => typeof v === 'string' && list.includes(v);
+}
+
+function isBool(v: unknown): boolean {
+  return typeof v === 'boolean';
+}
+
+/** 各案件種類的選項輸出欄位與白名單（與 casework.ts 的 CaseChoiceOutput 一致）。 */
+const CHOICE_OUTPUT_FIELDS: { readonly [V in CaseVariant]: Readonly<Record<string, (v: unknown) => boolean>> } = {
+  'batch-scope': { route: oneOf(SCOPE_ROUTES), pendingDisposition: oneOf(PENDING_DISPOSITIONS) },
+  'contact-route': { route: oneOf(CONTACT_ROUTES), noticeState: oneOf(NOTICE_STATES) },
+  'receipt-followup': { route: oneOf(FOLLOWUP_ROUTES), noticeState: oneOf(NOTICE_STATES) },
+  'service-proposal': { route: oneOf(PROPOSAL_ROUTES), proposedTime: isNullableString, useInquiryWhenArrived: isBool },
+  'citation-packet': { route: oneOf(PACKET_ROUTES) },
+  'batch-followup': { route: oneOf(SCOPE_FOLLOWUP_ROUTES), pendingTransferred: isBool },
+  'report-framing': { focus: oneOf(REPORT_FOCUSES) },
+};
+
+/** 選項輸出快照：種類與案件一致、欄位恰好是該種類的白名單值（不比對目前內容，內容日後修改不讓已交付副本失效）。 */
+function isValidChoiceOutput(o: unknown, variant: CaseVariant): boolean {
+  if (!isPlainObject(o) || o['variant'] !== variant) return false;
+  const fields = CHOICE_OUTPUT_FIELDS[variant];
+  const keys = Object.keys(o).filter((k) => k !== 'variant');
+  return keys.length === Object.keys(fields).length && Object.entries(fields).every(([k, ok]) => k in o && ok(o[k]));
+}
+
+function isIndex(v: unknown): boolean {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0;
+}
+
+/** 引用快照：本案文件、版本與欄位序號為非負整數、標籤與值為字串；同一欄不重複。不比對文件目前內容。 */
+function isValidCitations(v: unknown, task: CaseworkTaskPlan): boolean {
+  if (!Array.isArray(v)) return false;
+  const seen = new Set<string>();
+  for (const c of v) {
+    if (!isPlainObject(c) || typeof c['documentId'] !== 'string' || !task.casework.documentIds.includes(c['documentId'])) return false;
+    if (!isIndex(c['version']) || !isIndex(c['fieldIndex'])) return false;
+    if (typeof c['label'] !== 'string' || typeof c['value'] !== 'string') return false;
+    const key = `${c['documentId']}#${c['version']}#${c['fieldIndex']}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+  }
+  return true;
+}
+
+/**
+ * 案件工作進度（M2）：草稿與每個交付版本的選項屬於本案、引用結構正確、版本序號連續、交付日是已知日。
+ * 只驗結構與白名單，不以引用語意或來源相等判定存檔損壞。
+ */
+function isValidCaseworkProgress(p: Record<string, unknown>, task: CaseworkTaskPlan, dir: DayDirectory): boolean {
+  if (typeof p['opened'] !== 'boolean') return false;
+  const choiceIds: readonly unknown[] = task.casework.choices.map((c) => c.id);
+  const draft = p['draft'];
+  if (!isPlainObject(draft) || !isValidCitations(draft['citations'], task)) return false;
+  if (draft['choiceId'] !== undefined && !choiceIds.includes(draft['choiceId'])) return false;
+  const versions = p['versions'];
+  if (!Array.isArray(versions)) return false;
+  return versions.every(
+    (v, index) =>
+      isPlainObject(v) &&
+      v['index'] === index &&
+      choiceIds.includes(v['choiceId']) &&
+      isValidChoiceOutput(v['output'], task.casework.variant) &&
+      isValidCitations(v['citations'], task) &&
+      typeof v['dayId'] === 'string' &&
+      dir.plan(v['dayId']) !== undefined,
+  );
+}
+
+/** 承辦查詢（v13）：鍵是已知查詢；只能在可詢問的那一天送出（不晚於目前日），送達時機屬於該查詢的變體。 */
+function isValidInquiries(v: unknown, s: Record<string, unknown>, dir: DayDirectory): boolean {
+  if (!isPlainObject(v)) return false;
+  const current = dir.days.indexOf(String(s['dayId']));
+  return Object.entries(v).every(([id, state]) => {
+    const plan = (dir.inquiries ?? []).find((i) => i.id === id);
+    if (!plan || !isPlainObject(state) || Object.keys(state).some((k) => k !== 'dayId' && k !== 'timing')) return false;
+    if (state['dayId'] !== plan.requestedOn || dir.days.indexOf(plan.requestedOn) > current) return false;
+    return plan.timings.includes(state['timing'] as never);
+  });
+}
+
 /** 每一筆進度：taskId 必須是已知工作，kind 必須與該工作一致（歸檔工作不用進度）。 */
 function isValidTaskProgress(progress: unknown, dir: DayDirectory): boolean {
   if (!isPlainObject(progress)) return false;
@@ -319,6 +418,7 @@ function isValidTaskProgress(progress: unknown, dir: DayDirectory): boolean {
     if (task.kind === 'attachment' && !isValidAttachmentProgress(p, task, dir)) return false;
     if (task.kind === 'transform' && !isValidTransformProgress(p, task)) return false;
     if (task.kind === 'report' && !isValidReportProgress(p)) return false;
+    if (task.kind === 'casework' && !isValidCaseworkProgress(p, task, dir)) return false;
     if (task.kind === 'archive' || task.kind === 'return-review') return false;
   }
   return true;
@@ -351,7 +451,8 @@ export function isRawTaskDone(s: Record<string, unknown>, dir: DayDirectory, tas
     case 'transform':
     case 'report':
       return rawProgress(s, task.id)?.['submitted'] !== undefined;
-    case 'attachment': {
+    case 'attachment':
+    case 'casework': {
       const versions = rawProgress(s, task.id)?.['versions'];
       return Array.isArray(versions) && versions.length > 0;
     }
@@ -460,7 +561,15 @@ function isRawTaskSettled(s: Record<string, unknown>, dir: DayDirectory, task: T
  * 修訂草稿（既有回條）、向同事詢問、角色資料與入職進度。
  */
 export function isValidSave(s: unknown, dir: DayDirectory): s is Save {
-  return isValidR12Fields(s, dir, SAVE_VERSION, true);
+  return isPlainObject(s) && isValidInquiries(s['inquiries'], s, dir) && isValidR12Fields(s, dir, SAVE_VERSION, true);
+}
+
+/**
+ * v12 舊檔（M1）：沒有承辦查詢，其餘與 v13 相同。遷移（migrateV12ToV13）補上空的查詢紀錄後以 v13 規則檢查；
+ * 這裡只給測試與診斷使用。
+ */
+export function isValidLegacySaveV12(s: unknown, dir: DayDirectory): s is SaveV12 {
+  return isValidR12Fields(s, dir, 12, true);
 }
 
 /**
@@ -563,6 +672,10 @@ function isValidWorkdayAttachment(a: unknown, dir: DayDirectory): boolean {
     }
     case 'batch-output':
       return typeof a['taskId'] === 'string' && findTask(dir, a['taskId'])?.kind === 'transform';
+    case 'casework-submission': {
+      const task = typeof a['taskId'] === 'string' ? findTask(dir, a['taskId']) : undefined;
+      return task?.kind === 'casework' && isIndex(a['versionIndex']);
+    }
     default:
       return false;
   }
@@ -877,7 +990,8 @@ function isValidSaveBody(s: Record<string, unknown>, dir: DayDirectory, freeOrde
     // 次日收件：目前工作是當日依序第一件可開始的工作（跨日時就這樣選定）
     if (stage === 'morning' && plan.tasks.slice(0, activeIndex).some((t) => !isRawTaskSettled(s, dir, t) && depsSettled(t))) return false;
   } else if (plan.tasks.slice(0, activeIndex).some((t) => !isRawTaskSettled(s, dir, t))) return false;
-  if (stage === 'end' && plan.nextDayId !== null) return false;
+  // 有下一天的 end 只接受舊章節終點（六日內容的最後一天；M2 起其後接第七日）：當日工作須全部結清，玩家明確「繼續工作」才跨日
+  if (stage === 'end' && plan.nextDayId !== null && dayId !== LEGACY_CHAPTER_END_DAY) return false;
   if (stage === 'wrap' && plan.nextDayId === null) return false;
   if ((stage === 'wrap' || stage === 'end') && plan.tasks.some((t) => !isRawTaskSettled(s, dir, t))) return false;
 

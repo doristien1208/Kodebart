@@ -74,6 +74,7 @@ import {
   canReply,
   commitArchive,
   completeWork,
+  continueChapter,
   createSave,
   fieldMapCheck,
   fieldMapProgressOf,
@@ -101,6 +102,7 @@ import {
   TransformPolicy,
   TransformProgress,
   attachmentProgressOf,
+  caseworkProgressOf,
   attachmentStatus,
   deliveredMail,
   isTaskOpen,
@@ -200,6 +202,8 @@ export class GameStateService {
     return s ? activeTaskOf(s, this.dir) : null;
   });
   readonly nextDayId = computed(() => this.plan()?.nextDayId ?? null);
+  /** 舊章節終點（停在 end、但這一天已有下一天）：結束畫面提供「繼續工作」。 */
+  readonly canContinueChapter = computed(() => this.stage() === 'end' && this.nextDayId() !== null);
   /** 目前工作所讀寫（或檢視）的批次。 */
   readonly batchId = computed(() => {
     const t = this.task();
@@ -765,6 +769,11 @@ export class GameStateService {
     this.apply((s) => advanceDay(s, this.dir));
   }
 
+  /** 舊章節終點 → 下一天：玩家明確按「繼續工作」才執行；刷新不自動跳日、不重跑前面的日子。 */
+  continueChapter(): void {
+    this.apply((s) => continueChapter(s, this.dir));
+  }
+
   /** 次日收件 → 開始今日工作。 */
   startDay(): void {
     this.apply((s) => startDay(s));
@@ -914,6 +923,8 @@ export class GameStateService {
         const report = reportProgressOf(s, t.id).submitted;
         return { total: report?.rows.length ?? 0, processed: report?.rows.length ?? 0 };
       }
+      case 'casework':
+        return { total: 1, processed: caseworkProgressOf(s, t.id).versions.length > 0 ? 1 : 0 };
     }
   }
 

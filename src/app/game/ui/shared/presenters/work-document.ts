@@ -5,6 +5,7 @@ import { CASE_REVIEW_UI, MAIL_UI, RECORD_STATUS, WORKDAY_UI, attachmentVersionLa
 import { DayDirectory, findTask } from '../../../core/day-plan';
 import {
   attachmentProgressOf,
+  caseworkProgressOf,
   checkOfVersion,
   editableLinkIndex,
   latestLink,
@@ -29,7 +30,7 @@ import { adoptedRefusalStatus, sourceRefusalStatus } from './record-status';
  * - batch-output／batch-preview：批次的 input／rule／output 與逐列差異（已交付＝快照；預覽＝依目前設定即時建立）。
  *
  * 輸出都是玩家看得懂的文字：不含任務／紀錄／文件 ID、seed 或條件 ID；JSON 視窗的 true／false／null
- * 另附領域意義對照。
+ * 另附領域意義對照（null 依欄位分開解釋，不適用另列）。
  */
 
 /** 文件視窗的引用：郵件附件，或工作中開啟的批次預覽（不保存）。 */
@@ -100,12 +101,20 @@ export function refusalText(value: boolean | null): string {
   return value === true ? RECORD_STATUS.refused : value === false ? RECORD_STATUS.notRefused : RECORD_STATUS.unconfirmed;
 }
 
-/** JSON 視窗的領域意義對照（主操作不叫 true／false／null）。 */
-export function refusalLegend(): readonly string[] {
+/**
+ * 批次 JSON 視窗的領域意義對照（主操作不叫 true／false／null）：true／false 照拒絕紀錄解讀；
+ * null 不共用一個意思，依欄位分開說明（來源＝未提供；採用＝未確認，是否送覆核看 origin；輸出＝本次保留未確認），
+ * 不適用的資料另列不適用。
+ */
+export function batchFieldLegend(): readonly string[] {
+  const meaning = WORKDAY_UI.batchFieldMeaning;
   return [
     legendText('true', RECORD_STATUS.refused),
     legendText('false', RECORD_STATUS.notRefused),
-    legendText('null', RECORD_STATUS.unconfirmed),
+    meaning.sourceRefusalNull,
+    meaning.adoptedRefusalNull,
+    meaning.outputRefusalNull,
+    meaning.notApplicable,
   ];
 }
 
@@ -162,14 +171,20 @@ function refusalAppliesOf(row: TransformRowSnapshot, save: Save, dir: DayDirecto
   return dir.records(row.batchId).find((r) => r.key === row.recordKey)?.refusalApplies ?? true;
 }
 
-/** 批次的 JSON：輸入（來源＋採用＋附件）、規則（缺漏策略）、輸出（逐列）。鍵為技術名稱，值保留型別。 */
-function batchJson(out: TransformOutput, policyLabel: string): BatchJsonView {
+/**
+ * 批次的 JSON：輸入（來源＋採用＋附件）、規則（缺漏策略）、輸出（逐列）。鍵為技術名稱，值保留型別（null 照存，不改寫）。
+ * 輸入另列保存的 adoptedOrigin（是否送覆核看這裡，不看 null）；來源不適用拒絕紀錄的列另標 refusalApplies: false，
+ * 不和來源未提供的 null 混在一起。
+ */
+function batchJson(out: TransformOutput, policyLabel: string, save: Save, dir: DayDirectory): BatchJsonView {
   const input = out.rows.map((r) => ({
     row: r.id.replace(/^row\./, ''),
     personnelCode: r.adoptedCode,
     sourceCode: r.sourceCode,
     sourceRefusal: r.sourceRefusal,
+    ...(refusalAppliesOf(r, save, dir) ? {} : { refusalApplies: false }),
     adoptedRefusal: r.adoptedRefusal,
+    adoptedOrigin: r.adoptedOrigin,
     attachment: r.attachment ? { document: r.attachment.heading, evidence: evidenceText(r.attachment.evidence), subject: r.attachment.attachedCode } : null,
   }));
   const rule = { missingReply: policyLabel, keepSourceValue: true };
@@ -248,6 +263,16 @@ export function workDocumentView(
       }
       return { kind: 'copy', heading: `${WORKDAY_UI.snapshotLabel}｜${recordLabel({ key: ref.recordKey, ...a.source })}`, fields };
     }
+    case 'casework-submission': {
+      // 案件送件副本（M2）：只列這個版本實際引用的段落快照，不以目前文件內容重建
+      const v = caseworkProgressOf(save, ref.taskId).versions.find((x) => x.index === ref.versionIndex);
+      if (!v) return { kind: 'missing', heading: MAIL_UI.missingAttachment };
+      return {
+        kind: 'copy',
+        heading: `${taskHeadingSafe(ref.taskId)}｜${attachmentVersionLabel(v.index)}`,
+        fields: v.citations.map((c) => ({ label: c.label, value: c.value })),
+      };
+    }
     case 'attachment-link': {
       const p = attachmentProgressOf(save, ref.taskId);
       const v = p.versions.find((x) => x.index === ref.versionIndex);
@@ -281,8 +306,8 @@ export function workDocumentView(
         heading: taskHeadingSafe(ref.taskId),
         preview: ref.kind === 'batch-preview' && !p.submitted,
         rows: out.rows.map((r) => batchRowView(r, save, dir)),
-        json: batchJson(out, policyLabel),
-        legend: refusalLegend(),
+        json: batchJson(out, policyLabel, save, dir),
+        legend: batchFieldLegend(),
         counts: batchCounts(out),
       };
     }

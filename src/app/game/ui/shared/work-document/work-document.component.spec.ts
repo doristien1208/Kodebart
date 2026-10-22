@@ -5,7 +5,7 @@ import { GameStateService } from '../../../state/game-state.service';
 import { WorkOperationsService } from '../../../state/work-operations.service';
 import { MailAttachmentService } from '../../mail/services/mail-attachment.service';
 import { M1_SAVE_A, M1_SAVE_B, instantOperations, playM1To, settle } from '../../testing/play';
-import { DocumentRef } from '../presenters/work-document';
+import { DocumentRef, batchFieldLegend } from '../presenters/work-document';
 import { WorkDocumentComponent } from './work-document.component';
 
 /**
@@ -107,7 +107,7 @@ describe('WorkDocumentComponent（M1 文件視窗）', () => {
     expect(text(el(lost).querySelector('[data-wd-missing]'))).toBe(MAIL_UI.missingAttachment);
   });
 
-  it('批次副本：逐列表格、input／rule／output 三欄與 true／false／null 對照', () => {
+  it('批次副本：逐列表格、input／rule／output 三欄與 true／false／null 對照（null 依欄位分開說明、不適用另列）', () => {
     const game = boot();
     playM1To(game, 'day.05', M1_SAVE_B);
     expect(game.transformProgress('task.day4.m1-transform').submitted).toBeDefined();
@@ -116,7 +116,7 @@ describe('WorkDocumentComponent（M1 文件視窗）', () => {
     expect(el(f).querySelector('[data-batch-json-input]')).not.toBeNull();
     expect(el(f).querySelector('[data-batch-json-rule]')).not.toBeNull();
     expect(el(f).querySelector('[data-batch-json-output]')).not.toBeNull();
-    expect(el(f).querySelectorAll('[data-batch-legend] li').length).toBe(3);
+    expect(Array.from(el(f).querySelectorAll('[data-batch-legend] li')).map((li) => text(li))).toEqual([...batchFieldLegend()]);
     expect(el(f).querySelectorAll('[data-batch-counts] dd').length).toBe(3);
   });
 });

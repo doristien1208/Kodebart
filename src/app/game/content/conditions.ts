@@ -272,6 +272,45 @@ export interface ConditionContext {
   taskOpened?: (taskId: string) => boolean;
   /** M1：批次是否開啟過預覽、報告是否已建立。省略＝一律 false。 */
   taskPreviewed?: (taskId: string) => boolean;
+  /** M2：具名條件的定義（內容包 conditions[]）；省略或未知 ID＝條件不成立。 */
+  namedCondition?: (id: string) => NamedCondition | undefined;
+  /**
+   * M2：指定案件工作最新交付版本是否引用了某份文件的某一欄；尚未交付回傳 null。
+   * 由存檔的送件版本推導，唯讀；不看目前草稿或選項名稱。省略＝一律 null。
+   */
+  caseCitation?: (taskId: string, documentId: string, fieldIndex: number) => boolean | null;
+}
+
+/** M2 具名條件的前綴；定義由內容包提供，存在與引用是否合法由 validate-content.ts 檢查。 */
+export const NAMED_CONDITION_PREFIX = 'cond.m2.';
+
+/**
+ * M2 具名條件：只讀保存的聊天回覆與送件版本。
+ * - chat-choice：保存的回答在 choiceIds 內。
+ * - not-chat-choice：沒有選 choiceIds 內的回答（包含 skipped 與未回答），不替玩家補造承諾。
+ * - case-citation／not-case-citation：工作已交付且（沒有）引用該欄；尚未交付時兩者都不成立。
+ */
+export type NamedCondition =
+  | { id: string; kind: 'chat-choice' | 'not-chat-choice'; promptId: string; choiceIds: readonly string[] }
+  | { id: string; kind: 'case-citation' | 'not-case-citation'; taskId: string; documentId: string; fieldIndex: number };
+
+export const NAMED_CONDITION_KINDS: readonly NamedCondition['kind'][] = ['chat-choice', 'not-chat-choice', 'case-citation', 'not-case-citation'];
+
+export function evaluateNamedCondition(def: NamedCondition, ctx: ConditionContext): boolean {
+  switch (def.kind) {
+    case 'chat-choice':
+    case 'not-chat-choice': {
+      const choice = ctx.chatChoice(def.promptId);
+      const chosen = choice !== null && def.choiceIds.includes(choice);
+      return def.kind === 'chat-choice' ? chosen : !chosen;
+    }
+    case 'case-citation':
+    case 'not-case-citation': {
+      const cited = ctx.caseCitation?.(def.taskId, def.documentId, def.fieldIndex) ?? null;
+      if (cited === null) return false;
+      return def.kind === 'case-citation' ? cited : !cited;
+    }
+  }
 }
 
 /** 解析單一條件；未知 ID 一律回傳 false（驗證階段就會先擋下）。 */
@@ -303,6 +342,10 @@ export function evaluateCondition(id: string, ctx: ConditionContext): boolean {
       if (returned !== null) return ctx.returnNotified(returned.auditId);
       const help = parseHelpCondition(id);
       if (help !== null) return ctx.helpRequested(help.requestId);
+      if (id.startsWith(NAMED_CONDITION_PREFIX)) {
+        const named = ctx.namedCondition?.(id);
+        return named?.id === id ? evaluateNamedCondition(named, ctx) : false;
+      }
       return false;
     }
   }

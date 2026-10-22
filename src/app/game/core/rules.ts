@@ -114,6 +114,7 @@ export function createSave(seed: number, dir: DayDirectory): Save {
     mailbox: [],
     readMail: [],
     helpRequests: {},
+    inquiries: {},
     profile: { name: null },
     onboarding: { step: 0, complete: false },
     events: [],
@@ -326,6 +327,7 @@ export function isTaskDone(save: Save, dir: DayDirectory, task: TaskPlan): boole
     case 'attachment':
     case 'transform':
     case 'report':
+    case 'casework':
       return workdayTaskDone(save, task) === true;
   }
 }
@@ -445,6 +447,15 @@ export function advanceDay(save: Save, dir: DayDirectory): Save {
   next = processWorkdayOnDayStart(next, dir, nextDayId);
   const first = nextPlan.tasks.find((t) => isTaskOpen(next, dir, t)) ?? firstTaskOf(nextPlan);
   return { ...next, dayId: nextDayId, stage: 'morning', taskId: first.id };
+}
+
+/**
+ * 舊章節終點續接（M2）：停在 end、但這一天已有下一天（第六日結束的舊存檔）時，玩家明確按「繼續工作」才進入下一天。
+ * 與本日交接後跨日相同（到期案件、回條、到班各只一次）；不重跑前面的日子、不補選、不清存檔。其他情況回傳原存檔。
+ */
+export function continueChapter(save: Save, dir: DayDirectory): Save {
+  if (save.stage !== 'end' || planOf(save, dir).nextDayId === null) return save;
+  return advanceDay({ ...save, stage: 'wrap' }, dir);
 }
 
 /** 次日收件 → 開始今日工作。 */

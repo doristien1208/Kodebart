@@ -1,3 +1,4 @@
+import type { CaseworkPlan, InquiryPlan } from './casework';
 import { BatchId, CaseDestination, DayId, DocumentSnapshot, RecordKey, SourceRecord, TaskId } from './types';
 
 /**
@@ -6,7 +7,7 @@ import { BatchId, CaseDestination, DayId, DocumentSnapshot, RecordKey, SourceRec
  * core 不 import content；這個介面由 state adapter 從內容資料建立後傳入規則與驗證。
  * 新增日別或同日工作只要增加內容檔；新增玩法才需要在 TaskPlan 加一個 kind。
  */
-export type TaskKind = 'archive' | 'reconcile' | 'field-map' | 'return-review' | 'attachment' | 'transform' | 'report';
+export type TaskKind = 'archive' | 'reconcile' | 'field-map' | 'return-review' | 'attachment' | 'transform' | 'report' | 'casework';
 
 /**
  * 工作之間的資料依賴（M1）：列出的工作都已完成或免補，這件才能開始；沒有依賴的工作可以自選順序。
@@ -188,6 +189,13 @@ export interface ReportTaskPlan extends TaskPlanDeps {
   transformTaskIds: readonly TaskId[];
 }
 
+/** M2 案件工作：規則需要的 enum 與 ID（見 casework.ts）；目的、文件與選項文字留在內容。 */
+export interface CaseworkTaskPlan extends TaskPlanDeps {
+  id: TaskId;
+  kind: 'casework';
+  casework: CaseworkPlan;
+}
+
 export type TaskPlan =
   | ArchiveTaskPlan
   | ReconcileTaskPlan
@@ -195,7 +203,8 @@ export type TaskPlan =
   | ReturnReviewTaskPlan
   | AttachmentTaskPlan
   | TransformTaskPlan
-  | ReportTaskPlan;
+  | ReportTaskPlan
+  | CaseworkTaskPlan;
 
 export interface DayPlan {
   dayId: DayId;
@@ -246,6 +255,8 @@ export interface DayDirectory {
   records(batchId: BatchId): readonly SourceRecord[];
   /** M1 延後回條的計畫（依內容順序）；省略＝沒有。 */
   readonly mails?: readonly WorkdayMailPlan[];
+  /** M2 承辦查詢（依內容順序）；省略＝沒有。 */
+  readonly inquiries?: readonly InquiryPlan[];
 }
 
 /** 目前工作所讀寫（或檢視）的歸檔批次；欄位映射沒有歸檔批次，回傳 null。 */
@@ -260,6 +271,7 @@ export function batchIdOfTask(task: TaskPlan): BatchId | null {
     case 'attachment':
     case 'transform':
     case 'report':
+    case 'casework':
       return null;
   }
 }
@@ -331,6 +343,7 @@ export function createDayDirectory(
   plans: readonly DayPlan[],
   batchRecords: Readonly<Record<BatchId, readonly SourceRecord[]>>,
   mails: readonly WorkdayMailPlan[] = [],
+  inquiries: readonly InquiryPlan[] = [],
 ): DayDirectory {
   const ordered = [...plans].sort((a, b) => a.dayNumber - b.dayNumber);
   const byId = new Map(ordered.map((p) => [p.dayId, p] as const));
@@ -341,6 +354,7 @@ export function createDayDirectory(
     planOfTask: (taskId) => byTask.get(taskId),
     records: (batchId) => batchRecords[batchId] ?? [],
     mails,
+    inquiries,
   };
 }
 

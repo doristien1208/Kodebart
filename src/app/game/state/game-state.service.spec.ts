@@ -259,7 +259,10 @@ function toV10(save: Save): SaveV10 {
   return { ...rest, version: 10, readIssueReceipts: readMail.map((id) => id.replace(/^mail\./, '')) };
 }
 
-/** v10 → v11 遷移新增的欄位（沒有回條時）：未簽名、入職視為已完成、空郵件／已讀／提問／修訂草稿。 */
+/**
+ * v10 → v11 遷移新增的欄位（沒有回條時）：未簽名、入職視為已完成、空郵件／已讀／提問／修訂草稿；
+ * 遷移到現行 v13（M2）時另補空的承辦查詢。
+ */
 const V11_MIGRATED_EMPTY = {
   mailbox: [],
   readMail: [],
@@ -267,6 +270,7 @@ const V11_MIGRATED_EMPTY = {
   issueDrafts: {},
   profile: { name: null },
   onboarding: { step: 0, complete: true },
+  inquiries: {},
 };
 
 function stored(): Save | null {
@@ -816,7 +820,7 @@ describe('GameStateService', () => {
       const persisted = stored();
       expect(persisted).not.toBeNull();
       expect(persisted).toEqual(game.save()!);
-      expect(persisted!.version).toBe(12);
+      expect(persisted!.version).toBe(13);
       expect(persisted!.returns).toEqual([]);
       expect(persisted!.issueSchedule).toEqual({});
       expect(persisted!.mailbox).toEqual([]);
@@ -1931,13 +1935,13 @@ describe('GameStateService', () => {
         expect(new SaveRepository().load().migratedFrom).toBe(7);
         const g = freshService();
         expect(g.storageIssue()).toBe('');
-        expect(stored()!.version).toBe(12);
+        expect(stored()!.version).toBe(13);
         expect(stored()!.caseReviews).toEqual({});
         expect(stored()!.returns).toEqual([]);
         expect(stored()!.issueSchedule).toEqual({});
         expect(stored()!.mailbox).toEqual([]);
         expect(stored()!.readMail).toEqual([]);
-        expect(new SaveRepository().load().migratedFrom).toBe(12);
+        expect(new SaveRepository().load().migratedFrom).toBe(13);
         expect(g.stage()).toBe('wrap');
         expect(g.caseDecision(CASE_H204)).toBeNull();
         g.advanceDay();
@@ -2346,9 +2350,9 @@ describe('GameStateService', () => {
       expect(g.hasSave()).toBeTrue();
       expect(g.storageIssue()).toBe('');
       const s = stored()!;
-      expect(s.version).toBe(12);
+      expect(s.version).toBe(13);
       expect(s.waivedTasks).toEqual(waived);
-      expect(s).toEqual({ ...JSON.parse(raw), version: 12, caseReviews: {}, returns: [], issueSchedule: {}, ...V11_MIGRATED_EMPTY, waivedTasks: waived });
+      expect(s).toEqual({ ...JSON.parse(raw), version: 13, caseReviews: {}, returns: [], issueSchedule: {}, ...V11_MIGRATED_EMPTY, waivedTasks: waived });
       expect(s.events).toEqual(v6.events);
       expect(s.batches).toEqual(v6.batches);
       expect(s.taskProgress).toEqual(v6.taskProgress);
@@ -2356,7 +2360,7 @@ describe('GameStateService', () => {
       expect(s.readMessages).toEqual(v6.readMessages);
       expect(s.night).toEqual(v6.night);
       expect(g.save()).toEqual(s);
-      expect(new SaveRepository().load().migratedFrom).toBe(12);
+      expect(new SaveRepository().load().migratedFrom).toBe(13);
       expect(storedIsValid()).toBeTrue();
       return g;
     }
@@ -2490,16 +2494,16 @@ describe('GameStateService', () => {
       expect(g.isMessageRead('msg.day4.dept-report')).toBeTrue();
 
       const s = stored()!;
-      expect(s.version).toBe(12);
+      expect(s.version).toBe(13);
       expect(s.chatReplies).toEqual({});
       expect(s.waivedTasks).toEqual(WAIVED_THROUGH_DAY2);
-      expect(s).toEqual({ ...JSON.parse(raw), version: 12, caseReviews: {}, returns: [], issueSchedule: {}, ...V11_MIGRATED_EMPTY, chatReplies: {}, waivedTasks: WAIVED_THROUGH_DAY2 });
+      expect(s).toEqual({ ...JSON.parse(raw), version: 13, caseReviews: {}, returns: [], issueSchedule: {}, ...V11_MIGRATED_EMPTY, chatReplies: {}, waivedTasks: WAIVED_THROUGH_DAY2 });
       expect(s.batches).toEqual(v5.batches);
       expect(s.taskProgress).toEqual(v5.taskProgress);
       expect(s.events).toEqual(v5.events);
       expect(s.readMessages).toEqual(v5.readMessages);
       expect(s.night).toEqual(v5.night!);
-      expect(new SaveRepository().load().migratedFrom).toBe(12);
+      expect(new SaveRepository().load().migratedFrom).toBe(13);
       expect(storedIsValid()).toBeTrue();
 
       // 遷移後可接著回答當日 prompt 並完成當日
@@ -2529,7 +2533,7 @@ describe('GameStateService', () => {
 
       // 已寫回 v11
       const s = stored()!;
-      expect(s.version).toBe(12);
+      expect(s.version).toBe(13);
       expect(s.returns).toEqual([]);
       expect(s.issueSchedule).toEqual({});
       expect(s.mailbox).toEqual([]);
@@ -2545,7 +2549,7 @@ describe('GameStateService', () => {
       expect(raw['evidence']).toBeUndefined();
       expect(raw['reply']).toBeUndefined();
       expect(s).toEqual(JSON.parse(JSON.stringify(g.save()!)));
-      expect(new SaveRepository().load().migratedFrom).toBe(12);
+      expect(new SaveRepository().load().migratedFrom).toBe(13);
       expect(storedIsValid()).toBeTrue();
 
       g.advanceDay();
@@ -2565,7 +2569,7 @@ describe('GameStateService', () => {
     it('現行 v11 載入不會再寫回（localStorage 字串不變；migratedFrom 11）', () => {
       game.newGame();
       const raw = localStorage.getItem(SAVE_KEY)!;
-      expect(new SaveRepository().load().migratedFrom).toBe(12);
+      expect(new SaveRepository().load().migratedFrom).toBe(13);
       const setItem = spyOn(Storage.prototype, 'setItem').and.callThrough();
       const g = freshService();
       expect(g.hasSave()).toBeTrue();
@@ -2593,7 +2597,7 @@ describe('GameStateService', () => {
       expect(g.arranged()).toBeTrue();
       expect(g.save()!.events).toEqual(legacyV2Day2.events);
 
-      expect(stored()!.version).toBe(12);
+      expect(stored()!.version).toBe(13);
       expect(stored()!.returns).toEqual([]);
       expect(stored()!.issueSchedule).toEqual({});
       expect(stored()!.mailbox).toEqual([]);
@@ -2613,8 +2617,8 @@ describe('GameStateService', () => {
       localStorage.setItem(SAVE_KEY, JSON.stringify(legacyV2Day2));
       const first = freshService();
       const afterFirst = localStorage.getItem(SAVE_KEY)!;
-      expect(JSON.parse(afterFirst).version).toBe(12);
-      expect(new SaveRepository().load().migratedFrom).toBe(12);
+      expect(JSON.parse(afterFirst).version).toBe(13);
+      expect(new SaveRepository().load().migratedFrom).toBe(13);
 
       const second = freshService();
       expect(second.storageIssue()).toBe('');
@@ -2630,7 +2634,7 @@ describe('GameStateService', () => {
       expect(g.stage()).toBe('work');
       expect(g.archivedCount()).toBe(1);
       expect(g.draft('H17')).toEqual({ value: 'H-1' });
-      expect(stored()!.version).toBe(12);
+      expect(stored()!.version).toBe(13);
       expect(stored()!.chatReplies).toEqual({});
       expect(stored()!.waivedTasks).toEqual([]);
 
@@ -2684,13 +2688,13 @@ describe('GameStateService', () => {
       expect(g.isMessageRead('msg.a')).toBeTrue();
       expect(g.night()).toBeNull();
 
-      expect(stored()!.version).toBe(12);
+      expect(stored()!.version).toBe(13);
       expect(stored()!.waivedTasks).toEqual([TASK_DAY1_FOLLOWUP]);
       expect(taskRows(g)).toEqual([row(TASK_DAY1, 'done', 3, 3), row(TASK_DAY1_FOLLOWUP, 'waived', 3, 0)]);
       expect(stored()!.chatReplies).toEqual({});
       expect(stored()!.readMessages).toEqual(['msg.a', 'msg.b']);
       expect(stored()!.batches).toEqual(legacyV3Overnight.batches);
-      expect(new SaveRepository().load().migratedFrom).toBe(12);
+      expect(new SaveRepository().load().migratedFrom).toBe(13);
       expect(storedIsValid()).toBeTrue();
     });
 
@@ -3950,7 +3954,7 @@ describe('GameStateService', () => {
       const g = freshService();
       expect(g.storageIssue()).toBe('');
       const s = stored()!;
-      expect(s.version).toBe(12);
+      expect(s.version).toBe(13);
       expect(s).toEqual(JSON.parse(JSON.stringify(g.save()!)));
       // v10 沒有 M1 延後回條：遷移只由退件回條重建郵件
       expect(g.save()).toEqual({ ...native, mailbox: native.mailbox.filter(isReceiptMail), onboarding: { step: 0, complete: true } });
@@ -3965,7 +3969,7 @@ describe('GameStateService', () => {
       expect(routeForSave(g.save()!)).toBe(routeForStage(g.stage()!));
       expect(unreadMail(g)).toEqual([]);
       expect(g.editableReceiptId(RETURN_B102)).toBe(receiptId(0));
-      expect(new SaveRepository().load().migratedFrom).toBe(12);
+      expect(new SaveRepository().load().migratedFrom).toBe(13);
       expectReloadStable(g);
       // 遷移後照常處理
       expect(g.resubmitReturnStrict(RETURN_B102, receiptId(0), '0102')).toBe('ok');
@@ -4044,13 +4048,13 @@ describe('GameStateService', () => {
       expect(new SaveRepository().load().migratedFrom).toBe(8);
       const g = freshService();
       expect(g.storageIssue()).toBe('');
-      expect(stored()!.version).toBe(12);
+      expect(stored()!.version).toBe(13);
       expect(stored()!.returns).toEqual([]);
       expect(stored()!.issueSchedule).toEqual({});
       expect(stored()!.mailbox.filter(isReceiptMail)).toEqual([]);
       expect(stored()!.readMail).toEqual([]);
       expect(stored()!.taskProgress[TASK_DAY2]).toEqual({ kind: 'reconcile', reportOpened: true, receiptOpened: false, reply: 'ack' });
-      expect(new SaveRepository().load().migratedFrom).toBe(12);
+      expect(new SaveRepository().load().migratedFrom).toBe(13);
       expect(g.stage()).toBe('wrap');
       expectNoReturnThroughDay4(g);
     });
@@ -4098,9 +4102,9 @@ describe('GameStateService', () => {
         const g = freshService();
         expect(g.hasSave()).toBeTrue();
         expect(g.storageIssue()).toBe('');
-        expect(stored()!.version).toBe(12);
+        expect(stored()!.version).toBe(13);
         expect(stored()).toEqual(JSON.parse(JSON.stringify(g.save()!)));
-        expect(new SaveRepository().load().migratedFrom).toBe(12);
+        expect(new SaveRepository().load().migratedFrom).toBe(13);
         // 舊檔已跨過入職：不補簽、直接進桌面
         expect(g.onboarding()).toEqual({ step: 0, complete: true });
         expect(g.profileName()).toBeNull();

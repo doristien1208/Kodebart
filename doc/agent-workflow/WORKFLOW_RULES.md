@@ -1,10 +1,10 @@
 # KodeBart Agent 工作流程 v1.2
 
-Human 在 KodeBart Work 於 2026-10-13 確認 Action 優先、單一本機專案、里程碑交付及 Codex 覆核後整合。這份規則取代 v1.1 的「另開續做 Issue／轉本機」安排；歷史版本保留在 Git。最新授權見 `doc/agent-workflow/OPERATING_MODEL.md`。
+2026-10-21 派工政策更新：功能模組里程碑包含多張有界工作 Issue，測試另案、逐案覆核。下列 v1.2 執行入口／guard／限制未因政策更新改寫。最新授權見 `doc/agent-workflow/OPERATING_MODEL.md`。
 
 ## 1. 分工與範圍
 
-- 一張產品 Issue 是一個完整、可感受到變化的遊戲里程碑，不按字串、元件或單一小 Bug 拆單。
+- 一個里程碑完善一個功能模組；一張 Issue 是其中一件可在 80 回合內完成並獨立覆核的工作，列明依賴。實作、UI、關聯串接與測試分開，不能用單張 Issue 包整章。不是每個字串機械拆單。
 - Claude 預設使用 Action；只接受原 Issue 的 Goal、Required Changes、Constraints、Acceptance Criteria、固定來源與 Remaining。
 - Codex 規劃、提供內容／UI目標、覆核實際 diff／資料及驗證證據；必要修正在同案交辦。
 - Human 決定世界觀及玩法方向，pull main 後進行操作試玩。工程通過、合併、Agent 自評均不代表 Human 試玩驗收。
@@ -73,14 +73,14 @@ SDK success但實際回報超過80回合也不是正常完成；保留歷史失�
 
 ## 6. 完成與main試玩
 
-完整交付且同SHACI通過後，Codex覆核scope、資料／敘事／程式及已知問題；在Human目前委任內整合main並標明試玩版號，再通知Humanpullmain。不同mergeSHA不可冒用產品head驗證；若有額外整合變更，補相稱檢查。
+完整 Issue 交付且同 SHA CI 通過後，Codex覆核 scope、資料／敘事／程式及已知問題；只在不暴露半成品、不破壞 main 既有玩法時按委任整合。單案合併不是試玩版。模組全部實作與測試案通過，再核整合 SHA，標明模組試玩版號並通知 Human pull main。不同 merge SHA 不可冒用產品 head 驗證。
 
-未完成checkpoint或已知問題不能為方便pull先merge。approved仍是Human產品驗收，不由Codex或bot代寫。完整試玩回饋留原里程碑追蹤，下一完整milestone再以已整合main為基線。
+未完成 checkpoint 或已知問題不能為方便 pull 先 merge。approved 仍是 Human 產品驗收，不由 Codex 或 bot 代寫。回饋對應模組及原實作 Issue，下一依賴以已覆核、整合的 main 為基線；不要求新的 Issue 冒用舊分支。
 
 初次流程bootstrap僅允許已完整的workflow-only實作在同head独立PR檢查及Codex覆核通過後先部署預設分支，提供真實dispatch驗證；工程Issue保持開啟，端到端未確認不宣稱全體完成。這個必要啟用步驟不得夾帶未完成遊戲或規避已知問題，邊界見OPERATING_MODEL。
 
 ## 7. 部署狀態與通知
 
-本分支實作了續做、固定SHA驗證及收尾，離線通過不等於已部署／真實Action通過；必須合併到預設分支並作受控端到端驗證。GitHub留言不會自動喚醒本Work。舊heartbeat保持暫停，未重新核准啟動前不宣稱持續監控運作。
+入口已有實際執行紀錄，但仍有停點保存／finalize 診斷阻礙，現況見 HOME_HANDOFF，不能聲稱全流程正常。GitHub 留言不會自動喚醒本機聊天。原 heartbeat 已於 2026-10-19 按 Human 要求刪除，未重新授權前不建立監控。
 
 只通知新可試玩版、重要失敗或必要Human決定，不重複推播同一候選版／無變化進度。

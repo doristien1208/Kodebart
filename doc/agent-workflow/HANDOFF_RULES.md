@@ -22,8 +22,8 @@
 - PR本文独立一行Refs #原Issue編號；branch屬claude/issue-原編號-…。
 - 拒絕無write、非預設workflow、fork、merged/closed、approved/revision-requested、active/queued、過期SHA及rerun。
 - 共用原Issue concurrency，checkout再核對來源，不force push、不新開成果分支、不merge。
-- 原Issue範圍內checkpoint修正不是新的已驗收前置；新里程碑需main固定基線。
-- 接手既有M1時保留claude/m1-workday固定來源，先由Codex建立同案branch/PR及來源紀錄，不要求Claude自行查找或重建patch。
+- 原 Issue 的 checkpoint 不是新的已驗收前置；新工作 Issue 依固定 main 與已覆核依賴開始，不能沿用其他 Issue 的分支冒過 guard。
+- 回收 #11 舊成果須明列 b781e368f4967bfaee8f3fd58e9575afe99d6465 與必要差異，不重寫或整批混入新案；完整模組現在由多個實作／測試 Issue 組成。
 
 ## 3. 模型及驗證邊界
 
@@ -36,11 +36,11 @@
 
 ## 4. 完成與交接
 
-Claude回報原Issue。Codex讀實際diff及驗證證據，回修仍同案。完整交付無已知阻止交付問題時按Human委任整合main、標試玩版；Human只pullmain，不猜branch。CI通过、merge与approved分開。
+Claude 回報本工作 Issue。Codex 逐案讀實際 diff／證據，回修仍同案；安全整合後才交下一依賴。整個模組含測試 Issue 完成才標試玩版；Human 只 pull main。CI、merge、approved 分開，詳見 OPERATING_MODEL。
 
 跨創作階段仍需明確產品方向；Claude不自己叫Gemini或開下一Issue。現有#1/#2/#6/#7 R12已整合main；#3/#4被M1取代而結案，不把其舊台詞當正史或依賴。
 
-## 5. 啟用與端到端驗證
+## 5. 原流程工程驗收清單（歷史範圍，不是本輪派工）
 
 1. 讀#5固定source→head diff；只含workflow/規則，不能回退main既有R12。
 2. actionlint、離線fixtures、checkJs、diff-check、文件路徑均通過。
@@ -50,4 +50,4 @@ Claude回報原Issue。Codex讀實際diff及驗證證據，回修仍同案。完
 6. 若workflow推送或PR權限拒絕，留精確錯誤與成果，請Human一次處理；不藏到pending、不宣稱啟用、不把後续產品都轉本機。
 7. 真實檢查未跑列NOT RUN／未確認；未把全部端到端驗證通過前不結案#5。
 
-Gemini仍未啟用，之後另定最小權限與Human選定方案，不夾帶到本輪。
+現況與未解阻礙以 HOME_HANDOFF 的固定證據為準。上列 #5 清單不是本輪授權修 workflow。Gemini 無自動化入口；必要素材由 Human 開網頁版後依明確 brief 製作，不夾帶流程改動。

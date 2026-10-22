@@ -1,6 +1,6 @@
 # KodeBart（錯誤世界）— Claude 工作說明
 
-最新運作與Human委任以 `doc/agent-workflow/OPERATING_MODEL.md` 和v1.2四份規則為準：Action優先、完整里程碑、同Issue/PR/branch固定SHA續做；不建立第二份Human本機專案。
+最新運作與 Human 委任以 `doc/agent-workflow/OPERATING_MODEL.md` 為準（2026-10-21）：一個功能模組是一個里程碑，一件有界工作一張 Issue，測試另案、逐案覆核。Action 優先；同一 Issue 修正仍沿原 PR／branch／固定 SHA，不建立第二份 Human 本機專案。
 
 Angular 19 單頁遊戲：玩家是新進資料作業員，在公司電腦桌面上處理歸檔、核對、欄位映射與退件修訂。
 本機存檔（localStorage），沒有後端。
@@ -13,7 +13,7 @@ Angular 19 單頁遊戲：玩家是新進資料作業員，在公司電腦桌面
 ## 規格來源（不要改）
 
 - `doc/**` 由使用者與 Codex 維護，是規格與設計的依據；除非 issue 明確要求，不要修改。
-- Action 任務一律來自 GitHub Issue；`doc/COLLABORATION.md` 只在Human核准的必要本機例外使用，不因回合不足轉回本機，不寫歷史或完成回報。
+- Action 任務一律來自 GitHub Issue；主企劃是 `doc/KodeBart-Game-Plan.md`，不是要求一次實作整本。舊 COLLABORATION 已移除；必要本機例外須 Human 另行指定當次契約，不因回合不足轉回本機。
 - `doc/DESIGN.md` 是介面規格；`doc/content/*.json` 是待接線的內容包，接入時原樣複製、不改故事含義。
 - 不自行新增 Day 7–10 劇情、新角色、對白或美術素材；只使用已提供的內容。
 
@@ -48,6 +48,9 @@ npx ng test --watch=false --browsers=ChromeHeadless
 - **測試：** 核心規則與 presenter 寫純函式單元測試；元件測試放在同資料夾的 `*.spec.ts`。`ui/testing/play.ts` 是共用測試輔助，只能新增 helper，不要改既有 helper 的行為。
 
 ## GitHub Issue 與同案續做
+
+- 一件工作以一次最多 80 回合／60 分鐘完成為目標，派工估計留收尾餘量；現行限制按 run 計算，不能冒稱已實作 Issue 累計限制。超範圍先回報重新切分，不以無限續跑完成整章。
+- 測試 Issue 可新增指定測試與回報，不能順手改 production 或降低斷言；實作 Issue 仍接受既有模型外完整 CI。全部模組工作與測試通過才是試玩版，單案完成先交 Codex 覆核。
 
 - 先完整讀 `doc/agent-workflow/WORKFLOW_RULES.md`、`doc/agent-workflow/AGENT_ROLES.md`、`doc/agent-workflow/TASK_CONTRACT.md`、`doc/agent-workflow/HANDOFF_RULES.md`、原Issue及指定固定來源。
 - 首次由claude-ready取得原Issue鎖；手動續做由原Issue/PR/head/Remaining取得同案鎖，始終在同一branch保留checkpoint。Action資料不代表額外授權。

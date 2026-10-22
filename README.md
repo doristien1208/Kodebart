@@ -1,59 +1,28 @@
 # KodeBart · 錯誤世界（ERROR OF THE WORLD）
 
-單人 Web 劇情向遊戲的 Angular Demo。目前 main 已包含 Day 1–6 的工作、文件／附件、混合批次與跨日回聲；M2 第 7–10 日章節已有企劃與內容包，尚未實作／試玩。
-世界觀、玩法規格與設計規範見 [`doc/`](doc/)；本 repo 是由 Codex 交接包（`kodebart-handoff`）移植而來的 Angular 19 CSR 實作。
+以公司電腦為舞台的單人劇情遊戲：閱讀來源、處理工作、選擇交付的資訊，再從回條與人物關係理解後果。
 
-> 本版為試作：新增人名、案件與流程均為 Demo 提案，不自動升格為正史。詳見 `doc/KodeBart-Game-Plan.md` §2。
+main 已有 Day 1–6 的產品基線；#11／PR #12 的 M2 底層成果尚未完整合併。2026-10-21 起以**功能模組**安排里程碑，不以天數或整章作一張 Issue。下一個模組是案件檔案夾的查閱與版本比較，計畫不等於已實作。
 
-## 文件（`doc/`）
+## 文件
 
-| 檔案 | 內容 |
-|---|---|
-| `KodeBart-Game-Plan.md` | 主遊戲企劃、已確認設定、舊案與未定事項 |
-| `KodeBart-Demo-Spec.md` | 兩天逐步玩法、文案、資料規則、結果矩陣與驗收條件 |
-| `Claude-Handoff.md` | 開發範圍與整合指令 |
-| `DESIGN.md` | 冷色像素風設計 token 與 UI 規範 |
-| `KodeBart-M2-Chapter-Plan.md` | 下一完整章節的故事、玩法、UI 與交付目標（未實作） |
-| `content/M2-shared-city-content.json` | Codex 提供的四日內容包與新資料契約（待 Claude 接線） |
-| `Artwork-Brief.md` | 封面構圖、素材用途與生成提示詞 |
-| `Verification.md` | 原型的驗證範圍與限制 |
-| `README.md` | 原交接包說明 |
-| `prototype/` | 原型來源（`prototype-source.html`）、驗證腳本與結果，供比對移植 |
+- [主企劃：世界觀、劇情流程、模組與本輪任務](doc/KodeBart-Game-Plan.md)
+- [文件入口與歷史資料定位](doc/README.md)
+- [介面與素材規格](doc/DESIGN.md)
+- [執行／覆核／main 試玩流程](doc/agent-workflow/OPERATING_MODEL.md)
+- [跨電腦接手狀態](doc/agent-workflow/HOME_HANDOFF.md)
+- [驗證責任與證據](doc/Verification.md)
 
-封面素材：`public/assets/kodebart-cover.png`（不含文字；標題與選單由 DOM 呈現）。
+## 技術與責任邊界
 
-## 技術
+Angular 19.2 standalone components、signals、lazy 路由；Tailwind CSS v4。純 core 規則、content JSON／嚴格驗證、state／保存 adapter、UI／presenter 分離。無後端、SSR、登入或真實公司 API，不為模擬電腦新增微服務。
 
-- Angular 19.2（standalone components、signals、lazy `loadComponent` 路由）
-- Tailwind CSS v4（`@tailwindcss/postcss`；設計 token 定義在 `src/styles.css` 的 `@theme`）
-- 瀏覽器 `localStorage` 存檔（versioned JSON）；無 SSR、登入、資料庫、真實 API
+`src/app/game/`：core（規則）、content（資料／文字）、state（狀態／提交）、ui（應用／共用視窗）、platform（瀏覽器邊界）。模組不是要求轉成 NgModule，也不是按 Day N 複製畫面。
 
-## 目錄結構
+## 本機檢查與試玩
 
-```
-src/app/
-├── app.routes.ts            畫面路由：/ → /work(/messages|/news) → /overnight → /end
-└── game/
-    ├── core/                純函式與型別：驗證、種子亂數、存檔 schema、狀態轉移（無 Angular 依賴）
-    ├── content/             測試資料（三筆歸檔）與所有對話、公告、報告文案
-    ├── state/               Angular signals adapter（GameStateService）、SaveRepository、phase → 路徑
-    ├── platform/            瀏覽器邊界：seed 產生、設定（動態開關）
-    └── ui/                  畫面元件：cover、workbench、day1、day2、messages、news、transition
-```
+Human 維持唯一專案、只更新 main；先確認沒有未提交修改，再快轉更新。Git pull 不會同步瀏覽器存檔。試玩前備份 localStorage 原始字串，key 為 `kodebart-save-v2`；不要為了試新版先清檔。
 
-規則層與呈現層分離：`ui/` 只讀 `GameStateService` 的 signals 並呼叫其方法；所有隨機判定（夜間介入、閒聊版本）在 `core/rules.ts` 以 seed＋固定 eventId 決定，寫入存檔後刷新不重算。
+安裝依賴用 `npm ci`；開發伺服器可用 `npx ng serve --port 4340`，先確認該 port 沒有被占用。公司 port 4200 屬其他專案，勿使用或關閉未知服務。正式試玩通知另附固定 main commit 與更新內容；不要拿工程 checkpoint 當新試玩版。
 
-## 開發
-
-```bash
-npm install
-npm start          # http://localhost:4200
-npm test           # Karma + Jasmine（core/state 單元測試含四格結果矩陣）
-npm run build      # 產出 dist/kodebart-web-game
-```
-
-## 邊界與限制
-
-- 本機存檔只屬於當前瀏覽器；不是跨裝置雲端存檔。重新開始會以對話框確認覆蓋。
-- 純前端原型的隱藏狀態可由開發者工具讀取，不代表正式後端安全邊界。
-- 第一版不加 SSR、登入、資料庫、真實 API、生成式 AI 或微服務；Node.js／Cloud Run 僅保留未來接入邊界。
+完整產品驗證由既有 Action 的模型外 CI 執行；命令與責任見 CLAUDE.md／Verification。封面沿用 `public/assets/kodebart-cover.png`，不重畫；兩張 Gemini 圖的存在不代表 runtime 已接入。

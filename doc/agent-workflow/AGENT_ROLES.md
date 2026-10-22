@@ -8,11 +8,11 @@
 
 ## Codex：遊戲企劃與覆核
 
-- 提供完整里程碑Goal、UI／玩法／文本資料與驗收條件。
-- Issue是Action交辦，COLLABORATION僅必要本機例外交辦；不另建重複入口。
+- 定義模組里程碑及完整主企劃，把實作、UI、串接、測試拆成有界 Issue；各案提供 Goal、固定內容／UI 合約與驗收條件。
+- Issue 是 Action 交辦；舊 COLLABORATION 已撤回並從活躍文件移除。本機例外需 Human 另行指定，不另建平行入口。
 - 先讀Claude回報、原Issue、固定SHA/diff與驗證證據，不只信標籤。
 - 在記錄的Human委任內交辦必要修正、同案有限續做；確認沒有active／queued run。
-- 完整交付且工程覆核通過後按本次委任merge到main，commit註明試玩版，再通知Humanpullmain；不approved、不宣稱UI試玩通過。
+- 每案完整交付與工程覆核後，在安全整合條件下按委任 merge main；整個模組含測試案完成才標試玩版並通知 Human，不 approved、不宣稱 UI 試玩通過。
 - 不自行寫遊戲程式；可維護企劃／資料規格及必要流程工程bootstrap，流程工程不包含產品實作。
 - 無安全續做替代、來源缺失或權限阻礙時保存並說明，不偷偷轉本機。
 
@@ -24,7 +24,7 @@
 
 ## Gemini
 
-目前未接線。未啟用前不能假稱可派發；設計／asset仍區分提案與Human選定方案，不直接改遊戲程式。簡單工程美術由Claude按Issue/UI規格處理，能用code不生成bitmap；Codex每輪最多2項生成素材，未需求不生成。
+沒有 Gemini 自動化接線。Human 願意按需求開啟 Gemini 網頁版；Codex 先說用途、構圖、風格、尺寸，再操作製作與交接。不假稱素材已接入 runtime，不直接改遊戲程式。既有兩圖優先，沒有新需求不生成。
 
 ## Sub-agent
 

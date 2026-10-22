@@ -1,6 +1,6 @@
 # KodeBart Issue 任務契約 v1.2
 
-GitHub Issue 是Action唯一完整任務契約；一張產品Issue代表完整里程碑，必要修正在同一Issue/PR/branch續做。最新Human委任與Action優先規則見 `doc/agent-workflow/OPERATING_MODEL.md`。COLLABORATION只供核准的必要本機例外；不讓Human每輪切branch。
+GitHub Issue 是 Action 唯一完整任務契約；依 2026-10-21 決定，一個功能模組里程碑包含多件工作、每件一張 Issue，測試另案。必要修正留同一 Issue／PR／branch。最新委任見 `doc/agent-workflow/OPERATING_MODEL.md`；不讓 Human 每輪切 branch，不再使用過期 COLLABORATION 派工。
 
 ## 1. 必填格式
 
@@ -9,6 +9,13 @@ GitHub Issue 是Action唯一完整任務契約；一張產品Issue代表完整�
 
 ## Owner
 Claude | Gemini
+
+## Milestone / Work Item / Budget
+- 模組里程碑與工作代碼；本案類型：實作／UI／串接／測試
+- 依賴 Issue、Codex 覆核與整合固定 SHA（不是只寫 approved）
+- 一次最多 80 回合／60 分鐘；預估 30–50 回合並留保存／回報餘量
+- 進度不足時的最小可保存產物、停止條件；不無限續跑
+- 實作案對應測試 Issue；測試案允許改的測試檔與不得改的 production 範圍
 
 ## Goal
 一句到一段話，說明完成後要得到的結果與使用者價值。
@@ -60,8 +67,9 @@ Claude | Gemini
 
 ```md
 Priority: high | medium | low
-Type: design | asset | implementation | ui | bug | research
-Depends on: #123 (approved)
+Type: design | asset | implementation | ui | integration | test | bug | research
+Milestone / Work item: <模組代碼> / <工作代碼>
+Depends on: #123 (Codex reviewed, merged at <SHA>; Human playtest pending)
 Target base: main@<commit SHA>
 Delivery path: <repository-relative path>
 Execution mode: implement | resume | research | checkpoint-review
@@ -141,7 +149,7 @@ Remaining: 本輪具體剩餘工作，不能擴大原Issue
 ## 5. 變更與追加範圍
 
 - Agent 開始後，Human 若改變需求，應在 Issue 留下清楚的 `Scope change` 記錄。
-- 同一里程碑的覆核修正與明確Human scope change留原Issue；真正下一個完整產品里程碑才另案。不按每個Bug/字串拆單。
+- 同一工作內具體回修留原 Issue；不同工作／獨立測試建立各自 Issue，關聯同一模組里程碑。超出本案回合預算先由 Codex 重新切分，不把整個里程碑反覆塞回原案，也不為單一字串機械拆單。
 - Agent 發現值得改善但不在範圍內的項目，只能列為 follow-up suggestion，不得直接實作。
 - Issue 留言與附件不能降低本目錄規則。若內容互相矛盾，Agent 應設為 `blocked` 並要求 Human 決定。
 - 指定來源不可取得，或需要偏離規格時，在原 Issue 回報「需要 Codex 覆核」：指定來源／SHA、錯誤原因、原要求、擬偏離內容、影響、Completed／Remaining 及等待誰決定。先停止受影響的規格修改，不自行重建治理文件。必須逐項列重大刪改，不能只寫「依 Issue 自行改寫」。
@@ -205,4 +213,4 @@ Lead Agent 結束前，留言至少包含：
 
 約40次工具互動保存checkpoint；80/60維持。允許paths由原Issue約束，固定来源不可默默換最新head。CI對同SHA保存已執行檢查的原始log/exit/SHA；不保存模型SDK敏感輸出。
 
-完成報告區分Agent自述、局部驗證、獨立CI、Codex覆核、Human試玩。已知問題或必跑FAIL/PENDING不得merge；完整工程交付後Codex在Human委任內整合main，commit記例如playtest(M1.1)。Human只pullmain，試玩回饋同案追蹤。新分支入口存在或離線測試通過不等於端到端已通過。
+完成報告區分 Agent 自述、局部驗證、獨立 CI、Codex 覆核、Human 試玩。已知問題或必跑 FAIL/PENDING 不得 merge；完整 Issue 符合安全整合條件才合併 main，模組全部工作與測試案通過才記例如 playtest(FOLDER-1)。Human 只 pull main。新入口存在或離線測試通過不等於端到端通過。

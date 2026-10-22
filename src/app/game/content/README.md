@@ -1,6 +1,6 @@
 # 內容格式說明
 
-這是 `src/app/game/content/` 的資料格式說明。協作流程、任務與驗收一律看 `doc/COLLABORATION.md`，這裡不重複。
+這是 `src/app/game/content/` 的資料格式說明。產品規格看 `doc/KodeBart-Game-Plan.md`，派工與驗收看 `doc/agent-workflow/OPERATING_MODEL.md` 及當次 GitHub Issue，這裡不重複。
 
 玩家看得到的文字全部在 `data/` 的 JSON；TypeScript 只放型別、白名單、載入轉換與規則。
 

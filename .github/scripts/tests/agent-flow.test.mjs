@@ -220,7 +220,7 @@ test('續做入口：過期 SHA 不修改任何標籤／留言', async () => {
 
 test('續做 collect/finalize：不是新 run 分支，沿原 PR 驗證新 head 與收尾', async () => {
   const gh = fakeGitHub({ heads: { [RESUME]: SHA }, pulls: { [RESUME]: resumePr }, messages: { [SHA]: completeMessage } });
-  const env = { ...baseEnv, RESUME_BRANCH: RESUME, ACTION_BRANCH: RESUME, CLAUDE_OUTCOME: 'success', EXEC_PRESENT: 'true', EXEC_SUBTYPE: 'success', SNAPSHOT_SHA: SHA, VERIFY_RESULTS: JSON.stringify(VERIFICATIONS.$workflowPass) };
+  const env = { ...baseEnv, RESUME_BRANCH: RESUME, RESUME_SOURCE_SHA: OTHER_SHA, ACTION_BRANCH: RESUME, CLAUDE_OUTCOME: 'success', EXEC_PRESENT: 'true', EXEC_SUBTYPE: 'success', SNAPSHOT_SHA: SHA, VERIFY_RESULTS: JSON.stringify(VERIFICATIONS.$workflowPass) };
   assert.equal((await collect({ env, gh: /** @type {any} */ (gh), out: silent })).head, SHA);
   const result = await finalize({ env, gh: /** @type {any} */ (gh), out: silent });
   assert.equal(result.pr?.number, 42);
@@ -252,7 +252,38 @@ test('續做 workflow：固定head checkout、guard branch、explicit prompt、�
   assert.match(yaml, /--max-turns 80/);
   assert.match(yaml, /timeout-minutes: 60/);
   assert.match(yaml, /RESUME_BRANCH:/);
+  for (const job of ['collect', 'finalize']) {
+    const section = yaml.split(`\n  ${job}:`)[1].split(/\n  [a-z]+:/)[0];
+    assert.match(section, /RESUME_BRANCH: \$\{\{ needs.guard.outputs.branch \}\}/);
+    assert.match(section, /RESUME_SOURCE_SHA: \$\{\{ inputs.sha \}\}/);
+  }
   assert.doesNotMatch(yaml, /branch_name_template:/);
+});
+
+test('續做未產生新 SHA：即使舊 complete 與 CI 全綠仍 blocked，不重驗或 ready', async () => {
+  for (const source of [SHA, '', 'not-a-sha']) {
+    const gh = fakeGitHub({ heads: { [RESUME]: SHA }, pulls: { [RESUME]: resumePr }, messages: { [SHA]: completeMessage } });
+    const env = { ...baseEnv, RESUME_BRANCH: RESUME, RESUME_SOURCE_SHA: source, ACTION_BRANCH: RESUME,
+      CLAUDE_OUTCOME: 'success', EXEC_PRESENT: 'true', EXEC_SUBTYPE: 'success', SNAPSHOT_SHA: SHA,
+      VERIFY_RESULTS: JSON.stringify(VERIFICATIONS.$workflowPass) };
+    assert.equal((await collect({ env, gh, out: silent })).collected, false);
+    const result = await finalize({ env, gh, out: silent });
+    assert.equal(result.decision.label, 'blocked');
+    assert.equal(result.pr.number, 42);
+    assert.equal(callsOf(gh, 'createPull').length, 0);
+    assert.equal(callsOf(gh, 'markReady').length, 0);
+    assert.match(result.report, /沒有新的固定 SHA/);
+  }
+});
+
+test('提前停點／遺失執行證據：complete trailer + 綠 CI 不能取得 ready', async () => {
+  const gh = fakeGitHub({ heads: { [BRANCH]: SHA }, messages: { [SHA]: completeMessage } });
+  const result = await finalize({ env: { ...baseEnv, RUNTIME_STOPPED: 'true', CLAUDE_OUTCOME: 'success',
+    EXEC_PRESENT: 'true', EXEC_SUBTYPE: 'success', SNAPSHOT_SHA: SHA,
+    VERIFY_RESULTS: JSON.stringify(VERIFICATIONS.$workflowPass) }, gh, out: silent });
+  assert.equal(result.decision.label, 'blocked');
+  assert.equal(callsOf(gh, 'markReady').length, 0);
+  assert.match(result.report, /claude-recovery/);
 });
 
 test('驗證log：原始輸出與exit/SHA留存，artifact固定版本，只列指定驗證log', () => {

@@ -6,7 +6,7 @@
 
 Human 改定：**模組 milestone → 多件有界工作 Issue → 每件最多 80 回合 → 獨立測試 Issue → Codex 逐案覆核 → 模組完成後 main 試玩**。不再以 Day 7–10 整章作單張 Issue。主企劃 §9 定義下一個 FOLDER-1；案件送件包另為 PACKET-1。這次整理文件與待辦，不是新產品已完成。
 
-舊 #11／draft PR #12 保留固定成果，不能整批合併或盲續 A1。Action 停點保存／回合口徑／finalize 診斷仍未完成，Human 尚未授權修改可執行 workflow、認證或限制。拆工作不等於已修復該阻礙；未安全排除前，新的工作只列 backlog，不加 ready、不 dispatch。
+舊 #11／draft PR #12 保留固定成果，不能整批合併或盲續 A1。**2026-10-22 Human 已授權先診斷並最小修正 Action 停點保存與超回合問題，80不提高，處理好才派 #13。** 這不是授權改認證／模型／權限／secrets，也不自動派發 #11。工程 PR 固定 SHA CI 與真實 Action 冒煙驗證完成前，#13–17 仍是 backlog。
 
 原 monitor `kodebart-claude` 已按 Human 要求在 **2026-10-19 刪除**。不恢復、不複製到 Windows。GitHub 留言不會自動喚醒本機對話，Codex Action 也未啟用。
 
@@ -58,14 +58,22 @@ b781 包含引用／casework／詢問底層、Save v13／遷移、舊 Day6 end �
 
 模組試玩版只從 main，提供完整 SHA／PR、實際更新內容與前版差異、試玩重點、通過與未確認項目；不以單案測試數替代體驗說明。Git pull 不會同步 localStorage；key `kodebart-save-v2`，先備份原字串，不清檔、不把真實存檔上傳 GitHub。公司 4200 是其他專案。
 
-本次文件整理不 approved、不合併產品 checkpoint、不改遊戲／Action 程式／secrets／權限，不重新啟動監控。[Codex 訂閱設定研究](CODEX_SUBSCRIPTION_SETUP.md)仍為可選研究，不是已啟用的 Codex Action。
+文件整理不 approved、不合併產品 checkpoint；新授權只作停點工程，不改遊戲／secrets／權限，不重新啟動監控。[Codex 訂閱設定研究](CODEX_SUBSCRIPTION_SETUP.md)仍為可選研究，不是已啟用的 Codex Action。
 
 ## 6. 可貼給 Windows Codex
 
 ```text
 請接手 doristien1208/Kodebart，使用繁體中文，擔任遊戲企劃／PM／覆核者。先讀 GitHub main 的 doc/agent-workflow/HOME_HANDOFF.md、doc/KodeBart-Game-Plan.md 與現行規則，再核對最新 Issue、固定 PR head、實際 diff 與 CI 原始證據。
 
-最新政策是功能模組 milestone、每件有界工作一張 Issue、測試另案、每件最多 80 回合，Codex 逐案覆核。下一模組 FOLDER-1；原 M2 不再整章派一張。#11／PR12 的 b781e368f4967bfaee8f3fd58e9575afe99d6465 要保留，不當完整 M2。A1 沒有新提交；Action 診斷修正仍未授權，不盲重派，不轉本機補救。
+最新政策是功能模組 milestone、每件有界工作一張 Issue、測試另案、每件最多 80 回合，Codex 逐案覆核。下一模組 FOLDER-1；原 M2 不再整章派一張。#11／PR12 的 b781e368f4967bfaee8f3fd58e9575afe99d6465 要保留，不當完整 M2。A1 沒有新提交；2026-10-22已授權停點保存／超回合的最小工程修正，不提高80，驗證通過後才派 #13；不盲重派，不轉本機補救。
 
-公司舊 monitor 已在 2026-10-19 刪除，請勿重建。先回報當前進度與安全下一步，不改遊戲、workflow、權限／限制，不啟動 Claude 或 merge。每台電腦只保留一份專案，先保護未提交檔；Human 試玩只 pull main。若原始證據或權限不可用，如實說明。
+公司舊 monitor 已在 2026-10-19 刪除，請勿重建。先核對停點工程PR、同SHA原始CI與冒煙結果，再依授權續辦；不把本文件當即時成功證據。每台電腦只保留一份專案，先保護未提交檔；Human 試玩只 pull main。若原始證據或權限不可用，如實說明。
 ```
+
+## 7. 停點工程診斷（2026-10-22）
+
+- 確定缺陷：claude-resume 的 collect 有 RESUME_BRANCH、finalize 卻沒有，收尾因此錯算成本輪新分支；collect 也會重驗未變的舊 head。
+- 83的已知邊界：固定Action已收到 maxTurns=80；SDK回 success/83，wrapper按原限制判失敗。官方SDK以工具往返描述maxTurns；assistant訊息、工具呼叫、num_turns不能互換，缺原始訊息不能逆推出這次83的原因。不猜7次拒絕、不放寬allowlist、不把舊run洗白。
+- 最小改動：可信workflow SHA準備hook與回收程式；20次工具請求提醒保存、40次提前停止，80硬限制保留。模型步驟50分鐘，job仍60。always回收允許的遊戲文字來源及數字摘要，不保存完整SDK輸出；沒有新SHA不當新成果，提前停止保持blocked。
+- 已完成本機工程測試與actionlint；這不是遊戲測試，也不是遠端固定SHA或模型端到端證據。必須再查工程PR CI與冒煙run後才解除#13派發門檻。工具停點不能保證所有SDK計數必不超80，也不能救回已消失的A1 runner；硬取消／runner失聯、排除或過大檔案會使回收不完整。artifact保留7天且不會自動套用。
+- 依據：[固定wrapper](https://github.com/anthropics/claude-code-action/blob/8ce9314fa9a404564fa7e954cd84f25bcba2b829/base-action/src/run-claude-sdk.ts)、[官方agent loop](https://code.claude.com/docs/en/agent-sdk/agent-loop)、[官方hooks](https://code.claude.com/docs/en/hooks)。

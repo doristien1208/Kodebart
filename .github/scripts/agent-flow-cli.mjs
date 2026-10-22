@@ -287,6 +287,11 @@ export async function collect({ env, gh, out }) {
   }
   const head = await gh.branchHead(branch.branch);
   if (!head) return { collected: false };
+  // A resume must deliver a new SHA. Old green CI is not evidence of new work.
+  if (env.RESUME_BRANCH && (!flow.isSha(env.RESUME_SOURCE_SHA) || head === env.RESUME_SOURCE_SHA)) {
+    out.log('續做來源未改變或來源 SHA 缺失；不重驗舊成果冒充本輪交付。');
+    return { collected: false };
+  }
   const { aheadBy, mergeBase } = await gh.compare(env.DEFAULT_BRANCH ?? 'main', head);
   if (!(aheadBy > 0) || !flow.isSha(mergeBase)) return { collected: false };
   const info = await gh.issue(issue);
@@ -346,6 +351,18 @@ async function recover({ env, gh, out }, input) {
     verification,
     existingPr: pr,
   });
+  if (mode === 'issue' && branch.ok && env.RESUME_BRANCH &&
+      (!flow.isSha(env.RESUME_SOURCE_SHA) || head === env.RESUME_SOURCE_SHA || finalSha === env.RESUME_SOURCE_SHA)) {
+    decision = { ...decision, status: 'checkpoint', label: 'blocked',
+      stop: { reason: 'environment', detail: '本輪沒有新的固定 SHA（或續做來源缺失）；保留原 PR/head，舊 CI 不代表本輪完成。' },
+      pr: { ...decision.pr, draft: true, markReady: false } };
+  }
+  if (mode === 'issue' && env.RUNTIME_STOPPED === 'true') {
+    notes.push('本 run 的 claude-recovery artifact 僅供人工覆核回收；不是 commit、CI 或可執行輸入。');
+    decision = { ...decision, status: 'checkpoint', label: 'blocked',
+      stop: stop.reason !== 'none' ? stop : { reason: 'environment', detail: '提前工具停點或執行證據不完整；僅保存候選成果，不當作 complete。請覆核本 run 的 claude-recovery artifact。' },
+      pr: { ...decision.pr, draft: true, markReady: false } };
+  }
   const prUnavailable = () => ({
     ...decision,
     status: 'pr-unavailable',

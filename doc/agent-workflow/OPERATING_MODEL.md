@@ -42,6 +42,6 @@ Codex 負責企劃、內容、UI 目標、Issue、原碼／證據覆核及 Human
 
 當前主企劃 §9 定義 FOLDER-1，後續為 PACKET-1、CHAT-1、BROWSER-1、STORY-1。#11／PR #12 的 b781e36 保留為舊 M2 成果來源；新拆單不是原四日全部完成，也不授權整批合併。
 
-A1 的 83 turns、7 次未公開細節的拒絕、沒有新 commit，以及 finalize 分支判定問題，仍須另行診斷。80 的不同計數口徑不能憑摘要認定相同或忽略既有失敗；不能假稱拆單已修復執行器。未經另行授權，不改 workflow／認證／模型／限制／權限／secrets，不藉此復活 #5。
+A1 的 83 turns、7 次未公開細節的拒絕與沒有新 commit 保留為失敗歷史。2026-10-22 Human 明確授權先查明並最小修正停點保存／超回合，再派 #13；不提高80、不改認證／模型／權限／secrets、不復活 #5。已確認原 wrapper 收到 maxTurns=80，但 result.num_turns=83；缺原始逐步輸出，不能判定7次拒絕的指令或83的完整成因，也不取消 wrapper 的超回合失敗判斷。finalize 漏傳 RESUME_BRANCH 是獨立確定缺陷。修正以較早工具停點、未驗證來源回收、去敏數字診斷與原分支／來源接線處理；工程 PR 固定 SHA CI 與真實 Action 冒煙驗證完成前，#13 維持 backlog。具體驗證狀態看 HOME_HANDOFF 及工程 PR，不把文件存在視為已部署。
 
 本機 monitor `kodebart-claude` 已按 Human 要求於 2026-10-19 刪除，不重新建立。GitHub 回報不會自動喚醒本機聊天；沒有已運行的 Codex Action 可宣稱接手。跨裝置狀態見 HOME_HANDOFF。

@@ -211,6 +211,6 @@ Lead Agent 結束前，留言至少包含：
 
 ## 8. 中斷、驗證與版號
 
-約40次工具互動保存checkpoint；80/60維持。允許paths由原Issue約束，固定来源不可默默換最新head。CI對同SHA保存已執行檢查的原始log/exit/SHA；不保存模型SDK敏感輸出。
+第20次工具請求起停止擴充範圍並保存checkpoint，第40次請求前由守衛停止；工具次數不等於SDK回合，80/60維持。允許paths由原Issue約束，固定来源不可默默換最新head。CI對同SHA保存已執行檢查的原始log/exit/SHA；不保存模型SDK敏感輸出。runner回收artifact不等於已提交、推送或完成，按WORKFLOW_RULES先覆核再決定可回收範圍。
 
 完成報告區分 Agent 自述、局部驗證、獨立 CI、Codex 覆核、Human 試玩。已知問題或必跑 FAIL/PENDING 不得 merge；完整 Issue 符合安全整合條件才合併 main，模組全部工作與測試案通過才記例如 playtest(FOLDER-1)。Human 只 pull main。新入口存在或離線測試通過不等於端到端通過。

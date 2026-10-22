@@ -37,7 +37,7 @@
 ## 3. 執行鎖與 checkpoint
 
 - guard移除ready／舊blocked、加agent-working。續做授權本身可取代舊human-review，但不移除Human的revision-requested或approved。
-- 80回合／60分鐘維持，Opus5.5／effort max不變；約40次工具互動評估保存與主動checkpoint，留下收尾時間。
+- 80回合／60分鐘維持，Opus5.5／effort max不變。2026-10-22 Human 授權停點最小修正：第20次工具請求起提醒保存，第40次請求前停止；這是比 SDK 上限更保守的工具請求停點，不是回合換算或提高上限。模型步驟50分鐘、依賴安裝5分鐘，為60分鐘job內的回收保留時間；不能保證硬取消／runner失聯後仍有artifact。
 - 每完成可辨認子項commit/push。head訊息含Checkpoint區塊和KodeBart-Issue／KodeBart-Delivery trailer，格式見 `doc/agent-workflow/TASK_CONTRACT.md`。
 - checkpoint不是complete；全部範圍完成且必要局部檢查通過才complete，之後停止推送。
 - 模型不輪詢完整CI、不修改 labels、不捏造CI通過。
@@ -56,6 +56,8 @@
 | PR建立或ready失敗，即使檢查全綠 | 正常解除鎖／留言、blocked，保存成果與權限原因 |
 
 SDK success但實際回報超過80回合也不是正常完成；保留歷史失敗與成果，不提高限制。
+
+停點回收：runner 只保留允許的 src 文字檔與 doc/reports 的未驗證檔案快照（含未追蹤、已提交未推送、刪除），綁原始 base/head、檔案 hash；只上傳精確列出的 recovery.json／數字化 execution-summary.json，7天保存。排除 .git、設定／環境檔、workflow、連結、binary、過大檔案與可辨認的 token；omitted 不得當完整備份。不上傳原始 SDK transcript、工具參數、完整拒絕內容、真實玩家存檔或憑證。artifact 不是交付 commit，不自動套用／執行／推送／升為 complete，須先覆核與另定固定來源。提前停止、缺守衛／執行證據一律 blocked；續做 head 未離開固定 source 時不重驗舊 SHA 當本輪成功。
 
 `.github/workflows/agent-finalizer.yml` 受限補收尾處理取消／逾時：只接受同repo已知workflow/event/run-name、guard確實成功、finalize未成功、鎖仍在且無其他同案run。續做從run-name指定PR讀可信metadata確認branch；不執行artifact，一律blocked。
 

@@ -89,6 +89,7 @@ jobs:
       exec_present: ${{ steps.exec.outputs.present }}
       exec_subtype: ${{ steps.exec.outputs.subtype }}
       exec_turns: ${{ steps.exec.outputs.turns }}
+      runtime_stopped: ${{ steps.exec.outputs.stopped }}
     steps:
       - name: Checkout
         # actions/checkout v4.4.0
@@ -114,10 +115,21 @@ jobs:
           cache: npm
 
       - name: Install dependencies
+        timeout-minutes: 5
         run: npm ci --no-audit --no-fund
+
+      - name: Prepare trusted checkpoint helper
+        env:
+          TOOLING_SHA: ${{ github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/kodebart-runtime"
+          git show "$TOOLING_SHA:.github/scripts/agent-runtime.mjs" > "$RUNNER_TEMP/kodebart-runtime/helper.mjs"
+          node "$RUNNER_TEMP/kodebart-runtime/helper.mjs" prepare "$RUNNER_TEMP/kodebart-runtime"
 
       - name: Run Claude Code
         id: claude
+        # Leave time for always() recovery upload inside the unchanged 60-minute job.
+        timeout-minutes: 50
         # anthropics/claude-code-action v1.0.236
         uses: anthropics/claude-code-action@8ce9314fa9a404564fa7e954cd84f25bcba2b829
         env:
@@ -125,6 +137,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          settings: ${{ runner.temp }}/kodebart-runtime/settings.json
           prompt: |
             你是在同一 Issue／PR／branch 上續做，不是重新開發。
             Issue: #${{ inputs.issue }}；PR: #${{ inputs.pr }}
@@ -136,7 +149,7 @@ jobs:
             ${{ inputs.remaining }}
             保留全部既有成果，不新開分支、不 force push、不 reset、不 merge、不改 labels。
             將 checkpoint commit/push 到既有 branch；完成 trailer 的 Issue 必須是 ${{ inputs.issue }}。
-            約40次工具互動時評估保存與主動停止，不等待80回合才首次提交。
+            第20次工具請求起進入保存階段；第40次工具請求會提前停止。工具次數不是SDK回合；80回合硬限制不變。
             只跑必要局部檢查；完整驗證由模型之外的 CI 處理，完成後停下。
           # 只加驗證所需指令（型別檢查、建置、測試、產生元件）；git 提交指令由 action 內建提供
           claude_args: |
@@ -151,27 +164,18 @@ jobs:
         if: always()
         env:
           EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
-        run: |
-          present=false
-          subtype=""
-          turns=""
-          if [ -n "${EXEC_FILE:-}" ] && [ -f "$EXEC_FILE" ]; then
-            present=true
-            subtype=$(jq -r '[.[] | select(.type == "result")] | last | .subtype // ""' "$EXEC_FILE" 2>/dev/null || true)
-            turns=$(jq -r '[.[] | select(.type == "result")] | last | .num_turns // ""' "$EXEC_FILE" 2>/dev/null || true)
-          fi
-          case "$subtype" in
-            success|error_max_turns|error_during_execution|error_max_budget_usd|error_max_structured_output_retries) ;;
-            *) subtype="" ;;
-          esac
-          case "$turns" in
-            ''|*[!0-9]*) turns="" ;;
-          esac
-          {
-            echo "present=$present"
-            echo "subtype=$subtype"
-            echo "turns=$turns"
-          } >> "$GITHUB_OUTPUT"
+        run: node "$RUNNER_TEMP/kodebart-runtime/helper.mjs" finish "$RUNNER_TEMP/kodebart-runtime"
+
+      - name: Preserve unverified recovery and numeric diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: claude-recovery-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/kodebart-runtime/artifact/recovery.json
+            ${{ runner.temp }}/kodebart-runtime/artifact/execution-summary.json
+          retention-days: 7
+          if-no-files-found: warn
 
   collect:
     name: collect
@@ -203,6 +207,7 @@ jobs:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           ACTION_BRANCH: ${{ needs.claude.outputs.branch }}
           RESUME_BRANCH: ${{ needs.guard.outputs.branch }}
+          RESUME_SOURCE_SHA: ${{ inputs.sha }}
         run: node .github/scripts/agent-flow-cli.mjs collect
 
   verify:
@@ -243,6 +248,9 @@ jobs:
           ISSUE: ${{ inputs.issue }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           ACTION_BRANCH: ${{ needs.claude.outputs.branch }}
+          RESUME_BRANCH: ${{ needs.guard.outputs.branch }}
+          RESUME_SOURCE_SHA: ${{ inputs.sha }}
+          RUNTIME_STOPPED: ${{ needs.claude.outputs.runtime_stopped != 'false' }}
           CLAUDE_RESULT: ${{ needs.claude.result }}
           CLAUDE_OUTCOME: ${{ needs.claude.outputs.outcome }}
           ACTION_CONCLUSION: ${{ needs.claude.outputs.conclusion }}
